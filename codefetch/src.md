@@ -6,6 +6,9 @@ Project Structure:
 ├── CLAUDE.md.bak
 ├── LICENSE
 ├── README.md
+├── TODO
+│   ├── Add BorderBeam to events.md
+│   └── Replace drop zone component.md
 ├── codefetch
 │   ├── routes.md
 │   └── src.md
@@ -1034,6 +1037,159 @@ src/components/theme-provider.tsx
 69 | };
 ```
 
+src/env/client.ts
+```
+1 | import { createEnv } from '@t3-oss/env-core';
+2 | import * as z from 'zod';
+3 | 
+4 | export const env = createEnv({
+5 |   clientPrefix: 'VITE_',
+6 |   client: {
+7 |     VITE_BASE_URL: z.url().default('http://localhost:3000'),
+8 |   },
+9 |   runtimeEnv: import.meta.env,
+10 | });
+```
+
+src/env/server.ts
+```
+1 | import { createEnv } from '@t3-oss/env-core';
+2 | import * as z from 'zod';
+3 | 
+4 | export const env = createEnv({
+5 |   server: {
+6 |     MY_SECRET_VAR: z.url(),
+7 |   },
+8 |   runtimeEnv: process.env,
+9 | });
+```
+
+src/hooks/useFileLoader.ts
+```
+1 | import { useCallback, useMemo, useReducer } from 'react';
+2 | import { streamParseSession, type ParserError } from '~/lib/session-parser';
+3 | import type { ResponseItemParsed, SessionMetaParsed } from '~/lib/session-parser';
+4 | 
+5 | export type LoadPhase = 'idle' | 'parsing' | 'error' | 'success';
+6 | 
+7 | interface State {
+8 |   phase: LoadPhase;
+9 |   meta?: SessionMetaParsed;
+10 |   events: ResponseItemParsed[];
+11 |   ok: number;
+12 |   fail: number;
+13 |   lastError?: ParserError;
+14 | }
+15 | 
+16 | type Action =
+17 |   | { type: 'reset' }
+18 |   | { type: 'start' }
+19 |   | { type: 'meta'; meta: SessionMetaParsed }
+20 |   | { type: 'event'; event: ResponseItemParsed }
+21 |   | { type: 'fail'; error: ParserError }
+22 |   | { type: 'done' };
+23 | 
+24 | const initialState: State = {
+25 |   phase: 'idle',
+26 |   events: [],
+27 |   ok: 0,
+28 |   fail: 0,
+29 | };
+30 | 
+31 | function reducer(state: State, action: Action): State {
+32 |   switch (action.type) {
+33 |     case 'reset':
+34 |       return { ...initialState };
+35 |     case 'start':
+36 |       return { ...initialState, phase: 'parsing' };
+37 |     case 'meta':
+38 |       return { ...state, meta: action.meta };
+39 |     case 'event':
+40 |       return {
+41 |         ...state,
+42 |         ok: state.ok + 1,
+43 |         events: [...state.events, action.event],
+44 |       };
+45 |     case 'fail':
+46 |       return {
+47 |         ...state,
+48 |         fail: state.fail + 1,
+49 |         lastError: action.error,
+50 |       };
+51 |     case 'done':
+52 |       return {
+53 |         ...state,
+54 |         phase: state.fail > 0 ? 'error' : 'success',
+55 |       };
+56 |     default:
+57 |       return state;
+58 |   }
+59 | }
+60 | 
+61 | export function useFileLoader() {
+62 |   const [state, dispatch] = useReducer(reducer, initialState);
+63 | 
+64 |   const start = useCallback(
+65 |     async (file: File) => {
+66 |       dispatch({ type: 'start' });
+67 |       try {
+68 |         for await (const item of streamParseSession(file)) {
+69 |           if (item.kind === 'meta') {
+70 |             dispatch({ type: 'meta', meta: item.meta });
+71 |           } else if (item.kind === 'event') {
+72 |             dispatch({ type: 'event', event: item.event });
+73 |           } else if (item.kind === 'error') {
+74 |             dispatch({ type: 'fail', error: item.error });
+75 |           }
+76 |         }
+77 |         dispatch({ type: 'done' });
+78 |       } catch (error) {
+79 |         dispatch({
+80 |           type: 'fail',
+81 |           error: {
+82 |             line: -1,
+83 |             reason: 'invalid_schema',
+84 |             message: error instanceof Error ? error.message : 'Unknown error',
+85 |             raw: '',
+86 |           },
+87 |         });
+88 |         dispatch({ type: 'done' });
+89 |       }
+90 |     },
+91 |     [dispatch]
+92 |   );
+93 | 
+94 |   const reset = useCallback(() => dispatch({ type: 'reset' }), []);
+95 | 
+96 |   const progress = useMemo(() => {
+97 |     const total = state.ok + state.fail;
+98 |     return { ok: state.ok, fail: state.fail, total };
+99 |   }, [state.ok, state.fail]);
+100 | 
+101 |   return { state, progress, start, reset };
+102 | }
+103 | 
+104 | export type FileLoaderHook = ReturnType<typeof useFileLoader>;
+```
+
+src/hooks/useSessionStorage.ts
+```
+1 | import * as React from 'react';
+2 | 
+3 | export function useSessionStorage<T>(key: string, initialValue: T) {
+4 |   const state = React.useState<T>(() => {
+5 |     const stored = sessionStorage.getItem(key);
+6 |     return stored ? JSON.parse(stored) : initialValue;
+7 |   });
+8 | 
+9 |   React.useEffect(() => {
+10 |     sessionStorage.setItem(key, JSON.stringify(state[0]));
+11 |   }, [state[0]]);
+12 | 
+13 |   return state;
+14 | }
+```
+
 src/lib/theme.ts
 ```
 1 | import { createServerFn } from "@tanstack/react-start"
@@ -1316,164 +1472,6 @@ src/routes/__root.tsx
 107 | }
 ```
 
-src/env/client.ts
-```
-1 | import { createEnv } from '@t3-oss/env-core';
-2 | import * as z from 'zod';
-3 | 
-4 | export const env = createEnv({
-5 |   clientPrefix: 'VITE_',
-6 |   client: {
-7 |     VITE_BASE_URL: z.url().default('http://localhost:3000'),
-8 |   },
-9 |   runtimeEnv: import.meta.env,
-10 | });
-```
-
-src/env/server.ts
-```
-1 | import { createEnv } from '@t3-oss/env-core';
-2 | import * as z from 'zod';
-3 | 
-4 | export const env = createEnv({
-5 |   server: {
-6 |     MY_SECRET_VAR: z.url(),
-7 |   },
-8 |   runtimeEnv: process.env,
-9 | });
-```
-
-src/hooks/useFileLoader.ts
-```
-1 | import { useCallback, useMemo, useReducer } from 'react';
-2 | import { streamParseSession, type ParserError } from '~/lib/session-parser';
-3 | import type { ResponseItemParsed, SessionMetaParsed } from '~/lib/session-parser';
-4 | 
-5 | export type LoadPhase = 'idle' | 'parsing' | 'error' | 'success';
-6 | 
-7 | interface State {
-8 |   phase: LoadPhase;
-9 |   meta?: SessionMetaParsed;
-10 |   events: ResponseItemParsed[];
-11 |   ok: number;
-12 |   fail: number;
-13 |   lastError?: ParserError;
-14 | }
-15 | 
-16 | type Action =
-17 |   | { type: 'reset' }
-18 |   | { type: 'start' }
-19 |   | { type: 'meta'; meta: SessionMetaParsed }
-20 |   | { type: 'event'; event: ResponseItemParsed }
-21 |   | { type: 'fail'; error: ParserError }
-22 |   | { type: 'done' };
-23 | 
-24 | const initialState: State = {
-25 |   phase: 'idle',
-26 |   events: [],
-27 |   ok: 0,
-28 |   fail: 0,
-29 | };
-30 | 
-31 | function reducer(state: State, action: Action): State {
-32 |   switch (action.type) {
-33 |     case 'reset':
-34 |       return { ...initialState };
-35 |     case 'start':
-36 |       return { ...initialState, phase: 'parsing' };
-37 |     case 'meta':
-38 |       return { ...state, meta: action.meta };
-39 |     case 'event':
-40 |       return {
-41 |         ...state,
-42 |         ok: state.ok + 1,
-43 |         events: [...state.events, action.event],
-44 |       };
-45 |     case 'fail':
-46 |       return {
-47 |         ...state,
-48 |         fail: state.fail + 1,
-49 |         lastError: action.error,
-50 |       };
-51 |     case 'done':
-52 |       return {
-53 |         ...state,
-54 |         phase: state.fail > 0 ? 'error' : 'success',
-55 |       };
-56 |     default:
-57 |       return state;
-58 |   }
-59 | }
-60 | 
-61 | export function useFileLoader() {
-62 |   const [state, dispatch] = useReducer(reducer, initialState);
-63 | 
-64 |   const start = useCallback(
-65 |     async (file: File) => {
-66 |       dispatch({ type: 'start' });
-67 |       try {
-68 |         for await (const item of streamParseSession(file)) {
-69 |           if (item.kind === 'meta') {
-70 |             dispatch({ type: 'meta', meta: item.meta });
-71 |           } else if (item.kind === 'event') {
-72 |             dispatch({ type: 'event', event: item.event });
-73 |           } else if (item.kind === 'error') {
-74 |             dispatch({ type: 'fail', error: item.error });
-75 |           }
-76 |         }
-77 |         dispatch({ type: 'done' });
-78 |       } catch (error) {
-79 |         dispatch({
-80 |           type: 'fail',
-81 |           error: {
-82 |             line: -1,
-83 |             reason: 'invalid_schema',
-84 |             message: error instanceof Error ? error.message : 'Unknown error',
-85 |             raw: '',
-86 |           },
-87 |         });
-88 |         dispatch({ type: 'done' });
-89 |       }
-90 |     },
-91 |     [dispatch]
-92 |   );
-93 | 
-94 |   const reset = useCallback(() => dispatch({ type: 'reset' }), []);
-95 | 
-96 |   const progress = useMemo(() => {
-97 |     const total = state.ok + state.fail;
-98 |     return { ok: state.ok, fail: state.fail, total };
-99 |   }, [state.ok, state.fail]);
-100 | 
-101 |   return { state, progress, start, reset };
-102 | }
-103 | 
-104 | export type FileLoaderHook = ReturnType<typeof useFileLoader>;
-```
-
-src/hooks/useSessionStorage.ts
-```
-1 | import * as React from 'react';
-2 | 
-3 | export function useSessionStorage<T>(key: string, initialValue: T) {
-4 |   const state = React.useState<T>(() => {
-5 |     const stored = sessionStorage.getItem(key);
-6 |     return stored ? JSON.parse(stored) : initialValue;
-7 |   });
-8 | 
-9 |   React.useEffect(() => {
-10 |     sessionStorage.setItem(key, JSON.stringify(state[0]));
-11 |   }, [state[0]]);
-12 | 
-13 |   return state;
-14 | }
-```
-
-src/types/browser-echo.d.ts
-```
-1 | declare module 'virtual:browser-echo';
-```
-
 src/styles/app.css
 ```
 1 | @import "tailwindcss";
@@ -1716,6 +1714,824 @@ src/styles/custom.css
 66 |   --sidebar-border: oklch(1 0 0 / 10%);
 67 |   --sidebar-ring: oklch(0.439 0 0);
 68 | }
+```
+
+src/utils/event-key.ts
+```
+1 | import type { ResponseItem } from '../types';
+2 | 
+3 | export function eventKey(item: ResponseItem, absoluteIndex: number): string {
+4 |   const anyItem = item as any;
+5 |   if (anyItem?.id) return String(anyItem.id);
+6 |   if (typeof anyItem?.index === 'number') return `idx-${anyItem.index}`;
+7 |   return `idx-${absoluteIndex}`;
+8 | }
+```
+
+src/utils/id-generator.ts
+```
+1 | import { randomUUID } from 'node:crypto';
+2 | 
+3 | const prefixes = {
+4 |     files: 'file',
+5 |     user: 'user',
+6 | } as const;
+7 | 
+8 | export const generateId = (prefix: keyof typeof prefixes | string) => {
+9 |     const resolvedPrefix = (prefix in prefixes) ? prefixes[prefix as keyof typeof prefixes] : prefix;
+10 |     return `${resolvedPrefix}_${randomUUID()}`;
+11 | }
+```
+
+src/utils/line-reader.ts
+```
+1 | export function splitLinesTransform(): TransformStream<string, string> {
+2 |   let carry = '';
+3 |   return new TransformStream<string, string>({
+4 |     transform(chunk, controller) {
+5 |       const text = carry + chunk;
+6 |       const parts = text.split(/\n/);
+7 |       carry = parts.pop() ?? '';
+8 |       for (const line of parts) {
+9 |         controller.enqueue(line.endsWith('\r') ? line.slice(0, -1) : line);
+10 |       }
+11 |     },
+12 |     flush(controller) {
+13 |       if (carry.length > 0) {
+14 |         controller.enqueue(carry.endsWith('\r') ? carry.slice(0, -1) : carry);
+15 |       }
+16 |     },
+17 |   });
+18 | }
+19 | 
+20 | async function readBlobAsArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+21 |   if (typeof (blob as any).arrayBuffer === 'function') {
+22 |     return blob.arrayBuffer();
+23 |   }
+24 |   if (typeof FileReader !== 'undefined') {
+25 |     return new Promise<ArrayBuffer>((resolve, reject) => {
+26 |       const reader = new FileReader();
+27 |       reader.onerror = () => reject(reader.error);
+28 |       reader.onload = () => resolve(reader.result as ArrayBuffer);
+29 |       reader.readAsArrayBuffer(blob);
+30 |     });
+31 |   }
+32 |   if (typeof (blob as any).text === 'function') {
+33 |     const text = await blob.text();
+34 |     return new TextEncoder().encode(text).buffer;
+35 |   }
+36 |   return new ArrayBuffer(0);
+37 | }
+38 | 
+39 | function getBlobStream(blob: Blob): ReadableStream<Uint8Array> {
+40 |   if (typeof (blob as any).stream === 'function') {
+41 |     return (blob as any).stream();
+42 |   }
+43 |   return new ReadableStream<Uint8Array>({
+44 |     async start(controller) {
+45 |       try {
+46 |         const buffer = await readBlobAsArrayBuffer(blob);
+47 |         controller.enqueue(new Uint8Array(buffer));
+48 |         controller.close();
+49 |       } catch (error) {
+50 |         controller.error(error);
+51 |       }
+52 |     },
+53 |   });
+54 | }
+55 | 
+56 | export async function* streamTextLines(blob: Blob, encoding = 'utf-8'): AsyncGenerator<string> {
+57 |   const hasDecoderStream = typeof (globalThis as any).TextDecoderStream === 'function';
+58 | 
+59 |   if (hasDecoderStream) {
+60 |     const decoded = getBlobStream(blob)
+61 |       // @ts-ignore TextDecoderStream exists in modern runtimes; fallback below otherwise.
+62 |       .pipeThrough(new TextDecoderStream(encoding))
+63 |       .pipeThrough(splitLinesTransform());
+64 | 
+65 |     for await (const line of decoded as any as AsyncIterable<string>) {
+66 |       yield line;
+67 |     }
+68 |     return;
+69 |   }
+70 | 
+71 |   const reader = getBlobStream(blob).getReader();
+72 |   const decoder = new TextDecoder(encoding);
+73 |   let carry = '';
+74 |   try {
+75 |     for (;;) {
+76 |       const { value, done } = await reader.read();
+77 |       if (done) break;
+78 |       const chunk = decoder.decode(value, { stream: true });
+79 |       const text = carry + chunk;
+80 |       const parts = text.split(/\n/);
+81 |       carry = parts.pop() ?? '';
+82 |       for (const line of parts) {
+83 |         yield line.endsWith('\r') ? line.slice(0, -1) : line;
+84 |       }
+85 |     }
+86 |     const last = decoder.decode();
+87 |     if (last) {
+88 |       const text = carry + last;
+89 |       const parts = text.split(/\n/);
+90 |       carry = parts.pop() ?? '';
+91 |       for (const line of parts) {
+92 |         yield line.endsWith('\r') ? line.slice(0, -1) : line;
+93 |       }
+94 |     }
+95 |     if (carry.length) {
+96 |       yield carry.endsWith('\r') ? carry.slice(0, -1) : carry;
+97 |     }
+98 |   } finally {
+99 |     reader.releaseLock();
+100 |   }
+101 | }
+```
+
+src/utils/seo.ts
+```
+1 | export const seo = ({
+2 |     title,
+3 |     description,
+4 |     keywords,
+5 |     image
+6 | }: {
+7 |     title: string
+8 |     description?: string
+9 |     image?: string
+10 |     keywords?: string
+11 | }) => {
+12 |     const tags = [
+13 |       { title },
+14 |       { name: 'description', content: description },
+15 |       { name: 'keywords', content: keywords },
+16 |       { name: 'twitter:title', content: title },
+17 |       { name: 'twitter:description', content: description },
+18 |       { name: 'twitter:creator', content: '@d1rt7d4t4' },
+19 |       { name: 'twitter:site', content: '@d1rt7d4t4' },
+20 |       { name: 'og:type', content: 'website' },
+21 |       { name: 'og:title', content: title },
+22 |       { name: 'og:description', content: description },
+23 |       ...(image
+24 |         ? [
+25 |             { name: 'twitter:image', content: image },
+26 |             { name: 'twitter:card', content: 'summary_large_image' },
+27 |             { name: 'og:image', content: image },
+28 |           ]
+29 |         : []),
+30 |     ];
+31 | 
+32 |     return tags
+33 | }
+```
+
+src/types/browser-echo.d.ts
+```
+1 | declare module 'virtual:browser-echo';
+```
+
+src/db/schema/CLAUDE.md
+```
+1 | 
+2 | 
+3 | <!-- Source: .ruler/db.schema.md -->
+4 | 
+5 | - Schema files have always this naming pattern `<name>.schema.ts`
+```
+
+src/.cursor/rules/ruler_cursor_instructions.mdc
+```
+1 | ---
+2 | alwaysApply: true
+3 | ---
+4 | <!-- Source: .ruler/tanstack-environment-server-client-only-rules.md -->
+5 | 
+6 | # ClientOnly
+7 | 
+8 | Client-only render to avoid SSR hydration issues. Import from `@tanstack/react-router`:
+9 | 
+10 | ```typescript
+11 | import { ClientOnly } from '@tanstack/react-router';
+12 | 
+13 | <ClientOnly fallback={<span>—</span>}>
+14 |   <ComponentThatUsesClientHooks />
+15 | </ClientOnly>
+16 | ```
+17 | 
+18 | Alternative: Custom implementation using mounted pattern if needed (see hydration errors below).
+19 | 
+20 | # Environment functions
+21 | 
+22 | From `@tanstack/react-start`:
+23 | 
+24 | ## createIsomorphicFn
+25 | 
+26 | Adapts to client/server:
+27 | 
+28 | ```typescript
+29 | import { createIsomorphicFn } from '@tanstack/react-start';
+30 | const getEnv = createIsomorphicFn()
+31 |   .server(() => 'server')
+32 |   .client(() => 'client');
+33 | getEnv(); // 'server' on server, 'client' on client
+34 | ```
+35 | 
+36 | Partial: `.server()` no-op on client, `.client()` no-op on server.
+37 | 
+38 | ## createServerOnlyFn / createClientOnlyFn
+39 | 
+40 | RC1: `serverOnly` → `createServerOnlyFn`, `clientOnly` → `createClientOnlyFn`
+41 | 
+42 | Strict environment execution (throws if called wrong env):
+43 | 
+44 | ```typescript
+45 | import { createServerOnlyFn, createClientOnlyFn } from '@tanstack/react-start';
+46 | const serverFn = createServerOnlyFn(() => 'bar'); // throws on client
+47 | const clientFn = createClientOnlyFn(() => 'bar'); // throws on server
+48 | ```
+49 | 
+50 | Tree-shaken: client code removed from server bundle, server code removed from client bundle.
+51 | 
+52 | # Hydration errors
+53 | 
+54 | Mismatch: Server HTML differs from client render. Common causes: Intl (locale/timezone), Date.now(), random IDs, responsive logic, feature flags, user prefs.
+55 | 
+56 | Strategies:
+57 | 1. Make server and client match: deterministic locale/timezone on server (cookie or Accept-Language header), compute once and hydrate as initial state.
+58 | 2. Let client tell environment: set cookie with client timezone on first visit, SSR uses UTC until then.
+59 | 3. Make it client-only: wrap unstable UI in `<ClientOnly>` to avoid SSR mismatches.
+60 | 4. Disable/limit SSR: use selective SSR (`ssr: 'data-only'` or `false`) when server HTML cannot be stable.
+61 | 5. Last resort: React's `suppressHydrationWarning` for small known-different nodes (use sparingly).
+62 | 
+63 | Checklist: Deterministic inputs (locale, timezone, feature flags). Prefer cookies for client context. Use `<ClientOnly>` for dynamic UI. Use selective SSR when server HTML unstable. Avoid blind suppression.
+64 | 
+65 | # TanStack Start basics
+66 | 
+67 | Depends: @tanstack/react-router, Vite. Router: getRouter() (was createRouter() in beta). routeTree.gen.ts auto-generated on first dev run. Optional: server handler via @tanstack/react-start/server; client hydrate via StartClient from @tanstack/react-start/client. RC1: Import StartClient from @tanstack/react-start/client (not @tanstack/react-start). StartClient no longer requires router prop. Root route head: utf-8, viewport, title; component wraps Outlet in RootDocument. Routes: createFileRoute() code-split + lazy-load; loader runs server/client. Navigation: Link (typed), useNavigate (imperative), useRouter (instance).
+68 | 
+69 | # Server functions
+70 | 
+71 | createServerFn({ method }) + zod .inputValidator + .handler(ctx). After mutations: router.invalidate(); queryClient.invalidateQueries(['entity', id]).
+72 | 
+73 | # Typed Links
+74 | 
+75 | Link to="/posts/$postId" with params; activeProps for styling.
+76 | 
+77 | 
+78 | 
+79 | <!-- Source: .ruler/tanstack-query-rules.md -->
+80 | 
+81 | # TanStack Query Rules
+82 | 
+83 | Server state via TanStack Query + server functions. Type-safe fetching and mutations.
+84 | 
+85 | ## Query Pattern
+86 | 
+87 | Define in `lib/{resource}/queries.ts` using `queryOptions`:
+88 | 
+89 | ```typescript
+90 | export const todosQueryOptions = () =>
+91 |   queryOptions({
+92 |     queryKey: ['todos'],
+93 |     queryFn: async ({ signal }) => await getTodos({ signal }),
+94 |     staleTime: 1000 * 60 * 5,
+95 |     gcTime: 1000 * 60 * 10,
+96 |   });
+97 | ```
+98 | 
+99 | Use: `const { data, isLoading } = useQuery(todosQueryOptions())`. Prefer `useSuspenseQuery` with Suspense.
+100 | 
+101 | ## Server Functions in Queries
+102 | 
+103 | Call server functions directly in `queryFn`. No `useServerFn` hook. TanStack Start proxies. Pass `signal` for cancellation.
+104 | 
+105 | ## Mutation Pattern
+106 | 
+107 | ```typescript
+108 | const mutation = useMutation({
+109 |   mutationFn: async (text: string) => await createTodo({ data: { text } }),
+110 |   onSuccess: () => {
+111 |     queryClient.invalidateQueries({ queryKey: todosQueryOptions().queryKey });
+112 |     toast.success('Success');
+113 |   },
+114 |   onError: (error) => toast.error(error.message || 'Failed'),
+115 | });
+116 | ```
+117 | 
+118 | Call via `mutation.mutate(data)` or `mutateAsync` for promises.
+119 | 
+120 | ## Query Invalidation
+121 | 
+122 | After mutations: `queryClient.invalidateQueries({ queryKey: ... })`. Use specific keys, not broad.
+123 | 
+124 | ## Mutation States
+125 | 
+126 | Access: `isPending`, `isError`, `isSuccess`, `error`, `data`. Disable UI during `isPending`.
+127 | 
+128 | ## Error Handling
+129 | 
+130 | Handle in `onError`. Toast messages. Access: `error.message || 'Default'`.
+131 | 
+132 | ## Query Keys
+133 | 
+134 | Hierarchical: `['todos']`, `['todo', id]`, `['todos', 'completed']`. Include all affecting variables.
+135 | 
+136 | ## Stale Time vs GC Time
+137 | 
+138 | `staleTime`: freshness duration (no refetch). Default 0. Set for stable data.
+139 | `gcTime`: unused cache duration (was `cacheTime`). Default 5min. Memory management.
+140 | 
+141 | ## Infinite Queries
+142 | 
+143 | `useInfiniteQuery` for pagination. Required: `initialPageParam`, `getNextPageParam`, `fetchNextPage`. Access `data.pages`. Check `hasNextPage` before fetching.
+144 | 
+145 | ## Optimistic Updates
+146 | 
+147 | `onMutate` for optimistic updates. Rollback in `onError`. Update cache via `queryClient.setQueryData`.
+148 | 
+149 | ## Best Practices
+150 | 
+151 | 1. Queries in `lib/{resource}/queries.ts` with `queryOptions`
+152 | 2. Call server functions directly (no `useServerFn` in callbacks)
+153 | 3. Invalidate after mutations
+154 | 4. Toast for feedback
+155 | 5. Handle loading/error states
+156 | 6. Use TypeScript types from query options
+157 | 7. Set `staleTime`/`gcTime` appropriately
+158 | 8. Prefer `useSuspenseQuery` with Suspense
+```
+
+src/components/ui/badge.tsx
+```
+1 | import { cva, type VariantProps } from 'class-variance-authority';
+2 | import type { HTMLAttributes } from 'react';
+3 | import { cn } from '~/lib/utils';
+4 | 
+5 | const badgeVariants = cva(
+6 |   'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+7 |   {
+8 |     variants: {
+9 |       variant: {
+10 |         default: 'border-transparent bg-primary text-primary-foreground',
+11 |         secondary: 'border-transparent bg-secondary text-secondary-foreground',
+12 |         outline: 'border-border text-foreground',
+13 |       },
+14 |     },
+15 |     defaultVariants: {
+16 |       variant: 'default',
+17 |     },
+18 |   }
+19 | );
+20 | 
+21 | export interface BadgeProps
+22 |   extends HTMLAttributes<HTMLDivElement>,
+23 |     VariantProps<typeof badgeVariants> {}
+24 | 
+25 | export function Badge({ className, variant, ...props }: BadgeProps) {
+26 |   return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+27 | }
+```
+
+src/components/ui/button.tsx
+```
+1 | import * as React from "react"
+2 | import { Slot } from "@radix-ui/react-slot"
+3 | import { cva, type VariantProps } from "class-variance-authority"
+4 | 
+5 | import { cn } from "~/lib/utils"
+6 | 
+7 | const buttonVariants = cva(
+8 |   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+9 |   {
+10 |     variants: {
+11 |       variant: {
+12 |         default:
+13 |           "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
+14 |         destructive:
+15 |           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+16 |         outline:
+17 |           "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+18 |         secondary:
+19 |           "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
+20 |         ghost:
+21 |           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+22 |         link: "text-primary underline-offset-4 hover:underline",
+23 |       },
+24 |       size: {
+25 |         default: "h-9 px-4 py-2 has-[>svg]:px-3",
+26 |         sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
+27 |         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+28 |         icon: "size-9",
+29 |       },
+30 |     },
+31 |     defaultVariants: {
+32 |       variant: "default",
+33 |       size: "default",
+34 |     },
+35 |   }
+36 | )
+37 | 
+38 | function Button({
+39 |   className,
+40 |   variant,
+41 |   size,
+42 |   asChild = false,
+43 |   ...props
+44 | }: React.ComponentProps<"button"> &
+45 |   VariantProps<typeof buttonVariants> & {
+46 |     asChild?: boolean
+47 |   }) {
+48 |   const Comp = asChild ? Slot : "button"
+49 | 
+50 |   return (
+51 |     <Comp
+52 |       data-slot="button"
+53 |       className={cn(buttonVariants({ variant, size, className }))}
+54 |       {...props}
+55 |     />
+56 |   )
+57 | }
+58 | 
+59 | export { Button, buttonVariants }
+```
+
+src/components/ui/card.tsx
+```
+1 | import * as React from "react"
+2 | 
+3 | import { cn } from "~/lib/utils"
+4 | 
+5 | function Card({ className, ...props }: React.ComponentProps<"div">) {
+6 |   return (
+7 |     <div
+8 |       data-slot="card"
+9 |       className={cn(
+10 |         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+11 |         className
+12 |       )}
+13 |       {...props}
+14 |     />
+15 |   )
+16 | }
+17 | 
+18 | function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
+19 |   return (
+20 |     <div
+21 |       data-slot="card-header"
+22 |       className={cn(
+23 |         "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+24 |         className
+25 |       )}
+26 |       {...props}
+27 |     />
+28 |   )
+29 | }
+30 | 
+31 | function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+32 |   return (
+33 |     <div
+34 |       data-slot="card-title"
+35 |       className={cn("leading-none font-semibold", className)}
+36 |       {...props}
+37 |     />
+38 |   )
+39 | }
+40 | 
+41 | function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
+42 |   return (
+43 |     <div
+44 |       data-slot="card-description"
+45 |       className={cn("text-muted-foreground text-sm", className)}
+46 |       {...props}
+47 |     />
+48 |   )
+49 | }
+50 | 
+51 | function CardAction({ className, ...props }: React.ComponentProps<"div">) {
+52 |   return (
+53 |     <div
+54 |       data-slot="card-action"
+55 |       className={cn(
+56 |         "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
+57 |         className
+58 |       )}
+59 |       {...props}
+60 |     />
+61 |   )
+62 | }
+63 | 
+64 | function CardContent({ className, ...props }: React.ComponentProps<"div">) {
+65 |   return (
+66 |     <div
+67 |       data-slot="card-content"
+68 |       className={cn("px-6", className)}
+69 |       {...props}
+70 |     />
+71 |   )
+72 | }
+73 | 
+74 | function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
+75 |   return (
+76 |     <div
+77 |       data-slot="card-footer"
+78 |       className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
+79 |       {...props}
+80 |     />
+81 |   )
+82 | }
+83 | 
+84 | export {
+85 |   Card,
+86 |   CardHeader,
+87 |   CardFooter,
+88 |   CardTitle,
+89 |   CardAction,
+90 |   CardDescription,
+91 |   CardContent,
+92 | }
+```
+
+src/components/ui/dropdown-menu.tsx
+```
+1 | import * as React from "react"
+2 | import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
+3 | import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
+4 | 
+5 | import { cn } from "~/lib/utils"
+6 | 
+7 | function DropdownMenu({
+8 |   ...props
+9 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
+10 |   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
+11 | }
+12 | 
+13 | function DropdownMenuPortal({
+14 |   ...props
+15 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
+16 |   return (
+17 |     <DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
+18 |   )
+19 | }
+20 | 
+21 | function DropdownMenuTrigger({
+22 |   ...props
+23 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger>) {
+24 |   return (
+25 |     <DropdownMenuPrimitive.Trigger
+26 |       data-slot="dropdown-menu-trigger"
+27 |       {...props}
+28 |     />
+29 |   )
+30 | }
+31 | 
+32 | function DropdownMenuContent({
+33 |   className,
+34 |   sideOffset = 4,
+35 |   ...props
+36 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+37 |   return (
+38 |     <DropdownMenuPrimitive.Portal>
+39 |       <DropdownMenuPrimitive.Content
+40 |         data-slot="dropdown-menu-content"
+41 |         sideOffset={sideOffset}
+42 |         className={cn(
+43 |           "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
+44 |           className
+45 |         )}
+46 |         {...props}
+47 |       />
+48 |     </DropdownMenuPrimitive.Portal>
+49 |   )
+50 | }
+51 | 
+52 | function DropdownMenuGroup({
+53 |   ...props
+54 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Group>) {
+55 |   return (
+56 |     <DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
+57 |   )
+58 | }
+59 | 
+60 | function DropdownMenuItem({
+61 |   className,
+62 |   inset,
+63 |   variant = "default",
+64 |   ...props
+65 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
+66 |   inset?: boolean
+67 |   variant?: "default" | "destructive"
+68 | }) {
+69 |   return (
+70 |     <DropdownMenuPrimitive.Item
+71 |       data-slot="dropdown-menu-item"
+72 |       data-inset={inset}
+73 |       data-variant={variant}
+74 |       className={cn(
+75 |         "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+76 |         className
+77 |       )}
+78 |       {...props}
+79 |     />
+80 |   )
+81 | }
+82 | 
+83 | function DropdownMenuCheckboxItem({
+84 |   className,
+85 |   children,
+86 |   checked,
+87 |   ...props
+88 | }: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
+89 |   return (
+90 |     <DropdownMenuPrimitive.CheckboxItem
+91 |       data-slot="dropdown-menu-checkbox-item"
+92 |       className={cn(
+93 |         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+94 |         className
+95 |       )}
+96 |       checked={checked}
+97 |       {...props}
+98 |     >
+99 |       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+100 |         <DropdownMenuPrimitive.ItemIndicator>
+101 |           <CheckIcon className="size-4" />
+102 |         </DropdownMenuPrimitive.ItemIndicator>
+103 |       </span>
+104 |       {children}
+105 |     </DropdownMenuPrimitive.CheckboxItem>
+106 |   )
+107 | }
+108 | 
+109 | function DropdownMenuRadioGroup({
+110 |   ...props
+111 | }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) {
+112 |   return (
+113 |     <DropdownMenuPrimitive.RadioGroup
+114 |       data-slot="dropdown-menu-radio-group"
+115 |       {...props}
+116 |     />
+117 |   )
+118 | }
+119 | 
+120 | function DropdownMenuRadioItem({
+121 |   className,
+122 |   children,
+123 |   ...props
+124 | }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
+125 |   return (
+126 |     <DropdownMenuPrimitive.RadioItem
+127 |       data-slot="dropdown-menu-radio-item"
+128 |       className={cn(
+129 |         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+130 |         className
+131 |       )}
+132 |       {...props}
+133 |     >
+134 |       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+135 |         <DropdownMenuPrimitive.ItemIndicator>
+136 |           <CircleIcon className="size-2 fill-current" />
+137 |         </DropdownMenuPrimitive.ItemIndicator>
+138 |       </span>
+139 |       {children}
+140 |     </DropdownMenuPrimitive.RadioItem>
+141 |   )
+142 | }
+143 | 
+144 | function DropdownMenuLabel({
+145 |   className,
+146 |   inset,
+147 |   ...props
+148 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Label> & {
+149 |   inset?: boolean
+150 | }) {
+151 |   return (
+152 |     <DropdownMenuPrimitive.Label
+153 |       data-slot="dropdown-menu-label"
+154 |       data-inset={inset}
+155 |       className={cn(
+156 |         "px-2 py-1.5 text-sm font-medium data-[inset]:pl-8",
+157 |         className
+158 |       )}
+159 |       {...props}
+160 |     />
+161 |   )
+162 | }
+163 | 
+164 | function DropdownMenuSeparator({
+165 |   className,
+166 |   ...props
+167 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
+168 |   return (
+169 |     <DropdownMenuPrimitive.Separator
+170 |       data-slot="dropdown-menu-separator"
+171 |       className={cn("bg-border -mx-1 my-1 h-px", className)}
+172 |       {...props}
+173 |     />
+174 |   )
+175 | }
+176 | 
+177 | function DropdownMenuShortcut({
+178 |   className,
+179 |   ...props
+180 | }: React.ComponentProps<"span">) {
+181 |   return (
+182 |     <span
+183 |       data-slot="dropdown-menu-shortcut"
+184 |       className={cn(
+185 |         "text-muted-foreground ml-auto text-xs tracking-widest",
+186 |         className
+187 |       )}
+188 |       {...props}
+189 |     />
+190 |   )
+191 | }
+192 | 
+193 | function DropdownMenuSub({
+194 |   ...props
+195 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
+196 |   return <DropdownMenuPrimitive.Sub data-slot="dropdown-menu-sub" {...props} />
+197 | }
+198 | 
+199 | function DropdownMenuSubTrigger({
+200 |   className,
+201 |   inset,
+202 |   children,
+203 |   ...props
+204 | }: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {
+205 |   inset?: boolean
+206 | }) {
+207 |   return (
+208 |     <DropdownMenuPrimitive.SubTrigger
+209 |       data-slot="dropdown-menu-sub-trigger"
+210 |       data-inset={inset}
+211 |       className={cn(
+212 |         "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8",
+213 |         className
+214 |       )}
+215 |       {...props}
+216 |     >
+217 |       {children}
+218 |       <ChevronRightIcon className="ml-auto size-4" />
+219 |     </DropdownMenuPrimitive.SubTrigger>
+220 |   )
+221 | }
+222 | 
+223 | function DropdownMenuSubContent({
+224 |   className,
+225 |   ...props
+226 | }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
+227 |   return (
+228 |     <DropdownMenuPrimitive.SubContent
+229 |       data-slot="dropdown-menu-sub-content"
+230 |       className={cn(
+231 |         "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-md border p-1 shadow-lg",
+232 |         className
+233 |       )}
+234 |       {...props}
+235 |     />
+236 |   )
+237 | }
+238 | 
+239 | export {
+240 |   DropdownMenu,
+241 |   DropdownMenuPortal,
+242 |   DropdownMenuTrigger,
+243 |   DropdownMenuContent,
+244 |   DropdownMenuGroup,
+245 |   DropdownMenuLabel,
+246 |   DropdownMenuItem,
+247 |   DropdownMenuCheckboxItem,
+248 |   DropdownMenuRadioGroup,
+249 |   DropdownMenuRadioItem,
+250 |   DropdownMenuSeparator,
+251 |   DropdownMenuShortcut,
+252 |   DropdownMenuSub,
+253 |   DropdownMenuSubTrigger,
+254 |   DropdownMenuSubContent,
+255 | }
+```
+
+src/components/ui/textarea.tsx
+```
+1 | import * as React from 'react';
+2 | import { cn } from '~/lib/utils';
+3 | 
+4 | const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'textarea'>>(
+5 |   ({ className, ...props }, ref) => {
+6 |     return (
+7 |       <textarea
+8 |         className={cn(
+9 |           'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+10 |           className
+11 |         )}
+12 |         ref={ref}
+13 |         {...props}
+14 |       />
+15 |     );
+16 |   }
+17 | );
+18 | Textarea.displayName = 'Textarea';
+19 | 
+20 | export { Textarea };
 ```
 
 src/components/viewer/AnimatedTimelineList.tsx
@@ -2592,173 +3408,63 @@ src/components/viewer/TimelineView.tsx
 163 | }
 ```
 
-src/utils/event-key.ts
+src/lib/todos/queries.ts
 ```
-1 | import type { ResponseItem } from '../types';
-2 | 
-3 | export function eventKey(item: ResponseItem, absoluteIndex: number): string {
-4 |   const anyItem = item as any;
-5 |   if (anyItem?.id) return String(anyItem.id);
-6 |   if (typeof anyItem?.index === 'number') return `idx-${anyItem.index}`;
-7 |   return `idx-${absoluteIndex}`;
-8 | }
-```
-
-src/utils/id-generator.ts
-```
-1 | import { randomUUID } from 'node:crypto';
-2 | 
-3 | const prefixes = {
-4 |     files: 'file',
-5 |     user: 'user',
-6 | } as const;
-7 | 
-8 | export const generateId = (prefix: keyof typeof prefixes | string) => {
-9 |     const resolvedPrefix = (prefix in prefixes) ? prefixes[prefix as keyof typeof prefixes] : prefix;
-10 |     return `${resolvedPrefix}_${randomUUID()}`;
-11 | }
-```
-
-src/utils/line-reader.ts
-```
-1 | export function splitLinesTransform(): TransformStream<string, string> {
-2 |   let carry = '';
-3 |   return new TransformStream<string, string>({
-4 |     transform(chunk, controller) {
-5 |       const text = carry + chunk;
-6 |       const parts = text.split(/\n/);
-7 |       carry = parts.pop() ?? '';
-8 |       for (const line of parts) {
-9 |         controller.enqueue(line.endsWith('\r') ? line.slice(0, -1) : line);
-10 |       }
-11 |     },
-12 |     flush(controller) {
-13 |       if (carry.length > 0) {
-14 |         controller.enqueue(carry.endsWith('\r') ? carry.slice(0, -1) : carry);
-15 |       }
-16 |     },
-17 |   });
-18 | }
-19 | 
-20 | async function readBlobAsArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
-21 |   if (typeof (blob as any).arrayBuffer === 'function') {
-22 |     return blob.arrayBuffer();
-23 |   }
-24 |   if (typeof FileReader !== 'undefined') {
-25 |     return new Promise<ArrayBuffer>((resolve, reject) => {
-26 |       const reader = new FileReader();
-27 |       reader.onerror = () => reject(reader.error);
-28 |       reader.onload = () => resolve(reader.result as ArrayBuffer);
-29 |       reader.readAsArrayBuffer(blob);
-30 |     });
-31 |   }
-32 |   if (typeof (blob as any).text === 'function') {
-33 |     const text = await blob.text();
-34 |     return new TextEncoder().encode(text).buffer;
-35 |   }
-36 |   return new ArrayBuffer(0);
-37 | }
-38 | 
-39 | function getBlobStream(blob: Blob): ReadableStream<Uint8Array> {
-40 |   if (typeof (blob as any).stream === 'function') {
-41 |     return (blob as any).stream();
-42 |   }
-43 |   return new ReadableStream<Uint8Array>({
-44 |     async start(controller) {
-45 |       try {
-46 |         const buffer = await readBlobAsArrayBuffer(blob);
-47 |         controller.enqueue(new Uint8Array(buffer));
-48 |         controller.close();
-49 |       } catch (error) {
-50 |         controller.error(error);
-51 |       }
-52 |     },
-53 |   });
-54 | }
-55 | 
-56 | export async function* streamTextLines(blob: Blob, encoding = 'utf-8'): AsyncGenerator<string> {
-57 |   const hasDecoderStream = typeof (globalThis as any).TextDecoderStream === 'function';
-58 | 
-59 |   if (hasDecoderStream) {
-60 |     const decoded = getBlobStream(blob)
-61 |       // @ts-ignore TextDecoderStream exists in modern runtimes; fallback below otherwise.
-62 |       .pipeThrough(new TextDecoderStream(encoding))
-63 |       .pipeThrough(splitLinesTransform());
-64 | 
-65 |     for await (const line of decoded as any as AsyncIterable<string>) {
-66 |       yield line;
-67 |     }
-68 |     return;
-69 |   }
-70 | 
-71 |   const reader = getBlobStream(blob).getReader();
-72 |   const decoder = new TextDecoder(encoding);
-73 |   let carry = '';
-74 |   try {
-75 |     for (;;) {
-76 |       const { value, done } = await reader.read();
-77 |       if (done) break;
-78 |       const chunk = decoder.decode(value, { stream: true });
-79 |       const text = carry + chunk;
-80 |       const parts = text.split(/\n/);
-81 |       carry = parts.pop() ?? '';
-82 |       for (const line of parts) {
-83 |         yield line.endsWith('\r') ? line.slice(0, -1) : line;
-84 |       }
-85 |     }
-86 |     const last = decoder.decode();
-87 |     if (last) {
-88 |       const text = carry + last;
-89 |       const parts = text.split(/\n/);
-90 |       carry = parts.pop() ?? '';
-91 |       for (const line of parts) {
-92 |         yield line.endsWith('\r') ? line.slice(0, -1) : line;
-93 |       }
-94 |     }
-95 |     if (carry.length) {
-96 |       yield carry.endsWith('\r') ? carry.slice(0, -1) : carry;
-97 |     }
-98 |   } finally {
-99 |     reader.releaseLock();
-100 |   }
-101 | }
-```
-
-src/utils/seo.ts
-```
-1 | export const seo = ({
-2 |     title,
-3 |     description,
-4 |     keywords,
-5 |     image
-6 | }: {
-7 |     title: string
-8 |     description?: string
-9 |     image?: string
-10 |     keywords?: string
-11 | }) => {
-12 |     const tags = [
-13 |       { title },
-14 |       { name: 'description', content: description },
-15 |       { name: 'keywords', content: keywords },
-16 |       { name: 'twitter:title', content: title },
-17 |       { name: 'twitter:description', content: description },
-18 |       { name: 'twitter:creator', content: '@d1rt7d4t4' },
-19 |       { name: 'twitter:site', content: '@d1rt7d4t4' },
-20 |       { name: 'og:type', content: 'website' },
-21 |       { name: 'og:title', content: title },
-22 |       { name: 'og:description', content: description },
-23 |       ...(image
-24 |         ? [
-25 |             { name: 'twitter:image', content: image },
-26 |             { name: 'twitter:card', content: 'summary_large_image' },
-27 |             { name: 'og:image', content: image },
-28 |           ]
-29 |         : []),
-30 |     ];
-31 | 
-32 |     return tags
-33 | }
+1 | import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+2 | import { getTodos, createTodo, toggleTodo, deleteTodo } from '~/server/function/todos';
+3 | import { toast } from 'sonner';
+4 | 
+5 | export type Todo = { id: string; text: string; completed: boolean };
+6 | 
+7 | export const todosQueries = {
+8 |   list: () =>
+9 |     queryOptions({
+10 |       queryKey: ['todos'],
+11 |       queryFn: async ({ signal }) => await getTodos({ signal }),
+12 |       staleTime: 1000 * 60 * 5,
+13 |     }),
+14 | };
+15 | 
+16 | export function useCreateTodoMutation() {
+17 |   const queryClient = useQueryClient();
+18 |   return useMutation({
+19 |     mutationFn: async (text: string) => await createTodo({ data: { text } }),
+20 |     onSuccess: () => {
+21 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
+22 |       toast.success('Todo created successfully!');
+23 |     },
+24 |     onError: (error) => {
+25 |       toast.error(error.message || 'Failed to create todo');
+26 |     },
+27 |   });
+28 | }
+29 | 
+30 | export function useToggleTodoMutation() {
+31 |   const queryClient = useQueryClient();
+32 |   return useMutation({
+33 |     mutationFn: async (id: string) => await toggleTodo({ data: { id } }),
+34 |     onSuccess: () => {
+35 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
+36 |     },
+37 |     onError: (error) => {
+38 |       toast.error(error.message || 'Failed to toggle todo');
+39 |     },
+40 |   });
+41 | }
+42 | 
+43 | export function useDeleteTodoMutation() {
+44 |   const queryClient = useQueryClient();
+45 |   return useMutation({
+46 |     mutationFn: async (id: string) => await deleteTodo({ data: { id } }),
+47 |     onSuccess: () => {
+48 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
+49 |       toast.success('Todo deleted successfully!');
+50 |     },
+51 |     onError: (error) => {
+52 |       toast.error(error.message || 'Failed to delete todo');
+53 |     },
+54 |   });
+55 | }
 ```
 
 src/lib/session-parser/index.ts
@@ -3401,641 +4107,6 @@ src/lib/session-parser/validators.ts
 295 | }
 ```
 
-src/components/ui/badge.tsx
-```
-1 | import { cva, type VariantProps } from 'class-variance-authority';
-2 | import type { HTMLAttributes } from 'react';
-3 | import { cn } from '~/lib/utils';
-4 | 
-5 | const badgeVariants = cva(
-6 |   'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
-7 |   {
-8 |     variants: {
-9 |       variant: {
-10 |         default: 'border-transparent bg-primary text-primary-foreground',
-11 |         secondary: 'border-transparent bg-secondary text-secondary-foreground',
-12 |         outline: 'border-border text-foreground',
-13 |       },
-14 |     },
-15 |     defaultVariants: {
-16 |       variant: 'default',
-17 |     },
-18 |   }
-19 | );
-20 | 
-21 | export interface BadgeProps
-22 |   extends HTMLAttributes<HTMLDivElement>,
-23 |     VariantProps<typeof badgeVariants> {}
-24 | 
-25 | export function Badge({ className, variant, ...props }: BadgeProps) {
-26 |   return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
-27 | }
-```
-
-src/components/ui/button.tsx
-```
-1 | import * as React from "react"
-2 | import { Slot } from "@radix-ui/react-slot"
-3 | import { cva, type VariantProps } from "class-variance-authority"
-4 | 
-5 | import { cn } from "~/lib/utils"
-6 | 
-7 | const buttonVariants = cva(
-8 |   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-9 |   {
-10 |     variants: {
-11 |       variant: {
-12 |         default:
-13 |           "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
-14 |         destructive:
-15 |           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-16 |         outline:
-17 |           "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
-18 |         secondary:
-19 |           "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
-20 |         ghost:
-21 |           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-22 |         link: "text-primary underline-offset-4 hover:underline",
-23 |       },
-24 |       size: {
-25 |         default: "h-9 px-4 py-2 has-[>svg]:px-3",
-26 |         sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-27 |         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-28 |         icon: "size-9",
-29 |       },
-30 |     },
-31 |     defaultVariants: {
-32 |       variant: "default",
-33 |       size: "default",
-34 |     },
-35 |   }
-36 | )
-37 | 
-38 | function Button({
-39 |   className,
-40 |   variant,
-41 |   size,
-42 |   asChild = false,
-43 |   ...props
-44 | }: React.ComponentProps<"button"> &
-45 |   VariantProps<typeof buttonVariants> & {
-46 |     asChild?: boolean
-47 |   }) {
-48 |   const Comp = asChild ? Slot : "button"
-49 | 
-50 |   return (
-51 |     <Comp
-52 |       data-slot="button"
-53 |       className={cn(buttonVariants({ variant, size, className }))}
-54 |       {...props}
-55 |     />
-56 |   )
-57 | }
-58 | 
-59 | export { Button, buttonVariants }
-```
-
-src/components/ui/card.tsx
-```
-1 | import * as React from "react"
-2 | 
-3 | import { cn } from "~/lib/utils"
-4 | 
-5 | function Card({ className, ...props }: React.ComponentProps<"div">) {
-6 |   return (
-7 |     <div
-8 |       data-slot="card"
-9 |       className={cn(
-10 |         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
-11 |         className
-12 |       )}
-13 |       {...props}
-14 |     />
-15 |   )
-16 | }
-17 | 
-18 | function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
-19 |   return (
-20 |     <div
-21 |       data-slot="card-header"
-22 |       className={cn(
-23 |         "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
-24 |         className
-25 |       )}
-26 |       {...props}
-27 |     />
-28 |   )
-29 | }
-30 | 
-31 | function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
-32 |   return (
-33 |     <div
-34 |       data-slot="card-title"
-35 |       className={cn("leading-none font-semibold", className)}
-36 |       {...props}
-37 |     />
-38 |   )
-39 | }
-40 | 
-41 | function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
-42 |   return (
-43 |     <div
-44 |       data-slot="card-description"
-45 |       className={cn("text-muted-foreground text-sm", className)}
-46 |       {...props}
-47 |     />
-48 |   )
-49 | }
-50 | 
-51 | function CardAction({ className, ...props }: React.ComponentProps<"div">) {
-52 |   return (
-53 |     <div
-54 |       data-slot="card-action"
-55 |       className={cn(
-56 |         "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
-57 |         className
-58 |       )}
-59 |       {...props}
-60 |     />
-61 |   )
-62 | }
-63 | 
-64 | function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-65 |   return (
-66 |     <div
-67 |       data-slot="card-content"
-68 |       className={cn("px-6", className)}
-69 |       {...props}
-70 |     />
-71 |   )
-72 | }
-73 | 
-74 | function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
-75 |   return (
-76 |     <div
-77 |       data-slot="card-footer"
-78 |       className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
-79 |       {...props}
-80 |     />
-81 |   )
-82 | }
-83 | 
-84 | export {
-85 |   Card,
-86 |   CardHeader,
-87 |   CardFooter,
-88 |   CardTitle,
-89 |   CardAction,
-90 |   CardDescription,
-91 |   CardContent,
-92 | }
-```
-
-src/components/ui/dropdown-menu.tsx
-```
-1 | import * as React from "react"
-2 | import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-3 | import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
-4 | 
-5 | import { cn } from "~/lib/utils"
-6 | 
-7 | function DropdownMenu({
-8 |   ...props
-9 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-10 |   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
-11 | }
-12 | 
-13 | function DropdownMenuPortal({
-14 |   ...props
-15 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
-16 |   return (
-17 |     <DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
-18 |   )
-19 | }
-20 | 
-21 | function DropdownMenuTrigger({
-22 |   ...props
-23 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger>) {
-24 |   return (
-25 |     <DropdownMenuPrimitive.Trigger
-26 |       data-slot="dropdown-menu-trigger"
-27 |       {...props}
-28 |     />
-29 |   )
-30 | }
-31 | 
-32 | function DropdownMenuContent({
-33 |   className,
-34 |   sideOffset = 4,
-35 |   ...props
-36 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
-37 |   return (
-38 |     <DropdownMenuPrimitive.Portal>
-39 |       <DropdownMenuPrimitive.Content
-40 |         data-slot="dropdown-menu-content"
-41 |         sideOffset={sideOffset}
-42 |         className={cn(
-43 |           "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
-44 |           className
-45 |         )}
-46 |         {...props}
-47 |       />
-48 |     </DropdownMenuPrimitive.Portal>
-49 |   )
-50 | }
-51 | 
-52 | function DropdownMenuGroup({
-53 |   ...props
-54 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Group>) {
-55 |   return (
-56 |     <DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
-57 |   )
-58 | }
-59 | 
-60 | function DropdownMenuItem({
-61 |   className,
-62 |   inset,
-63 |   variant = "default",
-64 |   ...props
-65 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
-66 |   inset?: boolean
-67 |   variant?: "default" | "destructive"
-68 | }) {
-69 |   return (
-70 |     <DropdownMenuPrimitive.Item
-71 |       data-slot="dropdown-menu-item"
-72 |       data-inset={inset}
-73 |       data-variant={variant}
-74 |       className={cn(
-75 |         "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-76 |         className
-77 |       )}
-78 |       {...props}
-79 |     />
-80 |   )
-81 | }
-82 | 
-83 | function DropdownMenuCheckboxItem({
-84 |   className,
-85 |   children,
-86 |   checked,
-87 |   ...props
-88 | }: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
-89 |   return (
-90 |     <DropdownMenuPrimitive.CheckboxItem
-91 |       data-slot="dropdown-menu-checkbox-item"
-92 |       className={cn(
-93 |         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-94 |         className
-95 |       )}
-96 |       checked={checked}
-97 |       {...props}
-98 |     >
-99 |       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
-100 |         <DropdownMenuPrimitive.ItemIndicator>
-101 |           <CheckIcon className="size-4" />
-102 |         </DropdownMenuPrimitive.ItemIndicator>
-103 |       </span>
-104 |       {children}
-105 |     </DropdownMenuPrimitive.CheckboxItem>
-106 |   )
-107 | }
-108 | 
-109 | function DropdownMenuRadioGroup({
-110 |   ...props
-111 | }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) {
-112 |   return (
-113 |     <DropdownMenuPrimitive.RadioGroup
-114 |       data-slot="dropdown-menu-radio-group"
-115 |       {...props}
-116 |     />
-117 |   )
-118 | }
-119 | 
-120 | function DropdownMenuRadioItem({
-121 |   className,
-122 |   children,
-123 |   ...props
-124 | }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
-125 |   return (
-126 |     <DropdownMenuPrimitive.RadioItem
-127 |       data-slot="dropdown-menu-radio-item"
-128 |       className={cn(
-129 |         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-130 |         className
-131 |       )}
-132 |       {...props}
-133 |     >
-134 |       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
-135 |         <DropdownMenuPrimitive.ItemIndicator>
-136 |           <CircleIcon className="size-2 fill-current" />
-137 |         </DropdownMenuPrimitive.ItemIndicator>
-138 |       </span>
-139 |       {children}
-140 |     </DropdownMenuPrimitive.RadioItem>
-141 |   )
-142 | }
-143 | 
-144 | function DropdownMenuLabel({
-145 |   className,
-146 |   inset,
-147 |   ...props
-148 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Label> & {
-149 |   inset?: boolean
-150 | }) {
-151 |   return (
-152 |     <DropdownMenuPrimitive.Label
-153 |       data-slot="dropdown-menu-label"
-154 |       data-inset={inset}
-155 |       className={cn(
-156 |         "px-2 py-1.5 text-sm font-medium data-[inset]:pl-8",
-157 |         className
-158 |       )}
-159 |       {...props}
-160 |     />
-161 |   )
-162 | }
-163 | 
-164 | function DropdownMenuSeparator({
-165 |   className,
-166 |   ...props
-167 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
-168 |   return (
-169 |     <DropdownMenuPrimitive.Separator
-170 |       data-slot="dropdown-menu-separator"
-171 |       className={cn("bg-border -mx-1 my-1 h-px", className)}
-172 |       {...props}
-173 |     />
-174 |   )
-175 | }
-176 | 
-177 | function DropdownMenuShortcut({
-178 |   className,
-179 |   ...props
-180 | }: React.ComponentProps<"span">) {
-181 |   return (
-182 |     <span
-183 |       data-slot="dropdown-menu-shortcut"
-184 |       className={cn(
-185 |         "text-muted-foreground ml-auto text-xs tracking-widest",
-186 |         className
-187 |       )}
-188 |       {...props}
-189 |     />
-190 |   )
-191 | }
-192 | 
-193 | function DropdownMenuSub({
-194 |   ...props
-195 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
-196 |   return <DropdownMenuPrimitive.Sub data-slot="dropdown-menu-sub" {...props} />
-197 | }
-198 | 
-199 | function DropdownMenuSubTrigger({
-200 |   className,
-201 |   inset,
-202 |   children,
-203 |   ...props
-204 | }: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {
-205 |   inset?: boolean
-206 | }) {
-207 |   return (
-208 |     <DropdownMenuPrimitive.SubTrigger
-209 |       data-slot="dropdown-menu-sub-trigger"
-210 |       data-inset={inset}
-211 |       className={cn(
-212 |         "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8",
-213 |         className
-214 |       )}
-215 |       {...props}
-216 |     >
-217 |       {children}
-218 |       <ChevronRightIcon className="ml-auto size-4" />
-219 |     </DropdownMenuPrimitive.SubTrigger>
-220 |   )
-221 | }
-222 | 
-223 | function DropdownMenuSubContent({
-224 |   className,
-225 |   ...props
-226 | }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
-227 |   return (
-228 |     <DropdownMenuPrimitive.SubContent
-229 |       data-slot="dropdown-menu-sub-content"
-230 |       className={cn(
-231 |         "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-md border p-1 shadow-lg",
-232 |         className
-233 |       )}
-234 |       {...props}
-235 |     />
-236 |   )
-237 | }
-238 | 
-239 | export {
-240 |   DropdownMenu,
-241 |   DropdownMenuPortal,
-242 |   DropdownMenuTrigger,
-243 |   DropdownMenuContent,
-244 |   DropdownMenuGroup,
-245 |   DropdownMenuLabel,
-246 |   DropdownMenuItem,
-247 |   DropdownMenuCheckboxItem,
-248 |   DropdownMenuRadioGroup,
-249 |   DropdownMenuRadioItem,
-250 |   DropdownMenuSeparator,
-251 |   DropdownMenuShortcut,
-252 |   DropdownMenuSub,
-253 |   DropdownMenuSubTrigger,
-254 |   DropdownMenuSubContent,
-255 | }
-```
-
-src/components/ui/textarea.tsx
-```
-1 | import * as React from 'react';
-2 | import { cn } from '~/lib/utils';
-3 | 
-4 | const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'textarea'>>(
-5 |   ({ className, ...props }, ref) => {
-6 |     return (
-7 |       <textarea
-8 |         className={cn(
-9 |           'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-10 |           className
-11 |         )}
-12 |         ref={ref}
-13 |         {...props}
-14 |       />
-15 |     );
-16 |   }
-17 | );
-18 | Textarea.displayName = 'Textarea';
-19 | 
-20 | export { Textarea };
-```
-
-src/.cursor/rules/ruler_cursor_instructions.mdc
-```
-1 | ---
-2 | alwaysApply: true
-3 | ---
-4 | <!-- Source: .ruler/tanstack-environment-server-client-only-rules.md -->
-5 | 
-6 | # ClientOnly
-7 | 
-8 | Client-only render to avoid SSR hydration issues. Import from `@tanstack/react-router`:
-9 | 
-10 | ```typescript
-11 | import { ClientOnly } from '@tanstack/react-router';
-12 | 
-13 | <ClientOnly fallback={<span>—</span>}>
-14 |   <ComponentThatUsesClientHooks />
-15 | </ClientOnly>
-16 | ```
-17 | 
-18 | Alternative: Custom implementation using mounted pattern if needed (see hydration errors below).
-19 | 
-20 | # Environment functions
-21 | 
-22 | From `@tanstack/react-start`:
-23 | 
-24 | ## createIsomorphicFn
-25 | 
-26 | Adapts to client/server:
-27 | 
-28 | ```typescript
-29 | import { createIsomorphicFn } from '@tanstack/react-start';
-30 | const getEnv = createIsomorphicFn()
-31 |   .server(() => 'server')
-32 |   .client(() => 'client');
-33 | getEnv(); // 'server' on server, 'client' on client
-34 | ```
-35 | 
-36 | Partial: `.server()` no-op on client, `.client()` no-op on server.
-37 | 
-38 | ## createServerOnlyFn / createClientOnlyFn
-39 | 
-40 | RC1: `serverOnly` → `createServerOnlyFn`, `clientOnly` → `createClientOnlyFn`
-41 | 
-42 | Strict environment execution (throws if called wrong env):
-43 | 
-44 | ```typescript
-45 | import { createServerOnlyFn, createClientOnlyFn } from '@tanstack/react-start';
-46 | const serverFn = createServerOnlyFn(() => 'bar'); // throws on client
-47 | const clientFn = createClientOnlyFn(() => 'bar'); // throws on server
-48 | ```
-49 | 
-50 | Tree-shaken: client code removed from server bundle, server code removed from client bundle.
-51 | 
-52 | # Hydration errors
-53 | 
-54 | Mismatch: Server HTML differs from client render. Common causes: Intl (locale/timezone), Date.now(), random IDs, responsive logic, feature flags, user prefs.
-55 | 
-56 | Strategies:
-57 | 1. Make server and client match: deterministic locale/timezone on server (cookie or Accept-Language header), compute once and hydrate as initial state.
-58 | 2. Let client tell environment: set cookie with client timezone on first visit, SSR uses UTC until then.
-59 | 3. Make it client-only: wrap unstable UI in `<ClientOnly>` to avoid SSR mismatches.
-60 | 4. Disable/limit SSR: use selective SSR (`ssr: 'data-only'` or `false`) when server HTML cannot be stable.
-61 | 5. Last resort: React's `suppressHydrationWarning` for small known-different nodes (use sparingly).
-62 | 
-63 | Checklist: Deterministic inputs (locale, timezone, feature flags). Prefer cookies for client context. Use `<ClientOnly>` for dynamic UI. Use selective SSR when server HTML unstable. Avoid blind suppression.
-64 | 
-65 | # TanStack Start basics
-66 | 
-67 | Depends: @tanstack/react-router, Vite. Router: getRouter() (was createRouter() in beta). routeTree.gen.ts auto-generated on first dev run. Optional: server handler via @tanstack/react-start/server; client hydrate via StartClient from @tanstack/react-start/client. RC1: Import StartClient from @tanstack/react-start/client (not @tanstack/react-start). StartClient no longer requires router prop. Root route head: utf-8, viewport, title; component wraps Outlet in RootDocument. Routes: createFileRoute() code-split + lazy-load; loader runs server/client. Navigation: Link (typed), useNavigate (imperative), useRouter (instance).
-68 | 
-69 | # Server functions
-70 | 
-71 | createServerFn({ method }) + zod .inputValidator + .handler(ctx). After mutations: router.invalidate(); queryClient.invalidateQueries(['entity', id]).
-72 | 
-73 | # Typed Links
-74 | 
-75 | Link to="/posts/$postId" with params; activeProps for styling.
-76 | 
-77 | 
-78 | 
-79 | <!-- Source: .ruler/tanstack-query-rules.md -->
-80 | 
-81 | # TanStack Query Rules
-82 | 
-83 | Server state via TanStack Query + server functions. Type-safe fetching and mutations.
-84 | 
-85 | ## Query Pattern
-86 | 
-87 | Define in `lib/{resource}/queries.ts` using `queryOptions`:
-88 | 
-89 | ```typescript
-90 | export const todosQueryOptions = () =>
-91 |   queryOptions({
-92 |     queryKey: ['todos'],
-93 |     queryFn: async ({ signal }) => await getTodos({ signal }),
-94 |     staleTime: 1000 * 60 * 5,
-95 |     gcTime: 1000 * 60 * 10,
-96 |   });
-97 | ```
-98 | 
-99 | Use: `const { data, isLoading } = useQuery(todosQueryOptions())`. Prefer `useSuspenseQuery` with Suspense.
-100 | 
-101 | ## Server Functions in Queries
-102 | 
-103 | Call server functions directly in `queryFn`. No `useServerFn` hook. TanStack Start proxies. Pass `signal` for cancellation.
-104 | 
-105 | ## Mutation Pattern
-106 | 
-107 | ```typescript
-108 | const mutation = useMutation({
-109 |   mutationFn: async (text: string) => await createTodo({ data: { text } }),
-110 |   onSuccess: () => {
-111 |     queryClient.invalidateQueries({ queryKey: todosQueryOptions().queryKey });
-112 |     toast.success('Success');
-113 |   },
-114 |   onError: (error) => toast.error(error.message || 'Failed'),
-115 | });
-116 | ```
-117 | 
-118 | Call via `mutation.mutate(data)` or `mutateAsync` for promises.
-119 | 
-120 | ## Query Invalidation
-121 | 
-122 | After mutations: `queryClient.invalidateQueries({ queryKey: ... })`. Use specific keys, not broad.
-123 | 
-124 | ## Mutation States
-125 | 
-126 | Access: `isPending`, `isError`, `isSuccess`, `error`, `data`. Disable UI during `isPending`.
-127 | 
-128 | ## Error Handling
-129 | 
-130 | Handle in `onError`. Toast messages. Access: `error.message || 'Default'`.
-131 | 
-132 | ## Query Keys
-133 | 
-134 | Hierarchical: `['todos']`, `['todo', id]`, `['todos', 'completed']`. Include all affecting variables.
-135 | 
-136 | ## Stale Time vs GC Time
-137 | 
-138 | `staleTime`: freshness duration (no refetch). Default 0. Set for stable data.
-139 | `gcTime`: unused cache duration (was `cacheTime`). Default 5min. Memory management.
-140 | 
-141 | ## Infinite Queries
-142 | 
-143 | `useInfiniteQuery` for pagination. Required: `initialPageParam`, `getNextPageParam`, `fetchNextPage`. Access `data.pages`. Check `hasNextPage` before fetching.
-144 | 
-145 | ## Optimistic Updates
-146 | 
-147 | `onMutate` for optimistic updates. Rollback in `onError`. Update cache via `queryClient.setQueryData`.
-148 | 
-149 | ## Best Practices
-150 | 
-151 | 1. Queries in `lib/{resource}/queries.ts` with `queryOptions`
-152 | 2. Call server functions directly (no `useServerFn` in callbacks)
-153 | 3. Invalidate after mutations
-154 | 4. Toast for feedback
-155 | 5. Handle loading/error states
-156 | 6. Use TypeScript types from query options
-157 | 7. Set `staleTime`/`gcTime` appropriately
-158 | 8. Prefer `useSuspenseQuery` with Suspense
-```
-
 src/routes/(site)/docs.tsx
 ```
 1 | import { createFileRoute } from '@tanstack/react-router'
@@ -4299,65 +4370,6 @@ src/routes/(site)/route.tsx
 18 | }
 ```
 
-src/lib/todos/queries.ts
-```
-1 | import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-2 | import { getTodos, createTodo, toggleTodo, deleteTodo } from '~/server/function/todos';
-3 | import { toast } from 'sonner';
-4 | 
-5 | export type Todo = { id: string; text: string; completed: boolean };
-6 | 
-7 | export const todosQueries = {
-8 |   list: () =>
-9 |     queryOptions({
-10 |       queryKey: ['todos'],
-11 |       queryFn: async ({ signal }) => await getTodos({ signal }),
-12 |       staleTime: 1000 * 60 * 5,
-13 |     }),
-14 | };
-15 | 
-16 | export function useCreateTodoMutation() {
-17 |   const queryClient = useQueryClient();
-18 |   return useMutation({
-19 |     mutationFn: async (text: string) => await createTodo({ data: { text } }),
-20 |     onSuccess: () => {
-21 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
-22 |       toast.success('Todo created successfully!');
-23 |     },
-24 |     onError: (error) => {
-25 |       toast.error(error.message || 'Failed to create todo');
-26 |     },
-27 |   });
-28 | }
-29 | 
-30 | export function useToggleTodoMutation() {
-31 |   const queryClient = useQueryClient();
-32 |   return useMutation({
-33 |     mutationFn: async (id: string) => await toggleTodo({ data: { id } }),
-34 |     onSuccess: () => {
-35 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
-36 |     },
-37 |     onError: (error) => {
-38 |       toast.error(error.message || 'Failed to toggle todo');
-39 |     },
-40 |   });
-41 | }
-42 | 
-43 | export function useDeleteTodoMutation() {
-44 |   const queryClient = useQueryClient();
-45 |   return useMutation({
-46 |     mutationFn: async (id: string) => await deleteTodo({ data: { id } }),
-47 |     onSuccess: () => {
-48 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
-49 |       toast.success('Todo deleted successfully!');
-50 |     },
-51 |     onError: (error) => {
-52 |       toast.error(error.message || 'Failed to delete todo');
-53 |     },
-54 |   });
-55 | }
-```
-
 src/lib/viewer-types/events.ts
 ```
 1 | import type { FilePath, ISO8601String, Id } from "./primitives"
@@ -4543,51 +4555,6 @@ src/lib/viewer-types/session.ts
 50 | 
 ```
 
-src/routes/api/test.ts
-```
-1 | import { createFileRoute } from '@tanstack/react-router';
-2 | import { json } from '@tanstack/react-start';
-3 | 
-4 | export const Route = createFileRoute('/api/test')({
-5 |   server: {
-6 |     handlers: {
-7 |       GET: async ({ request }) => {
-8 |         return json({
-9 |           message: 'Hello from GET!',
-10 |           method: 'GET',
-11 |           timestamp: new Date().toISOString(),
-12 |           url: request.url,
-13 |         });
-14 |       },
-15 |       POST: async ({ request }) => {
-16 |         const body = await request.json().catch(() => ({}));
-17 | 
-18 |         return json(
-19 |           {
-20 |             message: 'Hello from POST!',
-21 |             method: 'POST',
-22 |             received: body,
-23 |             timestamp: new Date().toISOString(),
-24 |           },
-25 |           {
-26 |             status: 201,
-27 |           }
-28 |         );
-29 |       },
-30 |     },
-31 |   },
-32 | });
-```
-
-src/db/schema/CLAUDE.md
-```
-1 | 
-2 | 
-3 | <!-- Source: .ruler/db.schema.md -->
-4 | 
-5 | - Schema files have always this naming pattern `<name>.schema.ts`
-```
-
 src/routes/.ruler/tanstack-server-routes.md
 ```
 1 | # Server Routes — TanStack Start
@@ -4625,6 +4592,160 @@ src/routes/.ruler/tanstack-server-routes.md
 33 |   }
 34 | })
 35 | ```
+```
+
+src/routes/api/test.ts
+```
+1 | import { createFileRoute } from '@tanstack/react-router';
+2 | import { json } from '@tanstack/react-start';
+3 | 
+4 | export const Route = createFileRoute('/api/test')({
+5 |   server: {
+6 |     handlers: {
+7 |       GET: async ({ request }) => {
+8 |         return json({
+9 |           message: 'Hello from GET!',
+10 |           method: 'GET',
+11 |           timestamp: new Date().toISOString(),
+12 |           url: request.url,
+13 |         });
+14 |       },
+15 |       POST: async ({ request }) => {
+16 |         const body = await request.json().catch(() => ({}));
+17 | 
+18 |         return json(
+19 |           {
+20 |             message: 'Hello from POST!',
+21 |             method: 'POST',
+22 |             received: body,
+23 |             timestamp: new Date().toISOString(),
+24 |           },
+25 |           {
+26 |             status: 201,
+27 |           }
+28 |         );
+29 |       },
+30 |     },
+31 |   },
+32 | });
+```
+
+src/server/function/CLAUDE.md
+```
+1 | 
+2 | 
+3 | <!-- Source: .ruler/tanstack-server-fn.md -->
+4 | 
+5 | # TanStack Server Functions
+6 | 
+7 | Server-only logic callable anywhere (loaders, hooks, components, routes, client). File top level. No stable public URL. Access request context, headers/cookies, env secrets. Return primitives/JSON/Response, throw redirect/notFound. Framework-agnostic HTTP, no serial bottlenecks.
+8 | 
+9 | How it works: Server bundle executes. Client strips and proxies via fetch. RPC but isomorphic. Middleware supported.
+10 | 
+11 | Import: import { createServerFn } from '@tanstack/react-start'
+12 | 
+13 | Define: createServerFn({ method: 'GET'|'POST' }).handler(...). Callable from server/client/other server functions. RC1: response modes removed; return Response object for custom behavior.
+14 | 
+15 | Params: single param may be primitive, Array, Object, FormData, ReadableStream, Promise. Typical { data, signal? }.
+16 | 
+17 | Validation: .inputValidator enforces runtime input, drives types. Works with Zod. Transformed output → ctx.data. Identity validator for typed I/O without checks. Use .inputValidator() not deprecated .validator().
+18 | 
+19 | JSON/FormData: supports JSON. FormData requires encType="multipart/form-data".
+20 | 
+21 | Context (from @tanstack/react-start/server, h3): RC1 renames: getWebRequest→getRequest, getHeaders→getRequestHeaders, getHeader→getRequestHeader, setHeaders→setResponseHeaders, setHeader→setResponseHeader, parseCookies→getCookies. Available: getRequest, getRequestHeaders|getRequestHeader, setResponseHeader, setResponseStatus, getCookies, sessions, multipart, custom context.
+22 | 
+23 | Returns: primitives/JSON, redirect/notFound, or Response. Return Response directly for custom.
+24 | 
+25 | Errors: thrown errors → 500 JSON; catch as needed.
+26 | 
+27 | Cancellation: AbortSignal supported. Server notified on disconnect.
+28 | 
+29 | Integration: route lifecycles auto-handle redirect/notFound. Components use useServerFn. Elsewhere handle manually.
+30 | 
+31 | Redirects: use redirect from @tanstack/react-router with to|href, status, headers, path/search/hash/params. SSR: 302. Client auto-handles. Don't use sendRedirect.
+32 | 
+33 | Not Found: use notFound() for router 404 in lifecycles.
+34 | 
+35 | No-JS: execute via HTML form with serverFn.url. Pass args via inputs. Use encType for multipart. Cannot read return value; redirect or reload via loader.
+36 | 
+37 | Static functions: use staticFunctionMiddleware from @tanstack/start-static-server-functions. Must be final middleware. Caches build-time as static JSON (key: function ID+params hash). Used in prerender/hydration. Client fetches static JSON. Default cache: fs+fetch. Override: createServerFnStaticCache + setServerFnStaticCache.
+38 | 
+39 | Example:
+40 | ```typescript
+41 | import { createServerFn } from '@tanstack/react-start'
+42 | import { staticFunctionMiddleware } from '@tanstack/start-static-server-functions'
+43 | 
+44 | const myServerFn = createServerFn({ method: 'GET' })
+45 |   .middleware([staticFunctionMiddleware])
+46 |   .handler(async () => 'Hello, world!')
+47 | ```
+48 | 
+49 | Compilation: injects use server if missing. Client extracts to server bundle, proxies. Server runs as-is. Dead-code elimination.
+50 | 
+51 | Notes: inspired by tRPC. Always invoke normalizeInput(schema, preprocess?) inside handler. Don't rely on .validator(). When writing preprocess, unwrap wrappers ({ data: ... }, SuperJSON $values, stringified arrays) so validation runs on real payload.
+```
+
+src/server/function/todos.ts
+```
+1 | import { createServerFn } from '@tanstack/react-start';
+2 | import { z } from 'zod';
+3 | 
+4 | // Simple in-memory store for demo (in production, use a database)
+5 | const todos: Array<{ id: string; text: string; completed: boolean }> = [];
+6 | 
+7 | const todoSchema = z.object({
+8 |   text: z.string().min(1, 'Todo text is required'),
+9 | });
+10 | 
+11 | export const getTodos = createServerFn({ method: 'GET' }).handler(async () => {
+12 |   return todos;
+13 | });
+14 | 
+15 | export const createTodo = createServerFn({ method: 'POST' })
+16 |   .inputValidator((data: unknown) => {
+17 |     return todoSchema.parse(data);
+18 |   })
+19 |   .handler(async ({ data }) => {
+20 |     const newTodo = {
+21 |       id: crypto.randomUUID(),
+22 |       text: data.text,
+23 |       completed: false,
+24 |     };
+25 |     todos.push(newTodo);
+26 |     return newTodo;
+27 |   });
+28 | 
+29 | export const toggleTodo = createServerFn({ method: 'POST' })
+30 |   .inputValidator((data: unknown) => {
+31 |     return z.object({ id: z.string() }).parse(data);
+32 |   })
+33 |   .handler(async ({ data }) => {
+34 |     const todo = todos.find((t) => t.id === data.id);
+35 |     if (todo) {
+36 |       todo.completed = !todo.completed;
+37 |       return todo;
+38 |     }
+39 |     throw new Error('Todo not found');
+40 |   });
+41 | 
+42 | export const deleteTodo = createServerFn({ method: 'POST' })
+43 |   .inputValidator((data: unknown) => {
+44 |     return z.object({ id: z.string() }).parse(data);
+45 |   })
+46 |   .handler(async ({ data }) => {
+47 |     const index = todos.findIndex((t) => t.id === data.id);
+48 |     if (index !== -1) {
+49 |       todos.splice(index, 1);
+50 |       return { success: true };
+51 |     }
+52 |     throw new Error('Todo not found');
+53 |   });
+```
+
+src/db/schema/.ruler/db.schema.md
+```
+1 | - Schema files have always this naming pattern `<name>.schema.ts`
+2 | 
 ```
 
 src/routes/(site)/viewer/index.tsx
@@ -4835,118 +4956,6 @@ src/routes/(site)/viewer/index.tsx
 204 | }
 ```
 
-src/server/function/CLAUDE.md
-```
-1 | 
-2 | 
-3 | <!-- Source: .ruler/tanstack-server-fn.md -->
-4 | 
-5 | # TanStack Server Functions
-6 | 
-7 | Server-only logic callable anywhere (loaders, hooks, components, routes, client). File top level. No stable public URL. Access request context, headers/cookies, env secrets. Return primitives/JSON/Response, throw redirect/notFound. Framework-agnostic HTTP, no serial bottlenecks.
-8 | 
-9 | How it works: Server bundle executes. Client strips and proxies via fetch. RPC but isomorphic. Middleware supported.
-10 | 
-11 | Import: import { createServerFn } from '@tanstack/react-start'
-12 | 
-13 | Define: createServerFn({ method: 'GET'|'POST' }).handler(...). Callable from server/client/other server functions. RC1: response modes removed; return Response object for custom behavior.
-14 | 
-15 | Params: single param may be primitive, Array, Object, FormData, ReadableStream, Promise. Typical { data, signal? }.
-16 | 
-17 | Validation: .inputValidator enforces runtime input, drives types. Works with Zod. Transformed output → ctx.data. Identity validator for typed I/O without checks. Use .inputValidator() not deprecated .validator().
-18 | 
-19 | JSON/FormData: supports JSON. FormData requires encType="multipart/form-data".
-20 | 
-21 | Context (from @tanstack/react-start/server, h3): RC1 renames: getWebRequest→getRequest, getHeaders→getRequestHeaders, getHeader→getRequestHeader, setHeaders→setResponseHeaders, setHeader→setResponseHeader, parseCookies→getCookies. Available: getRequest, getRequestHeaders|getRequestHeader, setResponseHeader, setResponseStatus, getCookies, sessions, multipart, custom context.
-22 | 
-23 | Returns: primitives/JSON, redirect/notFound, or Response. Return Response directly for custom.
-24 | 
-25 | Errors: thrown errors → 500 JSON; catch as needed.
-26 | 
-27 | Cancellation: AbortSignal supported. Server notified on disconnect.
-28 | 
-29 | Integration: route lifecycles auto-handle redirect/notFound. Components use useServerFn. Elsewhere handle manually.
-30 | 
-31 | Redirects: use redirect from @tanstack/react-router with to|href, status, headers, path/search/hash/params. SSR: 302. Client auto-handles. Don't use sendRedirect.
-32 | 
-33 | Not Found: use notFound() for router 404 in lifecycles.
-34 | 
-35 | No-JS: execute via HTML form with serverFn.url. Pass args via inputs. Use encType for multipart. Cannot read return value; redirect or reload via loader.
-36 | 
-37 | Static functions: use staticFunctionMiddleware from @tanstack/start-static-server-functions. Must be final middleware. Caches build-time as static JSON (key: function ID+params hash). Used in prerender/hydration. Client fetches static JSON. Default cache: fs+fetch. Override: createServerFnStaticCache + setServerFnStaticCache.
-38 | 
-39 | Example:
-40 | ```typescript
-41 | import { createServerFn } from '@tanstack/react-start'
-42 | import { staticFunctionMiddleware } from '@tanstack/start-static-server-functions'
-43 | 
-44 | const myServerFn = createServerFn({ method: 'GET' })
-45 |   .middleware([staticFunctionMiddleware])
-46 |   .handler(async () => 'Hello, world!')
-47 | ```
-48 | 
-49 | Compilation: injects use server if missing. Client extracts to server bundle, proxies. Server runs as-is. Dead-code elimination.
-50 | 
-51 | Notes: inspired by tRPC. Always invoke normalizeInput(schema, preprocess?) inside handler. Don't rely on .validator(). When writing preprocess, unwrap wrappers ({ data: ... }, SuperJSON $values, stringified arrays) so validation runs on real payload.
-```
-
-src/server/function/todos.ts
-```
-1 | import { createServerFn } from '@tanstack/react-start';
-2 | import { z } from 'zod';
-3 | 
-4 | // Simple in-memory store for demo (in production, use a database)
-5 | const todos: Array<{ id: string; text: string; completed: boolean }> = [];
-6 | 
-7 | const todoSchema = z.object({
-8 |   text: z.string().min(1, 'Todo text is required'),
-9 | });
-10 | 
-11 | export const getTodos = createServerFn({ method: 'GET' }).handler(async () => {
-12 |   return todos;
-13 | });
-14 | 
-15 | export const createTodo = createServerFn({ method: 'POST' })
-16 |   .inputValidator((data: unknown) => {
-17 |     return todoSchema.parse(data);
-18 |   })
-19 |   .handler(async ({ data }) => {
-20 |     const newTodo = {
-21 |       id: crypto.randomUUID(),
-22 |       text: data.text,
-23 |       completed: false,
-24 |     };
-25 |     todos.push(newTodo);
-26 |     return newTodo;
-27 |   });
-28 | 
-29 | export const toggleTodo = createServerFn({ method: 'POST' })
-30 |   .inputValidator((data: unknown) => {
-31 |     return z.object({ id: z.string() }).parse(data);
-32 |   })
-33 |   .handler(async ({ data }) => {
-34 |     const todo = todos.find((t) => t.id === data.id);
-35 |     if (todo) {
-36 |       todo.completed = !todo.completed;
-37 |       return todo;
-38 |     }
-39 |     throw new Error('Todo not found');
-40 |   });
-41 | 
-42 | export const deleteTodo = createServerFn({ method: 'POST' })
-43 |   .inputValidator((data: unknown) => {
-44 |     return z.object({ id: z.string() }).parse(data);
-45 |   })
-46 |   .handler(async ({ data }) => {
-47 |     const index = todos.findIndex((t) => t.id === data.id);
-48 |     if (index !== -1) {
-49 |       todos.splice(index, 1);
-50 |       return { success: true };
-51 |     }
-52 |     throw new Error('Todo not found');
-53 |   });
-```
-
 src/routes/.cursor/rules/ruler_cursor_instructions.mdc
 ```
 1 | ---
@@ -4989,12 +4998,6 @@ src/routes/.cursor/rules/ruler_cursor_instructions.mdc
 38 |   }
 39 | })
 40 | ```
-```
-
-src/db/schema/.ruler/db.schema.md
-```
-1 | - Schema files have always this naming pattern `<name>.schema.ts`
-2 | 
 ```
 
 src/server/function/.ruler/tanstack-server-fn.md
