@@ -1,0 +1,26 @@
+{
+    "$schema": "https://ui.shadcn.com/schema.json",
+    "style": "new-york",
+    "rsc": false,
+    "tsx": true,
+    "tailwind": {
+        "config": "",
+        "css": "src/app/styles/app.css",
+        "baseColor": "neutral",
+        "cssVariables": true,
+        "prefix": ""
+    },
+    "aliases": {
+        "components": "~/components",
+        "utils": "~/lib/utils",
+        "ui": "~/components/ui",
+        "lib": "~/lib",
+        "hooks": "~/hooks"
+    },
+  "registries": {
+    "@scrollxui": "https://www.scrollxui.dev/registry/{name}.json",
+    "@magicui": "https://magicui.design/r/{name}",
+    "@paceui": "https://ui.paceui.com/r/{name}.json"
+  },
+    "iconLibrary": "lucide"
+}
