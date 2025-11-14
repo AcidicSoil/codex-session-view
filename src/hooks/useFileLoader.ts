@@ -81,6 +81,7 @@ function reducer(state: State, action: Action): State {
 export function useFileLoader() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [persist, setPersist] = useState<boolean>(true);
+  const [hydrated, setHydrated] = useState(false);
 
   const start = useCallback(
     async (file: File) => {
@@ -141,6 +142,7 @@ export function useFileLoader() {
         dispatch({ type: 'hydrate', snapshot });
       }
     } catch {}
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
@@ -182,7 +184,7 @@ export function useFileLoader() {
     } catch {}
   }, [state.meta, state.events, state.phase, persist]);
 
-  return { state, progress, start, reset, persist, setPersist };
+  return { state, progress, start, reset, persist, setPersist, hydrated };
 }
 
 export type FileLoaderHook = ReturnType<typeof useFileLoader>;

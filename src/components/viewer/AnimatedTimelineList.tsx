@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { motion } from 'motion/react'
 import { BorderBeam } from '~/components/ui/border-beam'
 import {
   Snippet,
@@ -37,6 +38,7 @@ const SNIPPET_LENGTH = 100
 export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [scrollTarget, setScrollTarget] = useState<number | null>(null)
+  const [gradients, setGradients] = useState({ top: 0, bottom: 0 })
   const items = useMemo<{ event: TimelineEvent; index: number; key: string }[]>(
     () =>
       events.map((event, index) => ({
@@ -57,15 +59,28 @@ export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTi
     return () => cancelAnimationFrame(id)
   }, [scrollTarget])
 
+  const handleScrollChange = ({ scrollTop, totalHeight, height }: { scrollTop: number; totalHeight: number; height: number }) => {
+    const top = Math.min(scrollTop / 80, 1)
+    const bottomDistance = totalHeight - (scrollTop + height)
+    const bottom = totalHeight <= height ? 0 : Math.min(bottomDistance / 80, 1)
+    setGradients({ top, bottom })
+  }
+
   return (
-    <div className={className}>
+    <div className={`relative ${className ?? ''}`}>
       <TimelineView
         items={items}
         height={840}
         estimateItemHeight={160}
         keyForIndex={(item) => item.key}
         renderItem={(item) => (
-          <div className="px-1 pb-4">
+          <motion.div
+            className="px-1 pb-4"
+            initial={{ opacity: 0.6, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
             {renderTimelineItem(item.event, item.index, expandedIndex === item.index, () => {
               setExpandedIndex((prev) => {
                 const next = prev === item.index ? null : item.index
@@ -76,9 +91,18 @@ export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTi
               })
               onSelect?.(item.event, item.index)
             })}
-          </div>
+          </motion.div>
         )}
         scrollToIndex={scrollTarget}
+        onScrollChange={handleScrollChange}
+      />
+      <div
+        className="pointer-events-none absolute inset-x-2 top-0 h-16 bg-gradient-to-b from-background to-transparent transition-opacity"
+        style={{ opacity: gradients.top }}
+      />
+      <div
+        className="pointer-events-none absolute inset-x-2 bottom-0 h-24 bg-gradient-to-t from-background to-transparent transition-opacity"
+        style={{ opacity: gradients.bottom }}
       />
     </div>
   )
