@@ -1,0 +1,5 @@
+
+
+<!-- Source: .ruler/db.schema.md -->
+
+- Schema files have always this naming pattern `<name>.schema.ts`

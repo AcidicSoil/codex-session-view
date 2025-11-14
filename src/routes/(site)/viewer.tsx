@@ -83,8 +83,7 @@ function ViewerRouteComponent() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Codex Session Viewer</p>
                 <h1 className="text-3xl font-bold tracking-tight">Workspace Discovery</h1>
                 <p className="text-muted-foreground">
-                    This is the first slice of the migration: project files and session logs are fetched in the route loader so hydration never
-                    flashes loading spinners. Drop in a session to stream its timeline, then iterate with the chat dock.
+                    Drop in a session to stream its timeline, then iterate with the chat dock.
                 </p>
             </section>
 
@@ -102,7 +101,7 @@ function ViewerRouteComponent() {
                         <div className="flex flex-col gap-4 rounded-xl border bg-card/70 p-5">
                             <div className="space-y-2">
                                 <p className="text-sm font-semibold">Session controls</p>
-                                <p className="text-xs text-muted-foreground">Upload a .jsonl/.ndjson session log to hydrate the timeline.</p>
+                                <p className="text-xs text-muted-foreground">Upload a .jsonl/.ndjson session log.</p>
                             </div>
                             <FileInputButton onFile={handleFile} disabled={loader.state.phase === "parsing"} />
                             <dl className="space-y-2 text-sm">

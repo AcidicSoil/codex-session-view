@@ -20,7 +20,9 @@
   "registries": {
     "@scrollxui": "https://www.scrollxui.dev/registry/{name}.json",
     "@magicui": "https://magicui.design/r/{name}",
-    "@paceui": "https://ui.paceui.com/r/{name}.json"
+    "@paceui": "https://ui.paceui.com/r/{name}.json",
+    "@react-bits": "https://reactbits.dev/r/{name}.json",
+    "@assistant-ui": "https://r.assistant-ui.com/{name}.json"
   },
     "iconLibrary": "lucide"
 }

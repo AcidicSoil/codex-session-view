@@ -1,54 +1,18 @@
-You are a senior developer. You produce optimized, maintainable code that follows best practices. 
-
-Your task is to review the current codebase and fix the current issues.
-
-Current Issue:
-<issue>
-{{MESSAGE}}
-</issue>
-
-Rules:
-- Keep your suggestions concise and focused. Avoid unnecessary explanations or fluff. 
-- Your output should be a series of specific, actionable changes.
-
-When approaching this task:
-1. Carefully review the provided code.
-2. Identify the area thats raising this issue or error and provide a fix.
-3. Consider best practices for the specific programming language used.
-
-For each suggested change, provide:
-1. A short description of the change (one line maximum).
-2. The modified code block.
-
-Use the following format for your output:
-
-[Short Description]
-```[language]:[path/to/file]
-[code block]
-```
-
-Begin fixing the codebase provide your solutions.
-
-My current codebase:
-<current_codebase>
 Project Structure:
 ├── AGENTS.md
+├── AGENTS.md.bak
 ├── CHANGELOG.md
 ├── CLAUDE.md
 ├── CLAUDE.md.bak
 ├── LICENSE
 ├── README.md
 ├── codefetch
-│   ├── instructa-starter-min.md
-│   ├── prompts
-│   │   └── default.md
 │   ├── routes.md
 │   └── src.md
-├── codefetch.config.mjs
+├── components-TODO.md
 ├── components.json
 ├── docs
 │   ├── avoid-useEffect-summary.md
-│   ├── migration-plan.md
 │   └── tanstack-rc1-upgrade-guide.md
 ├── package.json
 ├── pnpm-lock.yaml
@@ -82,6 +46,7 @@ Project Structure:
 │   │   │   └── textarea.tsx
 │   │   └── viewer
 │   │       ├── ChatDock.tsx
+│   │       ├── DiscoveryPanel.test.tsx
 │   │       ├── DiscoveryPanel.tsx
 │   │       ├── DropZone.tsx
 │   │       ├── EventCard.tsx
@@ -110,6 +75,12 @@ Project Structure:
 │   │   ├── todos
 │   │   │   └── queries.ts
 │   │   ├── utils.ts
+│   │   ├── viewer-types
+│   │   │   ├── events.ts
+│   │   │   ├── git.ts
+│   │   │   ├── index.ts
+│   │   │   ├── primitives.ts
+│   │   │   └── session.ts
 │   │   └── viewerDiscovery.ts
 │   ├── routeTree.gen.ts
 │   ├── router.tsx
@@ -118,6 +89,8 @@ Project Structure:
 │   │   │   ├── docs.tsx
 │   │   │   ├── index.tsx
 │   │   │   ├── route.tsx
+│   │   │   ├── viewer
+│   │   │   │   └── index.tsx
 │   │   │   └── viewer.tsx
 │   │   ├── AGENTS.md
 │   │   ├── CLAUDE.md
@@ -137,12 +110,7 @@ Project Structure:
 │   │   └── custom.css
 │   ├── tanstack-start.d.ts
 │   ├── types
-│   │   ├── browser-echo.d.ts
-│   │   ├── events.ts
-│   │   ├── git.ts
-│   │   ├── index.ts
-│   │   ├── primitives.ts
-│   │   └── session.ts
+│   │   └── browser-echo.d.ts
 │   └── utils
 │       ├── event-key.ts
 │       ├── id-generator.ts
@@ -156,6 +124,167 @@ Project Structure:
 ├── vite.config.ts
 └── vitest.config.ts
 
+
+src/CLAUDE.md
+```
+1 | 
+2 | 
+3 | <!-- Source: .ruler/tanstack-environment-server-client-only-rules.md -->
+4 | 
+5 | # ClientOnly
+6 | 
+7 | Client-only render to avoid SSR hydration issues. Import from `@tanstack/react-router`:
+8 | 
+9 | ```typescript
+10 | import { ClientOnly } from '@tanstack/react-router';
+11 | 
+12 | <ClientOnly fallback={<span>—</span>}>
+13 |   <ComponentThatUsesClientHooks />
+14 | </ClientOnly>
+15 | ```
+16 | 
+17 | Alternative: Custom implementation using mounted pattern if needed (see hydration errors below).
+18 | 
+19 | # Environment functions
+20 | 
+21 | From `@tanstack/react-start`:
+22 | 
+23 | ## createIsomorphicFn
+24 | 
+25 | Adapts to client/server:
+26 | 
+27 | ```typescript
+28 | import { createIsomorphicFn } from '@tanstack/react-start';
+29 | const getEnv = createIsomorphicFn()
+30 |   .server(() => 'server')
+31 |   .client(() => 'client');
+32 | getEnv(); // 'server' on server, 'client' on client
+33 | ```
+34 | 
+35 | Partial: `.server()` no-op on client, `.client()` no-op on server.
+36 | 
+37 | ## createServerOnlyFn / createClientOnlyFn
+38 | 
+39 | RC1: `serverOnly` → `createServerOnlyFn`, `clientOnly` → `createClientOnlyFn`
+40 | 
+41 | Strict environment execution (throws if called wrong env):
+42 | 
+43 | ```typescript
+44 | import { createServerOnlyFn, createClientOnlyFn } from '@tanstack/react-start';
+45 | const serverFn = createServerOnlyFn(() => 'bar'); // throws on client
+46 | const clientFn = createClientOnlyFn(() => 'bar'); // throws on server
+47 | ```
+48 | 
+49 | Tree-shaken: client code removed from server bundle, server code removed from client bundle.
+50 | 
+51 | # Hydration errors
+52 | 
+53 | Mismatch: Server HTML differs from client render. Common causes: Intl (locale/timezone), Date.now(), random IDs, responsive logic, feature flags, user prefs.
+54 | 
+55 | Strategies:
+56 | 1. Make server and client match: deterministic locale/timezone on server (cookie or Accept-Language header), compute once and hydrate as initial state.
+57 | 2. Let client tell environment: set cookie with client timezone on first visit, SSR uses UTC until then.
+58 | 3. Make it client-only: wrap unstable UI in `<ClientOnly>` to avoid SSR mismatches.
+59 | 4. Disable/limit SSR: use selective SSR (`ssr: 'data-only'` or `false`) when server HTML cannot be stable.
+60 | 5. Last resort: React's `suppressHydrationWarning` for small known-different nodes (use sparingly).
+61 | 
+62 | Checklist: Deterministic inputs (locale, timezone, feature flags). Prefer cookies for client context. Use `<ClientOnly>` for dynamic UI. Use selective SSR when server HTML unstable. Avoid blind suppression.
+63 | 
+64 | # TanStack Start basics
+65 | 
+66 | Depends: @tanstack/react-router, Vite. Router: getRouter() (was createRouter() in beta). routeTree.gen.ts auto-generated on first dev run. Optional: server handler via @tanstack/react-start/server; client hydrate via StartClient from @tanstack/react-start/client. RC1: Import StartClient from @tanstack/react-start/client (not @tanstack/react-start). StartClient no longer requires router prop. Root route head: utf-8, viewport, title; component wraps Outlet in RootDocument. Routes: createFileRoute() code-split + lazy-load; loader runs server/client. Navigation: Link (typed), useNavigate (imperative), useRouter (instance).
+67 | 
+68 | # Server functions
+69 | 
+70 | createServerFn({ method }) + zod .inputValidator + .handler(ctx). After mutations: router.invalidate(); queryClient.invalidateQueries(['entity', id]).
+71 | 
+72 | # Typed Links
+73 | 
+74 | Link to="/posts/$postId" with params; activeProps for styling.
+75 | 
+76 | 
+77 | 
+78 | <!-- Source: .ruler/tanstack-query-rules.md -->
+79 | 
+80 | # TanStack Query Rules
+81 | 
+82 | Server state via TanStack Query + server functions. Type-safe fetching and mutations.
+83 | 
+84 | ## Query Pattern
+85 | 
+86 | Define in `lib/{resource}/queries.ts` using `queryOptions`:
+87 | 
+88 | ```typescript
+89 | export const todosQueryOptions = () =>
+90 |   queryOptions({
+91 |     queryKey: ['todos'],
+92 |     queryFn: async ({ signal }) => await getTodos({ signal }),
+93 |     staleTime: 1000 * 60 * 5,
+94 |     gcTime: 1000 * 60 * 10,
+95 |   });
+96 | ```
+97 | 
+98 | Use: `const { data, isLoading } = useQuery(todosQueryOptions())`. Prefer `useSuspenseQuery` with Suspense.
+99 | 
+100 | ## Server Functions in Queries
+101 | 
+102 | Call server functions directly in `queryFn`. No `useServerFn` hook. TanStack Start proxies. Pass `signal` for cancellation.
+103 | 
+104 | ## Mutation Pattern
+105 | 
+106 | ```typescript
+107 | const mutation = useMutation({
+108 |   mutationFn: async (text: string) => await createTodo({ data: { text } }),
+109 |   onSuccess: () => {
+110 |     queryClient.invalidateQueries({ queryKey: todosQueryOptions().queryKey });
+111 |     toast.success('Success');
+112 |   },
+113 |   onError: (error) => toast.error(error.message || 'Failed'),
+114 | });
+115 | ```
+116 | 
+117 | Call via `mutation.mutate(data)` or `mutateAsync` for promises.
+118 | 
+119 | ## Query Invalidation
+120 | 
+121 | After mutations: `queryClient.invalidateQueries({ queryKey: ... })`. Use specific keys, not broad.
+122 | 
+123 | ## Mutation States
+124 | 
+125 | Access: `isPending`, `isError`, `isSuccess`, `error`, `data`. Disable UI during `isPending`.
+126 | 
+127 | ## Error Handling
+128 | 
+129 | Handle in `onError`. Toast messages. Access: `error.message || 'Default'`.
+130 | 
+131 | ## Query Keys
+132 | 
+133 | Hierarchical: `['todos']`, `['todo', id]`, `['todos', 'completed']`. Include all affecting variables.
+134 | 
+135 | ## Stale Time vs GC Time
+136 | 
+137 | `staleTime`: freshness duration (no refetch). Default 0. Set for stable data.
+138 | `gcTime`: unused cache duration (was `cacheTime`). Default 5min. Memory management.
+139 | 
+140 | ## Infinite Queries
+141 | 
+142 | `useInfiniteQuery` for pagination. Required: `initialPageParam`, `getNextPageParam`, `fetchNextPage`. Access `data.pages`. Check `hasNextPage` before fetching.
+143 | 
+144 | ## Optimistic Updates
+145 | 
+146 | `onMutate` for optimistic updates. Rollback in `onError`. Update cache via `queryClient.setQueryData`.
+147 | 
+148 | ## Best Practices
+149 | 
+150 | 1. Queries in `lib/{resource}/queries.ts` with `queryOptions`
+151 | 2. Call server functions directly (no `useServerFn` in callbacks)
+152 | 3. Invalidate after mutations
+153 | 4. Toast for feedback
+154 | 5. Handle loading/error states
+155 | 6. Use TypeScript types from query options
+156 | 7. Set `staleTime`/`gcTime` appropriately
+157 | 8. Prefer `useSuspenseQuery` with Suspense
+```
 
 src/entry-client.tsx
 ```
@@ -745,99 +874,110 @@ src/env/server.ts
 
 src/hooks/useFileLoader.ts
 ```
-1 | import { useCallback, useMemo, useReducer } from "react"
-2 | import { streamParseSession, type ParserError } from "~/lib/session-parser"
-3 | import type { ResponseItemParsed, SessionMetaParsed } from "~/lib/session-parser"
+1 | import { useCallback, useMemo, useReducer } from 'react';
+2 | import { streamParseSession, type ParserError } from '~/lib/session-parser';
+3 | import type { ResponseItemParsed, SessionMetaParsed } from '~/lib/session-parser';
 4 | 
-5 | export type LoadPhase = "idle" | "parsing" | "error" | "success"
+5 | export type LoadPhase = 'idle' | 'parsing' | 'error' | 'success';
 6 | 
 7 | interface State {
-8 |     phase: LoadPhase
-9 |     meta?: SessionMetaParsed
-10 |     events: ResponseItemParsed[]
-11 |     ok: number
-12 |     fail: number
-13 |     lastError?: ParserError
+8 |   phase: LoadPhase;
+9 |   meta?: SessionMetaParsed;
+10 |   events: ResponseItemParsed[];
+11 |   ok: number;
+12 |   fail: number;
+13 |   lastError?: ParserError;
 14 | }
 15 | 
 16 | type Action =
-17 |     | { type: "reset" }
-18 |     | { type: "start" }
-19 |     | { type: "meta"; meta: SessionMetaParsed }
-20 |     | { type: "event"; event: ResponseItemParsed }
-21 |     | { type: "fail"; error: ParserError }
-22 |     | { type: "done" }
+17 |   | { type: 'reset' }
+18 |   | { type: 'start' }
+19 |   | { type: 'meta'; meta: SessionMetaParsed }
+20 |   | { type: 'event'; event: ResponseItemParsed }
+21 |   | { type: 'fail'; error: ParserError }
+22 |   | { type: 'done' };
 23 | 
 24 | const initialState: State = {
-25 |     phase: "idle",
-26 |     events: [],
-27 |     ok: 0,
-28 |     fail: 0
-29 | }
+25 |   phase: 'idle',
+26 |   events: [],
+27 |   ok: 0,
+28 |   fail: 0,
+29 | };
 30 | 
 31 | function reducer(state: State, action: Action): State {
-32 |     switch (action.type) {
-33 |         case "reset":
-34 |             return { ...initialState }
-35 |         case "start":
-36 |             return { ...initialState, phase: "parsing" }
-37 |         case "meta":
-38 |             return { ...state, meta: action.meta }
-39 |         case "event":
-40 |             return { ...state, ok: state.ok + 1, events: [...state.events, action.event] }
-41 |         case "fail":
-42 |             return { ...state, fail: state.fail + 1, lastError: action.error }
-43 |         case "done":
-44 |             return { ...state, phase: state.fail > 0 ? "error" : "success" }
-45 |         default:
-46 |             return state
-47 |     }
-48 | }
-49 | 
-50 | export function useFileLoader() {
-51 |     const [state, dispatch] = useReducer(reducer, initialState)
-52 | 
-53 |     const start = useCallback(
-54 |         async (file: File) => {
-55 |             dispatch({ type: "start" })
-56 |             try {
-57 |                 for await (const item of streamParseSession(file)) {
-58 |                     if (item.kind === "meta") {
-59 |                         dispatch({ type: "meta", meta: item.meta })
-60 |                     } else if (item.kind === "event") {
-61 |                         dispatch({ type: "event", event: item.event })
-62 |                     } else if (item.kind === "error") {
-63 |                         dispatch({ type: "fail", error: item.error })
-64 |                     }
-65 |                 }
-66 |                 dispatch({ type: "done" })
-67 |             } catch (error) {
-68 |                 dispatch({
-69 |                     type: "fail",
-70 |                     error: {
-71 |                         line: -1,
-72 |                         reason: "invalid_schema",
-73 |                         message: error instanceof Error ? error.message : "Unknown error",
-74 |                         raw: ""
-75 |                     }
-76 |                 })
-77 |                 dispatch({ type: "done" })
-78 |             }
-79 |         },
-80 |         [dispatch]
-81 |     )
-82 | 
-83 |     const reset = useCallback(() => dispatch({ type: "reset" }), [])
-84 | 
-85 |     const progress = useMemo(() => {
-86 |         const total = state.ok + state.fail
-87 |         return { ok: state.ok, fail: state.fail, total }
-88 |     }, [state.ok, state.fail])
-89 | 
-90 |     return { state, progress, start, reset }
-91 | }
-92 | 
-93 | export type FileLoaderHook = ReturnType<typeof useFileLoader>
+32 |   switch (action.type) {
+33 |     case 'reset':
+34 |       return { ...initialState };
+35 |     case 'start':
+36 |       return { ...initialState, phase: 'parsing' };
+37 |     case 'meta':
+38 |       return { ...state, meta: action.meta };
+39 |     case 'event':
+40 |       return {
+41 |         ...state,
+42 |         ok: state.ok + 1,
+43 |         events: [...state.events, action.event],
+44 |       };
+45 |     case 'fail':
+46 |       return {
+47 |         ...state,
+48 |         fail: state.fail + 1,
+49 |         lastError: action.error,
+50 |       };
+51 |     case 'done':
+52 |       return {
+53 |         ...state,
+54 |         phase: state.fail > 0 ? 'error' : 'success',
+55 |       };
+56 |     default:
+57 |       return state;
+58 |   }
+59 | }
+60 | 
+61 | export function useFileLoader() {
+62 |   const [state, dispatch] = useReducer(reducer, initialState);
+63 | 
+64 |   const start = useCallback(
+65 |     async (file: File) => {
+66 |       dispatch({ type: 'start' });
+67 |       try {
+68 |         for await (const item of streamParseSession(file)) {
+69 |           if (item.kind === 'meta') {
+70 |             dispatch({ type: 'meta', meta: item.meta });
+71 |           } else if (item.kind === 'event') {
+72 |             dispatch({ type: 'event', event: item.event });
+73 |           } else if (item.kind === 'error') {
+74 |             dispatch({ type: 'fail', error: item.error });
+75 |           }
+76 |         }
+77 |         dispatch({ type: 'done' });
+78 |       } catch (error) {
+79 |         dispatch({
+80 |           type: 'fail',
+81 |           error: {
+82 |             line: -1,
+83 |             reason: 'invalid_schema',
+84 |             message: error instanceof Error ? error.message : 'Unknown error',
+85 |             raw: '',
+86 |           },
+87 |         });
+88 |         dispatch({ type: 'done' });
+89 |       }
+90 |     },
+91 |     [dispatch]
+92 |   );
+93 | 
+94 |   const reset = useCallback(() => dispatch({ type: 'reset' }), []);
+95 | 
+96 |   const progress = useMemo(() => {
+97 |     const total = state.ok + state.fail;
+98 |     return { ok: state.ok, fail: state.fail, total };
+99 |   }, [state.ok, state.fail]);
+100 | 
+101 |   return { state, progress, start, reset };
+102 | }
+103 | 
+104 | export type FileLoaderHook = ReturnType<typeof useFileLoader>;
 ```
 
 src/hooks/useSessionStorage.ts
@@ -898,99 +1038,135 @@ src/lib/utils.ts
 src/lib/viewerDiscovery.ts
 ```
 1 | export interface DiscoveredSessionAsset {
-2 |     path: string
-3 |     url: string
-4 |     sortKey?: number
-5 |     tags?: readonly string[]
+2 |   path: string;
+3 |   url: string;
+4 |   sortKey?: number;
+5 |   tags?: readonly string[];
 6 | }
-7 | 
-8 | export interface ProjectDiscoverySnapshot {
-9 |     projectFiles: string[]
-10 |     sessionAssets: DiscoveredSessionAsset[]
-11 | }
-12 | 
-13 | function isIgnoredPath(path: string) {
-14 |     return /\/(?:__tests__|__mocks__)\//.test(path) || /\.(?:test|spec|stories)\.[a-z0-9]+$/i.test(path)
+7 | export interface ProjectDiscoverySnapshot {
+8 |   projectFiles: string[];
+9 |   sessionAssets: DiscoveredSessionAsset[];
+10 | }
+11 | function isIgnoredPath(path: string) {
+12 |   return (
+13 |     /\/(?:__tests__|__mocks__)\//.test(path) || /\.(?:test|spec|stories)\.[a-z0-9]+$/i.test(path)
+14 |   );
 15 | }
+16 | function normalizePaths(raw: string[]) {
+17 |   return Array.from(
+18 |     new Set(
+19 |       raw
+20 |         .filter((p) => /\.[a-z0-9]+$/i.test(p))
+21 |         .filter((p) => !p.endsWith('.map'))
+22 |         .filter((p) => !p.endsWith('.d.ts'))
+23 |         .filter((p) => !isIgnoredPath(p))
+24 |         .map((p) => p.replace(/^\//, ''))
+25 |     )
+26 |   ).sort();
+27 | }
+28 | function extractSortKeyFromPath(path: string) {
+29 |   const dateMatch = path.match(/(20\d{2})[-_]?(\d{2})[-_]?(\d{2})/);
+30 |   if (dateMatch) {
+31 |     const year = Number(dateMatch[1]);
+32 |     const month = Number(dateMatch[2]);
+33 |     const day = Number(dateMatch[3]);
+34 |     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+35 |       return Date.UTC(year, month - 1, day);
+36 |     }
+37 |   }
+38 |   const epochMatch = path.match(/(1\d{9}|2\d{9})/);
+39 |   if (epochMatch) {
+40 |     return Number(epochMatch[1]) * 1000;
+41 |   }
+42 |   return 0;
+43 | }
+44 | /**
+45 |  * Build-time discovery of project files and session assets.
+46 |  * Runs inside route loaders (rule: fetch on navigation vs. useEffect).
+47 |  */
+48 | export function discoverProjectAssets(): ProjectDiscoverySnapshot {
+49 |   const codeGlobs = import.meta.glob([
+50 |     '/src/**/*',
+51 |     '/scripts/**/*',
+52 |     '/public/**/*',
+53 |     '/package.json',
+54 |     '/tsconfig.json',
+55 |     '!/src/**/__tests__/**',
+56 |     '!/src/**/__mocks__/**',
+57 |     '!/src/**/*.test.{ts,tsx,js,jsx}',
+58 |     '!/src/**/*.spec.{ts,tsx,js,jsx}',
+59 |     '!/src/**/*.stories.{ts,tsx,js,jsx}',
+60 |   ]);
+61 |   const docAssets = import.meta.glob(['/README*', '/AGENTS.md'], {
+62 |     eager: true,
+63 |     query: '?url',
+64 |     import: 'default',
+65 |   }) as Record<string, string>;
+66 |   const projectFiles = normalizePaths([...Object.keys(codeGlobs), ...Object.keys(docAssets)]);
+67 |   const sessionMatches = import.meta.glob(
+68 |     [
+69 |       '/.codex/sessions/**/*.{jsonl,ndjson,json}',
+70 |       '/sessions/**/*.{jsonl,ndjson,json}',
+71 |       '/artifacts/sessions/**/*.{jsonl,ndjson,json}',
+72 |     ],
+73 |     {
+74 |       eager: true,
+75 |       query: '?url',
+76 |       import: 'default',
+77 |     }
+78 |   ) as Record<string, string>;
+79 |   const sessionAssets: DiscoveredSessionAsset[] = Object.entries(sessionMatches)
+80 |     .map(([path, url]) => ({
+81 |       path: path.replace(/^\//, ''),
+82 |       url,
+83 |       sortKey: extractSortKeyFromPath(path),
+84 |     }))
+85 |     .sort((a, b) => (b.sortKey ?? 0) - (a.sortKey ?? 0) || a.path.localeCompare(b.path));
+86 |   return { projectFiles, sessionAssets };
+87 | }
+```
+
+src/routes/CLAUDE.md
+```
+1 | 
+2 | 
+3 | <!-- Source: .ruler/tanstack-server-routes.md -->
+4 | 
+5 | # Server Routes — TanStack Start
+6 | 
+7 | Server HTTP endpoints for requests, forms, auth. Location: ./src/routes. Export Route to create API route. ServerRoute and Route can coexist in same file.
+8 | 
+9 | Routing mirrors TanStack Router: dynamic $id, splat $, escaped [.], nested dirs/dotted filenames map to paths. One handler per resolved path (duplicates error). Examples: users.ts → /users; users/$id.ts → /users/$id; api/file/$.ts → /api/file/$; my-script[.]js.ts → /my-script.js.
+10 | 
+11 | Middleware: pathless layout routes add group middleware; break-out routes skip parents.
+12 | 
+13 | RC1 server entry signature: export default { fetch(req: Request): Promise<Response> { ... } }
+14 | 
+15 | Define handlers: use createFileRoute() from @tanstack/react-router with server: { handlers: { ... } }. Methods per HTTP verb, with optional middleware builder. createServerFileRoute removed in RC1; use createFileRoute with server property.
 16 | 
-17 | function normalizePaths(raw: string[]) {
-18 |     return Array.from(
-19 |         new Set(
-20 |             raw
-21 |                 .filter((p) => /\.[a-z0-9]+$/i.test(p))
-22 |                 .filter((p) => !p.endsWith(".map"))
-23 |                 .filter((p) => !p.endsWith(".d.ts"))
-24 |                 .filter((p) => !isIgnoredPath(p))
-25 |                 .map((p) => p.replace(/^\//, ""))
-26 |         )
-27 |     ).sort()
-28 | }
-29 | 
-30 | function extractSortKeyFromPath(path: string) {
-31 |     const dateMatch = path.match(/(20\d{2})[-_]?(\d{2})[-_]?(\d{2})/)
-32 |     if (dateMatch) {
-33 |         const year = Number(dateMatch[1])
-34 |         const month = Number(dateMatch[2])
-35 |         const day = Number(dateMatch[3])
-36 |         if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-37 |             return Date.UTC(year, month - 1, day)
-38 |         }
-39 |     }
-40 |     const epochMatch = path.match(/(1\d{9}|2\d{9})/)
-41 |     if (epochMatch) {
-42 |         return Number(epochMatch[1]) * 1000
-43 |     }
-44 |     return 0
-45 | }
-46 | 
-47 | /**
-48 |  * Build-time discovery of project files and session assets.
-49 |  * Runs inside route loaders (rule: fetch on navigation vs. useEffect).
-50 |  */
-51 | export function discoverProjectAssets(): ProjectDiscoverySnapshot {
-52 |     const codeGlobs = import.meta.glob([
-53 |         "/src/**/*",
-54 |         "/scripts/**/*",
-55 |         "/public/**/*",
-56 |         "/package.json",
-57 |         "/tsconfig.json",
-58 |         "!/src/**/__tests__/**",
-59 |         "!/src/**/__mocks__/**",
-60 |         "!/src/**/*.test.{ts,tsx,js,jsx}",
-61 |         "!/src/**/*.spec.{ts,tsx,js,jsx}",
-62 |         "!/src/**/*.stories.{ts,tsx,js,jsx}"
-63 |     ])
-64 |     const docAssets = import.meta.glob(["/README*", "/AGENTS.md"], {
-65 |         eager: true,
-66 |         query: "?url",
-67 |         import: "default"
-68 |     }) as Record<string, string>
-69 | 
-70 |     const projectFiles = normalizePaths([...Object.keys(codeGlobs), ...Object.keys(docAssets)])
-71 | 
-72 |     const sessionMatches = import.meta.glob(
-73 |         [
-74 |             "/.codex/sessions/**/*.{jsonl,ndjson,json}",
-75 |             "/sessions/**/*.{jsonl,ndjson,json}",
-76 |             "/artifacts/sessions/**/*.{jsonl,ndjson,json}"
-77 |         ],
-78 |         {
-79 |             eager: true,
-80 |             query: "?url",
-81 |             import: "default"
-82 |         }
-83 |     ) as Record<string, string>
-84 | 
-85 |     const sessionAssets: DiscoveredSessionAsset[] = Object.entries(sessionMatches)
-86 |         .map(([path, url]) => ({
-87 |             path: path.replace(/^\//, ""),
-88 |             url,
-89 |             sortKey: extractSortKeyFromPath(path)
-90 |         }))
-91 |         .sort((a, b) => (b.sortKey ?? 0) - (a.sortKey ?? 0) || a.path.localeCompare(b.path))
-92 | 
-93 |     return { projectFiles, sessionAssets }
-94 | }
+17 | Handler receives { request, params, context }; return Response or Promise<Response>. Helpers from @tanstack/react-start allowed.
+18 | 
+19 | Bodies: request.json(), request.text(), request.formData() for POST/PUT/PATCH/DELETE.
+20 | 
+21 | JSON/status/headers: return JSON manually or via json(); set status via Response init or setResponseStatus(); set headers via Response init or setHeaders().
+22 | 
+23 | Params: /users/$id → params.id; /users/$id/posts/$postId → params.id + params.postId; /file/$ → params._splat.
+24 | 
+25 | Unique path rule: one file per resolved path; users.ts vs users.index.ts vs users/index.ts conflicts.
+26 | 
+27 | RC1 structure:
+28 | ```typescript
+29 | import { createFileRoute } from '@tanstack/react-router'
+30 | 
+31 | export const Route = createFileRoute('/api/example')({
+32 |   server: {
+33 |     handlers: {
+34 |       GET: ({ request }) => new Response('Hello'),
+35 |       POST: ({ request }) => new Response('Created', { status: 201 })
+36 |     }
+37 |   }
+38 | })
+39 | ```
 ```
 
 src/routes/__root.tsx
@@ -1353,202 +1529,16 @@ src/types/browser-echo.d.ts
 1 | declare module 'virtual:browser-echo';
 ```
 
-src/types/events.ts
-```
-1 | import type { FilePath, ISO8601String, Id } from "./primitives"
-2 | 
-3 | /** Base event fields shared by all timeline items. */
-4 | export interface BaseEvent {
-5 |     readonly id?: Id<"event"> | string
-6 |     readonly at?: ISO8601String | string
-7 |     readonly index?: number
-8 | }
-9 | 
-10 | /** Structured segments that make up a message. */
-11 | export interface MessagePart {
-12 |     readonly type: "text"
-13 |     readonly text: string
-14 | }
-15 | 
-16 | /** Message emitted by user/assistant/system. */
-17 | export interface MessageEvent extends BaseEvent {
-18 |     readonly type: "Message"
-19 |     readonly role: "user" | "assistant" | "system" | string
-20 |     readonly content: string | ReadonlyArray<MessagePart>
-21 |     readonly model?: string
-22 | }
-23 | 
-24 | /** Model reasoning trace (if available). */
-25 | export interface ReasoningEvent extends BaseEvent {
-26 |     readonly type: "Reasoning"
-27 |     readonly content: string
-28 | }
-29 | 
-30 | /** Generic function/tool call with structured arguments. */
-31 | export interface FunctionCallEvent extends BaseEvent {
-32 |     readonly type: "FunctionCall"
-33 |     readonly name: string
-34 |     readonly args?: unknown
-35 |     readonly result?: unknown
-36 |     readonly durationMs?: number
-37 | }
-38 | 
-39 | /** Local shell command execution event. */
-40 | export interface LocalShellCallEvent extends BaseEvent {
-41 |     readonly type: "LocalShellCall"
-42 |     readonly command: string
-43 |     readonly cwd?: FilePath | string
-44 |     readonly exitCode?: number
-45 |     readonly stdout?: string
-46 |     readonly stderr?: string
-47 |     readonly durationMs?: number
-48 | }
-49 | 
-50 | /** Web search action event. */
-51 | export interface WebSearchCallEvent extends BaseEvent {
-52 |     readonly type: "WebSearchCall"
-53 |     readonly query: string
-54 |     readonly provider?: string
-55 |     readonly results?: ReadonlyArray<{ title?: string; url?: string; snippet?: string }>
-56 |     readonly raw?: unknown
-57 | }
-58 | 
-59 | /** Custom/plugin tool call envelope for unknown tool types. */
-60 | export interface CustomToolCallEvent extends BaseEvent {
-61 |     readonly type: "CustomToolCall"
-62 |     readonly toolName: string
-63 |     readonly input?: unknown
-64 |     readonly output?: unknown
-65 | }
-66 | 
-67 | /** File change event referencing modified paths. */
-68 | export interface FileChangeEvent extends BaseEvent {
-69 |     readonly type: "FileChange"
-70 |     readonly path: FilePath | string
-71 |     readonly diff?: string
-72 | }
-73 | 
-74 | /** Fallback for unrecognized records. Preserves the raw payload. */
-75 | export interface OtherEvent extends BaseEvent {
-76 |     readonly type: "Other"
-77 |     readonly data?: unknown
-78 | }
-79 | 
-80 | /** Discriminated union of all supported event variants. */
-81 | export type ResponseItem =
-82 |     | MessageEvent
-83 |     | ReasoningEvent
-84 |     | FunctionCallEvent
-85 |     | LocalShellCallEvent
-86 |     | WebSearchCallEvent
-87 |     | CustomToolCallEvent
-88 |     | FileChangeEvent
-89 |     | OtherEvent
-90 | 
-```
-
-src/types/git.ts
-```
-1 | /** Minimal git info attached to session metadata. */
-2 | export interface GitInfo {
-3 |     readonly repo?: string
-4 |     readonly branch?: string
-5 |     readonly commit?: string
-6 |     readonly remote?: string
-7 |     readonly dirty?: boolean
-8 | }
-9 | 
-```
-
-src/types/index.ts
-```
-1 | export * from "./primitives"
-2 | export * from "./git"
-3 | export * from "./events"
-4 | export * from "./session"
-5 | 
-```
-
-src/types/primitives.ts
-```
-1 | /** Primitive and branded types used across the viewer domain. */
-2 | 
-3 | /** ISO-8601 timestamp string, e.g., 2025-09-08T17:12:03.123Z */
-4 | export type ISO8601String = string & { readonly __brand: "iso8601" }
-5 | 
-6 | /** Opaque ID string branding to avoid mixing different id kinds. */
-7 | export type Id<T extends string> = string & { readonly __brand: T }
-8 | 
-9 | /** File system path (posix-like). */
-10 | export type FilePath = string & { readonly __brand: "filepath" }
-11 | 
-```
-
-src/types/session.ts
-```
-1 | import type { ResponseItem } from "./events"
-2 | import type { FilePath, ISO8601String, Id } from "./primitives"
-3 | import type { GitInfo } from "./git"
-4 | 
-5 | /** Session-level metadata parsed from line 1 of the JSONL file. */
-6 | export interface SessionMeta {
-7 |     readonly id: Id<"session"> | string
-8 |     readonly timestamp: ISO8601String | string
-9 |     readonly instructions?: string
-10 |     readonly git?: GitInfo
-11 |     /** Optional schema versioning to mitigate drift. */
-12 |     readonly version?: number | string
-13 | }
-14 | 
-15 | /** A single file change captured during the session. */
-16 | export interface FileChange {
-17 |     readonly path: FilePath | string
-18 |     readonly diff?: string
-19 |     readonly patches?: readonly string[]
-20 | }
-21 | 
-22 | /** Artifact generated during the session (e.g., export, compiled asset). */
-23 | export interface Artifact {
-24 |     readonly name: string
-25 |     readonly path?: FilePath | string
-26 |     readonly contentType?: string
-27 |     readonly bytes?: Uint8Array
-28 | }
-29 | 
-30 | /** Parsed session bundle returned by the parser. */
-31 | export interface ParsedSession {
-32 |     readonly meta: SessionMeta
-33 |     readonly events: readonly ResponseItem[]
-34 |     readonly fileChanges: readonly FileChange[]
-35 |     readonly artifacts: readonly Artifact[]
-36 | }
-37 | 
-38 | export interface SessionPreviewSummary {
-39 |     readonly path: FilePath | string
-40 |     readonly byteLength: number
-41 |     readonly meta?: SessionMeta
-42 |     readonly repoName?: string
-43 |     readonly firstUserMessage?: string
-44 |     readonly firstTimestamp?: ISO8601String | string
-45 |     readonly lastTimestamp?: ISO8601String | string
-46 |     readonly agents: readonly string[]
-47 |     readonly errors: readonly string[]
-48 |     readonly tools: readonly string[]
-49 | }
-50 | 
-```
-
 src/utils/event-key.ts
 ```
-1 | import type { ResponseItem } from "../types"
+1 | import type { ResponseItem } from '../types';
 2 | 
 3 | export function eventKey(item: ResponseItem, absoluteIndex: number): string {
-4 |     const anyItem = item as any
-5 |     if (anyItem?.id) return String(anyItem.id)
-6 |     if (typeof anyItem?.index === "number") return `idx-${anyItem.index}`
-7 |     return `idx-${absoluteIndex}`
+4 |   const anyItem = item as any;
+5 |   if (anyItem?.id) return String(anyItem.id);
+6 |   if (typeof anyItem?.index === 'number') return `idx-${anyItem.index}`;
+7 |   return `idx-${absoluteIndex}`;
 8 | }
-9 | 
 ```
 
 src/utils/id-generator.ts
@@ -1569,105 +1559,105 @@ src/utils/id-generator.ts
 src/utils/line-reader.ts
 ```
 1 | export function splitLinesTransform(): TransformStream<string, string> {
-2 |     let carry = ""
-3 |     return new TransformStream<string, string>({
-4 |         transform(chunk, controller) {
-5 |             const text = carry + chunk
-6 |             const parts = text.split(/\n/)
-7 |             carry = parts.pop() ?? ""
-8 |             for (const line of parts) {
-9 |                 controller.enqueue(line.endsWith("\r") ? line.slice(0, -1) : line)
-10 |             }
-11 |         },
-12 |         flush(controller) {
-13 |             if (carry.length > 0) {
-14 |                 controller.enqueue(carry.endsWith("\r") ? carry.slice(0, -1) : carry)
-15 |             }
-16 |         }
-17 |     })
+2 |   let carry = '';
+3 |   return new TransformStream<string, string>({
+4 |     transform(chunk, controller) {
+5 |       const text = carry + chunk;
+6 |       const parts = text.split(/\n/);
+7 |       carry = parts.pop() ?? '';
+8 |       for (const line of parts) {
+9 |         controller.enqueue(line.endsWith('\r') ? line.slice(0, -1) : line);
+10 |       }
+11 |     },
+12 |     flush(controller) {
+13 |       if (carry.length > 0) {
+14 |         controller.enqueue(carry.endsWith('\r') ? carry.slice(0, -1) : carry);
+15 |       }
+16 |     },
+17 |   });
 18 | }
 19 | 
 20 | async function readBlobAsArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
-21 |     if (typeof (blob as any).arrayBuffer === "function") {
-22 |         return blob.arrayBuffer()
-23 |     }
-24 |     if (typeof FileReader !== "undefined") {
-25 |         return new Promise<ArrayBuffer>((resolve, reject) => {
-26 |             const reader = new FileReader()
-27 |             reader.onerror = () => reject(reader.error)
-28 |             reader.onload = () => resolve(reader.result as ArrayBuffer)
-29 |             reader.readAsArrayBuffer(blob)
-30 |         })
-31 |     }
-32 |     if (typeof (blob as any).text === "function") {
-33 |         const text = await blob.text()
-34 |         return new TextEncoder().encode(text).buffer
-35 |     }
-36 |     return new ArrayBuffer(0)
+21 |   if (typeof (blob as any).arrayBuffer === 'function') {
+22 |     return blob.arrayBuffer();
+23 |   }
+24 |   if (typeof FileReader !== 'undefined') {
+25 |     return new Promise<ArrayBuffer>((resolve, reject) => {
+26 |       const reader = new FileReader();
+27 |       reader.onerror = () => reject(reader.error);
+28 |       reader.onload = () => resolve(reader.result as ArrayBuffer);
+29 |       reader.readAsArrayBuffer(blob);
+30 |     });
+31 |   }
+32 |   if (typeof (blob as any).text === 'function') {
+33 |     const text = await blob.text();
+34 |     return new TextEncoder().encode(text).buffer;
+35 |   }
+36 |   return new ArrayBuffer(0);
 37 | }
 38 | 
 39 | function getBlobStream(blob: Blob): ReadableStream<Uint8Array> {
-40 |     if (typeof (blob as any).stream === "function") {
-41 |         return (blob as any).stream()
-42 |     }
-43 |     return new ReadableStream<Uint8Array>({
-44 |         async start(controller) {
-45 |             try {
-46 |                 const buffer = await readBlobAsArrayBuffer(blob)
-47 |                 controller.enqueue(new Uint8Array(buffer))
-48 |                 controller.close()
-49 |             } catch (error) {
-50 |                 controller.error(error)
-51 |             }
-52 |         }
-53 |     })
+40 |   if (typeof (blob as any).stream === 'function') {
+41 |     return (blob as any).stream();
+42 |   }
+43 |   return new ReadableStream<Uint8Array>({
+44 |     async start(controller) {
+45 |       try {
+46 |         const buffer = await readBlobAsArrayBuffer(blob);
+47 |         controller.enqueue(new Uint8Array(buffer));
+48 |         controller.close();
+49 |       } catch (error) {
+50 |         controller.error(error);
+51 |       }
+52 |     },
+53 |   });
 54 | }
 55 | 
-56 | export async function* streamTextLines(blob: Blob, encoding = "utf-8"): AsyncGenerator<string> {
-57 |     const hasDecoderStream = typeof (globalThis as any).TextDecoderStream === "function"
+56 | export async function* streamTextLines(blob: Blob, encoding = 'utf-8'): AsyncGenerator<string> {
+57 |   const hasDecoderStream = typeof (globalThis as any).TextDecoderStream === 'function';
 58 | 
-59 |     if (hasDecoderStream) {
-60 |         const decoded = getBlobStream(blob)
-61 |             // @ts-ignore TextDecoderStream exists in modern runtimes; fallback below otherwise.
-62 |             .pipeThrough(new TextDecoderStream(encoding))
-63 |             .pipeThrough(splitLinesTransform())
+59 |   if (hasDecoderStream) {
+60 |     const decoded = getBlobStream(blob)
+61 |       // @ts-ignore TextDecoderStream exists in modern runtimes; fallback below otherwise.
+62 |       .pipeThrough(new TextDecoderStream(encoding))
+63 |       .pipeThrough(splitLinesTransform());
 64 | 
-65 |         for await (const line of decoded as any as AsyncIterable<string>) {
-66 |             yield line
-67 |         }
-68 |         return
-69 |     }
+65 |     for await (const line of decoded as any as AsyncIterable<string>) {
+66 |       yield line;
+67 |     }
+68 |     return;
+69 |   }
 70 | 
-71 |     const reader = getBlobStream(blob).getReader()
-72 |     const decoder = new TextDecoder(encoding)
-73 |     let carry = ""
-74 |     try {
-75 |         for (;;) {
-76 |             const { value, done } = await reader.read()
-77 |             if (done) break
-78 |             const chunk = decoder.decode(value, { stream: true })
-79 |             const text = carry + chunk
-80 |             const parts = text.split(/\n/)
-81 |             carry = parts.pop() ?? ""
-82 |             for (const line of parts) {
-83 |                 yield line.endsWith("\r") ? line.slice(0, -1) : line
-84 |             }
-85 |         }
-86 |         const last = decoder.decode()
-87 |         if (last) {
-88 |             const text = carry + last
-89 |             const parts = text.split(/\n/)
-90 |             carry = parts.pop() ?? ""
-91 |             for (const line of parts) {
-92 |                 yield line.endsWith("\r") ? line.slice(0, -1) : line
-93 |             }
-94 |         }
-95 |         if (carry.length) {
-96 |             yield carry.endsWith("\r") ? carry.slice(0, -1) : carry
-97 |         }
-98 |     } finally {
-99 |         reader.releaseLock()
-100 |     }
+71 |   const reader = getBlobStream(blob).getReader();
+72 |   const decoder = new TextDecoder(encoding);
+73 |   let carry = '';
+74 |   try {
+75 |     for (;;) {
+76 |       const { value, done } = await reader.read();
+77 |       if (done) break;
+78 |       const chunk = decoder.decode(value, { stream: true });
+79 |       const text = carry + chunk;
+80 |       const parts = text.split(/\n/);
+81 |       carry = parts.pop() ?? '';
+82 |       for (const line of parts) {
+83 |         yield line.endsWith('\r') ? line.slice(0, -1) : line;
+84 |       }
+85 |     }
+86 |     const last = decoder.decode();
+87 |     if (last) {
+88 |       const text = carry + last;
+89 |       const parts = text.split(/\n/);
+90 |       carry = parts.pop() ?? '';
+91 |       for (const line of parts) {
+92 |         yield line.endsWith('\r') ? line.slice(0, -1) : line;
+93 |       }
+94 |     }
+95 |     if (carry.length) {
+96 |       yield carry.endsWith('\r') ? carry.slice(0, -1) : carry;
+97 |     }
+98 |   } finally {
+99 |     reader.releaseLock();
+100 |   }
 101 | }
 ```
 
@@ -1685,57 +1675,67 @@ src/utils/seo.ts
 10 |     keywords?: string
 11 | }) => {
 12 |     const tags = [
-13 |         { title },
-14 |         { name: "description", content: description },
-15 |         { name: "keywords", content: keywords },
-16 |         { name: "twitter:title", content: title },
-17 |         { name: "twitter:description", content: description },
-18 |         { name: "twitter:creator", content: "@tannerlinsley" },
-19 |         { name: "twitter:site", content: "@tannerlinsley" },
-20 |         { name: "og:type", content: "website" },
-21 |         { name: "og:title", content: title },
-22 |         { name: "og:description", content: description },
-23 |         ...(image
-24 |             ? [
-25 |                   { name: "twitter:image", content: image },
-26 |                   { name: "twitter:card", content: "summary_large_image" },
-27 |                   { name: "og:image", content: image }
-28 |               ]
-29 |             : [])
-30 |     ]
+13 |       { title },
+14 |       { name: 'description', content: description },
+15 |       { name: 'keywords', content: keywords },
+16 |       { name: 'twitter:title', content: title },
+17 |       { name: 'twitter:description', content: description },
+18 |       { name: 'twitter:creator', content: '@d1rt7d4t4' },
+19 |       { name: 'twitter:site', content: '@d1rt7d4t4' },
+20 |       { name: 'og:type', content: 'website' },
+21 |       { name: 'og:title', content: title },
+22 |       { name: 'og:description', content: description },
+23 |       ...(image
+24 |         ? [
+25 |             { name: 'twitter:image', content: image },
+26 |             { name: 'twitter:card', content: 'summary_large_image' },
+27 |             { name: 'og:image', content: image },
+28 |           ]
+29 |         : []),
+30 |     ];
 31 | 
 32 |     return tags
 33 | }
 ```
 
+src/db/schema/CLAUDE.md
+```
+1 | 
+2 | 
+3 | <!-- Source: .ruler/db.schema.md -->
+4 | 
+5 | - Schema files have always this naming pattern `<name>.schema.ts`
+```
+
 src/components/ui/badge.tsx
 ```
-1 | import { cva, type VariantProps } from "class-variance-authority"
-2 | import type { HTMLAttributes } from "react"
-3 | import { cn } from "~/lib/utils"
+1 | import { cva, type VariantProps } from 'class-variance-authority';
+2 | import type { HTMLAttributes } from 'react';
+3 | import { cn } from '~/lib/utils';
 4 | 
 5 | const badgeVariants = cva(
-6 |     "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
-7 |     {
-8 |         variants: {
-9 |             variant: {
-10 |                 default: "border-transparent bg-primary text-primary-foreground",
-11 |                 secondary: "border-transparent bg-secondary text-secondary-foreground",
-12 |                 outline: "border-border text-foreground"
-13 |             }
-14 |         },
-15 |         defaultVariants: {
-16 |             variant: "default"
-17 |         }
-18 |     }
-19 | )
+6 |   'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+7 |   {
+8 |     variants: {
+9 |       variant: {
+10 |         default: 'border-transparent bg-primary text-primary-foreground',
+11 |         secondary: 'border-transparent bg-secondary text-secondary-foreground',
+12 |         outline: 'border-border text-foreground',
+13 |       },
+14 |     },
+15 |     defaultVariants: {
+16 |       variant: 'default',
+17 |     },
+18 |   }
+19 | );
 20 | 
-21 | export interface BadgeProps extends HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
-22 | 
-23 | export function Badge({ className, variant, ...props }: BadgeProps) {
-24 |     return <div className={cn(badgeVariants({ variant }), className)} {...props} />
-25 | }
-26 | 
+21 | export interface BadgeProps
+22 |   extends HTMLAttributes<HTMLDivElement>,
+23 |     VariantProps<typeof badgeVariants> {}
+24 | 
+25 | export function Badge({ className, variant, ...props }: BadgeProps) {
+26 |   return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+27 | }
 ```
 
 src/components/ui/button.tsx
@@ -2158,248 +2158,326 @@ src/components/ui/dropdown-menu.tsx
 
 src/components/ui/textarea.tsx
 ```
-1 | import * as React from "react"
-2 | import { cn } from "~/lib/utils"
+1 | import * as React from 'react';
+2 | import { cn } from '~/lib/utils';
 3 | 
-4 | const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"textarea">>(({ className, ...props }, ref) => {
-5 |     return (
-6 |         <textarea
-7 |             className={cn(
-8 |                 "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-9 |                 className
-10 |             )}
-11 |             ref={ref}
-12 |             {...props}
-13 |         />
-14 |     )
-15 | })
-16 | Textarea.displayName = "Textarea"
-17 | 
-18 | export { Textarea }
+4 | const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'textarea'>>(
+5 |   ({ className, ...props }, ref) => {
+6 |     return (
+7 |       <textarea
+8 |         className={cn(
+9 |           'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+10 |           className
+11 |         )}
+12 |         ref={ref}
+13 |         {...props}
+14 |       />
+15 |     );
+16 |   }
+17 | );
+18 | Textarea.displayName = 'Textarea';
 19 | 
+20 | export { Textarea };
 ```
 
 src/components/viewer/ChatDock.tsx
 ```
-1 | import { useCallback, useId, useState } from "react"
-2 | import { Button } from "~/components/ui/button"
-3 | import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
-4 | import { Textarea } from "~/components/ui/textarea"
+1 | import { useCallback, useId, useState } from 'react';
+2 | import { Button } from '~/components/ui/button';
+3 | import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+4 | import { Textarea } from '~/components/ui/textarea';
 5 | 
 6 | interface ChatMessage {
-7 |     id: string
-8 |     role: "user" | "assistant"
-9 |     content: string
+7 |   id: string;
+8 |   role: 'user' | 'assistant';
+9 |   content: string;
 10 | }
 11 | 
 12 | const makeId = () => {
-13 |     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-14 |         return crypto.randomUUID()
-15 |     }
-16 |     return Math.random().toString(36).slice(2)
-17 | }
+13 |   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+14 |     return crypto.randomUUID();
+15 |   }
+16 |   return Math.random().toString(36).slice(2);
+17 | };
 18 | 
 19 | export function ChatDock() {
-20 |     const [messages, setMessages] = useState<ChatMessage[]>([])
-21 |     const [draft, setDraft] = useState("")
-22 |     const textareaId = useId()
+20 |   const [messages, setMessages] = useState<ChatMessage[]>([]);
+21 |   const [draft, setDraft] = useState('');
+22 |   const textareaId = useId();
 23 | 
-24 |     const send = useCallback(() => {
-25 |         if (!draft.trim()) return
-26 |         setMessages((prev) => [
-27 |             ...prev,
-28 |             { id: makeId(), role: "user", content: draft.trim() },
-29 |             {
-30 |                 id: makeId(),
-31 |                 role: "assistant",
-32 |                 content: "Chat dock placeholder response. Wire up analyzer or sandbox to provide real answers."
-33 |             }
-34 |         ])
-35 |         setDraft("")
-36 |     }, [draft])
-37 | 
-38 |     return (
-39 |         <Card className="flex h-full flex-col gap-4">
-40 |             <CardHeader className="border-b pb-4">
-41 |                 <CardTitle className="text-base font-semibold">Chat dock</CardTitle>
-42 |             </CardHeader>
-43 |             <CardContent className="flex flex-1 flex-col gap-4 p-4">
-44 |                 <div className="flex-1 space-y-3 overflow-auto rounded-md border bg-muted/30 p-3 text-sm">
-45 |                     {messages.length === 0 ? (
-46 |                         <p className="text-muted-foreground">Send prompts to annotate the session as you review the timeline.</p>
-47 |                     ) : (
-48 |                         messages.map((msg) => (
-49 |                             <div key={msg.id} className="space-y-1">
-50 |                                 <p className="text-xs uppercase tracking-wide text-muted-foreground">{msg.role}</p>
-51 |                                 <p className="rounded-md bg-background/70 p-2">{msg.content}</p>
-52 |                             </div>
-53 |                         ))
-54 |                     )}
-55 |                 </div>
-56 |                 <div className="space-y-2">
-57 |                     <label htmlFor={textareaId} className="text-xs font-medium text-muted-foreground">
-58 |                         Prompt
-59 |                     </label>
-60 |                     <Textarea
-61 |                         id={textareaId}
-62 |                         value={draft}
-63 |                         rows={3}
-64 |                         onChange={(event) => setDraft(event.target.value)}
-65 |                         placeholder="Summarize this session’s status…"
-66 |                     />
-67 |                     <div className="flex justify-end">
-68 |                         <Button onClick={send} disabled={!draft.trim()}>
-69 |                             Send
-70 |                         </Button>
-71 |                     </div>
-72 |                 </div>
-73 |             </CardContent>
-74 |         </Card>
-75 |     )
-76 | }
+24 |   const send = useCallback(() => {
+25 |     if (!draft.trim()) return;
+26 |     setMessages((prev) => [
+27 |       ...prev,
+28 |       { id: makeId(), role: 'user', content: draft.trim() },
+29 |       {
+30 |         id: makeId(),
+31 |         role: 'assistant',
+32 |         content:
+33 |           'Chat dock placeholder response. Wire up analyzer or sandbox to provide real answers.',
+34 |       },
+35 |     ]);
+36 |     setDraft('');
+37 |   }, [draft]);
+38 | 
+39 |   return (
+40 |     <Card className="flex h-full flex-col gap-4">
+41 |       <CardHeader className="border-b pb-4">
+42 |         <CardTitle className="text-base font-semibold">Chat dock</CardTitle>
+43 |       </CardHeader>
+44 |       <CardContent className="flex flex-1 flex-col gap-4 p-4">
+45 |         <div className="flex-1 space-y-3 overflow-auto rounded-md border bg-muted/30 p-3 text-sm">
+46 |           {messages.length === 0 ? (
+47 |             <p className="text-muted-foreground">
+48 |               Send prompts to annotate the session as you review the timeline.
+49 |             </p>
+50 |           ) : (
+51 |             messages.map((msg) => (
+52 |               <div key={msg.id} className="space-y-1">
+53 |                 <p className="text-xs uppercase tracking-wide text-muted-foreground">{msg.role}</p>
+54 |                 <p className="rounded-md bg-background/70 p-2">{msg.content}</p>
+55 |               </div>
+56 |             ))
+57 |           )}
+58 |         </div>
+59 |         <div className="space-y-2">
+60 |           <label htmlFor={textareaId} className="text-xs font-medium text-muted-foreground">
+61 |             Prompt
+62 |           </label>
+63 |           <Textarea
+64 |             id={textareaId}
+65 |             value={draft}
+66 |             rows={3}
+67 |             onChange={(event) => setDraft(event.target.value)}
+68 |             placeholder="Summarize this session’s status…"
+69 |           />
+70 |           <div className="flex justify-end">
+71 |             <Button onClick={send} disabled={!draft.trim()}>
+72 |               Send
+73 |             </Button>
+74 |           </div>
+75 |         </div>
+76 |       </CardContent>
+77 |     </Card>
+78 |   );
+79 | }
+```
+
+src/components/viewer/DiscoveryPanel.test.tsx
+```
+1 | import { fireEvent, render, screen } from '@testing-library/react';
+2 | import { describe, expect, it, vi } from 'vitest';
+3 | import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
+4 | import { DiscoveryPanel } from './DiscoveryPanel';
+5 | 
+6 | const sampleSessions: DiscoveredSessionAsset[] = [
+7 |   { path: 'sessions/alpha.jsonl', url: '/sessions/alpha.jsonl', sortKey: Date.UTC(2024, 0, 2) },
+8 |   { path: 'sessions/beta.jsonl', url: '/sessions/beta.jsonl', sortKey: Date.UTC(2024, 0, 3) },
+9 | ];
+10 | 
+11 | describe('DiscoveryPanel', () => {
+12 |   it('renders counts and session rows', () => {
+13 |     render(
+14 |       <DiscoveryPanel
+15 |         projectFiles={['src/App.tsx', 'README.md']}
+16 |         sessionAssets={sampleSessions}
+17 |         query=""
+18 |         onQueryChange={() => {}}
+19 |       />
+20 |     );
+21 | 
+22 |     expect(screen.getByText(/project files/i)).toHaveTextContent('2 project files');
+23 |     expect(screen.getByText(/session assets/i)).toHaveTextContent('2 session assets');
+24 |     expect(screen.getByText('sessions/alpha.jsonl')).toBeInTheDocument();
+25 |     expect(screen.getByText('sessions/beta.jsonl')).toBeInTheDocument();
+26 |   });
+27 | 
+28 |   it('invokes search handler when typing', () => {
+29 |     const onQueryChange = vi.fn();
+30 |     render(
+31 |       <DiscoveryPanel
+32 |         projectFiles={[]}
+33 |         sessionAssets={sampleSessions}
+34 |         query=""
+35 |         onQueryChange={onQueryChange}
+36 |       />
+37 |     );
+38 | 
+39 |     const input = screen.getByPlaceholderText('Filter by file name…');
+40 |     fireEvent.change(input, { target: { value: 'beta' } });
+41 | 
+42 |     expect(onQueryChange).toHaveBeenCalledWith('beta');
+43 |   });
+44 | 
+45 |   it('shows empty state when no results match', () => {
+46 |     render(
+47 |       <DiscoveryPanel
+48 |         projectFiles={[]}
+49 |         sessionAssets={sampleSessions}
+50 |         query="zzz"
+51 |         onQueryChange={() => {}}
+52 |       />
+53 |     );
+54 | 
+55 |     expect(screen.getByText('No session logs match that filter.')).toBeInTheDocument();
+56 |   });
+57 | });
 ```
 
 src/components/viewer/DiscoveryPanel.tsx
 ```
-1 | import type { DiscoveredSessionAsset } from "~/lib/viewerDiscovery"
-2 | 
-3 | interface DiscoveryPanelProps {
-4 |     projectFiles: string[]
-5 |     sessionAssets: DiscoveredSessionAsset[]
-6 |     query: string
-7 |     onQueryChange: (next: string) => void
-8 | }
-9 | 
-10 | export function DiscoveryPanel({ projectFiles, sessionAssets, query, onQueryChange }: DiscoveryPanelProps) {
-11 |     const normalizedQuery = query.trim().toLowerCase()
-12 |     const filteredSessions = normalizedQuery
-13 |         ? sessionAssets.filter((asset) => asset.path.toLowerCase().includes(normalizedQuery))
-14 |         : sessionAssets
-15 | 
-16 |     return (
-17 |         <div className="space-y-6">
-18 |             <header className="space-y-2">
-19 |                 <p className="text-sm text-muted-foreground">
-20 |                     Auto-discovered inputs are enumerated during build/SSR so the page can stream instantly without
-21 |                     client-side effects. Use the search box to filter down session logs by path.
-22 |                 </p>
-23 |                 <div className="flex flex-wrap items-center gap-4 text-sm">
-24 |                     <span>
-25 |                         <strong>{projectFiles.length.toLocaleString()}</strong> project files
-26 |                     </span>
-27 |                     <span>
-28 |                         <strong>{sessionAssets.length.toLocaleString()}</strong> session assets
-29 |                     </span>
-30 |                 </div>
-31 |             </header>
-32 | 
-33 |             <label className="flex flex-col gap-1 text-sm font-medium">
-34 |                 Sessions search
-35 |                 <input
-36 |                     type="search"
-37 |                     value={query}
-38 |                     onChange={(event) => onQueryChange(event.target.value)}
-39 |                     placeholder="Filter by file name…"
-40 |                     className="rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-41 |                 />
-42 |             </label>
-43 | 
-44 |             <section className="space-y-3">
-45 |                 <h2 className="text-base font-semibold">Session files</h2>
-46 |                 {filteredSessions.length === 0 ? (
-47 |                     <p className="text-sm text-muted-foreground">No session logs match that filter.</p>
-48 |                 ) : (
-49 |                     <ul className="divide-y divide-border rounded-md border border-border">
-50 |                         {filteredSessions.map((asset) => (
-51 |                             <li key={asset.path} className="flex items-center justify-between gap-4 px-4 py-3">
-52 |                                 <div className="min-w-0">
-53 |                                     <p className="truncate text-sm font-medium">{asset.path}</p>
-54 |                                     <p className="truncate text-xs text-muted-foreground">{asset.url}</p>
-55 |                                 </div>
-56 |                                 <div className="text-xs text-muted-foreground">
-57 |                                     {asset.sortKey ? new Date(asset.sortKey).toLocaleString() : "—"}
-58 |                                 </div>
-59 |                             </li>
-60 |                         ))}
-61 |                     </ul>
-62 |                 )}
-63 |             </section>
-64 |         </div>
-65 |     )
-66 | }
+1 | import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
+2 | interface DiscoveryPanelProps {
+3 |   projectFiles: string[];
+4 |   sessionAssets: DiscoveredSessionAsset[];
+5 |   query: string;
+6 |   onQueryChange: (next: string) => void;
+7 | }
+8 | export function DiscoveryPanel({
+9 |   projectFiles,
+10 |   sessionAssets,
+11 |   query,
+12 |   onQueryChange,
+13 | }: DiscoveryPanelProps) {
+14 |   const normalizedQuery = query.trim().toLowerCase();
+15 |   const filteredSessions = normalizedQuery
+16 |     ? sessionAssets.filter((asset) => asset.path.toLowerCase().includes(normalizedQuery))
+17 |     : sessionAssets;
+18 |   return (
+19 |     <div className="space-y-6">
+20 |       <header className="space-y-2">
+21 |         <p className="text-sm text-muted-foreground">
+22 |           Use the search box to filter down session logs by path.
+23 |         </p>
+24 |         <div className="flex flex-wrap items-center gap-4 text-sm">
+25 |           <span>
+26 |             <strong>{projectFiles.length.toLocaleString()}</strong> project files
+27 |           </span>
+28 |           <span>
+29 |             <strong>{sessionAssets.length.toLocaleString()}</strong> session assets
+30 |           </span>
+31 |         </div>
+32 |       </header>
+33 | 
+34 |       <label className="flex flex-col gap-1 text-sm font-medium">
+35 |         Sessions search
+36 |         <input
+37 |           type="search"
+38 |           value={query}
+39 |           onChange={(event) => onQueryChange(event.target.value)}
+40 |           placeholder="Filter by file name…"
+41 |           className="rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+42 |         />
+43 |       </label>
+44 | 
+45 |       <section className="space-y-3">
+46 |         <h2 className="text-base font-semibold">Session files</h2>
+47 |         {filteredSessions.length === 0 ? (
+48 |           <p className="text-sm text-muted-foreground">No session logs match that filter.</p>
+49 |         ) : (
+50 |           <ul className="divide-y divide-border rounded-md border border-border">
+51 |             {filteredSessions.map((asset) => (
+52 |               <li key={asset.path} className="flex items-center justify-between gap-4 px-4 py-3">
+53 |                 <div className="min-w-0">
+54 |                   <p className="truncate text-sm font-medium">{asset.path}</p>
+55 |                   <p className="truncate text-xs text-muted-foreground">{asset.url}</p>
+56 |                 </div>
+57 |                 <div className="text-xs text-muted-foreground">
+58 |                   {asset.sortKey ? new Date(asset.sortKey).toLocaleString() : '—'}
+59 |                 </div>
+60 |               </li>
+61 |             ))}
+62 |           </ul>
+63 |         )}
+64 |       </section>
+65 |     </div>
+66 |   );
+67 | }
 ```
 
 src/components/viewer/DropZone.tsx
 ```
-1 | import { useId, useMemo, useState } from "react"
-2 | import { Card, CardContent } from "~/components/ui/card"
-3 | import { cn } from "~/lib/utils"
+1 | import { useId, useMemo, useState } from 'react';
+2 | import { Card, CardContent } from '~/components/ui/card';
+3 | import { cn } from '~/lib/utils';
 4 | 
 5 | function pickFirst(files: FileList | null, acceptExts: string[]) {
-6 |     if (!files || files.length === 0) return null
-7 |     const lowerExts = acceptExts.map((ext) => ext.toLowerCase())
-8 |     for (const file of Array.from(files)) {
-9 |         const name = file.name.toLowerCase()
-10 |         if (lowerExts.length === 0 || lowerExts.some((ext) => name.endsWith(ext))) {
-11 |             return file
-12 |         }
-13 |     }
-14 |     return null
+6 |   if (!files || files.length === 0) return null;
+7 |   const lowerExts = acceptExts.map((ext) => ext.toLowerCase());
+8 |   for (const file of Array.from(files)) {
+9 |     const name = file.name.toLowerCase();
+10 |     if (lowerExts.length === 0 || lowerExts.some((ext) => name.endsWith(ext))) {
+11 |       return file;
+12 |     }
+13 |   }
+14 |   return null;
 15 | }
 16 | 
 17 | export interface DropZoneProps {
-18 |     onFile: (file: File) => void
-19 |     acceptExtensions?: string[]
-20 |     className?: string
+18 |   onFile: (file: File) => void;
+19 |   acceptExtensions?: string[];
+20 |   className?: string;
 21 | }
 22 | 
-23 | export function DropZone({ onFile, className, acceptExtensions = [".jsonl", ".ndjson", ".txt"] }: DropZoneProps) {
-24 |     const [isHovering, setIsHovering] = useState(false)
-25 |     const inputId = useId()
-26 |     const acceptAttr = useMemo(() => [...acceptExtensions, "application/x-ndjson"].join(","), [acceptExtensions])
-27 | 
-28 |     const handleDrop = (event: React.DragEvent<HTMLElement>) => {
-29 |         event.preventDefault()
-30 |         setIsHovering(false)
-31 |         const file = pickFirst(event.dataTransfer?.files ?? null, acceptExtensions)
-32 |         if (file) onFile(file)
-33 |     }
+23 | export function DropZone({
+24 |   onFile,
+25 |   className,
+26 |   acceptExtensions = ['.jsonl', '.ndjson', '.txt'],
+27 | }: DropZoneProps) {
+28 |   const [isHovering, setIsHovering] = useState(false);
+29 |   const inputId = useId();
+30 |   const acceptAttr = useMemo(
+31 |     () => [...acceptExtensions, 'application/x-ndjson'].join(','),
+32 |     [acceptExtensions]
+33 |   );
 34 | 
-35 |     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-36 |         const file = pickFirst(event.target.files, acceptExtensions)
-37 |         if (file) onFile(file)
-38 |         event.target.value = ""
-39 |     }
-40 | 
-41 |     return (
-42 |         <Card className={cn("overflow-hidden border-dashed", className)}>
-43 |             <CardContent className="p-0">
-44 |                 <label
-45 |                     htmlFor={inputId}
-46 |                     onDragOver={(event) => {
-47 |                         event.preventDefault()
-48 |                         setIsHovering(true)
-49 |                     }}
-50 |                     onDragEnter={(event) => {
-51 |                         event.preventDefault()
-52 |                         setIsHovering(true)
-53 |                     }}
-54 |                     onDragLeave={() => setIsHovering(false)}
-55 |                     onDrop={handleDrop}
-56 |                     className={cn(
-57 |                         "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition",
-58 |                         isHovering ? "border-primary bg-primary/5" : "border-border bg-card"
-59 |                     )}
-60 |                 >
-61 |                     <input id={inputId} type="file" accept={acceptAttr} className="sr-only" onChange={handleChange} />
-62 |                     <span className="text-sm font-medium text-foreground">Drop a .jsonl/.ndjson file</span>
-63 |                     <span className="text-xs text-muted-foreground">or click to choose from disk</span>
-64 |                 </label>
-65 |             </CardContent>
-66 |         </Card>
-67 |     )
-68 | }
-69 | 
+35 |   const handleDrop = (event: React.DragEvent<HTMLElement>) => {
+36 |     event.preventDefault();
+37 |     setIsHovering(false);
+38 |     const file = pickFirst(event.dataTransfer?.files ?? null, acceptExtensions);
+39 |     if (file) onFile(file);
+40 |   };
+41 | 
+42 |   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+43 |     const file = pickFirst(event.target.files, acceptExtensions);
+44 |     if (file) onFile(file);
+45 |     event.target.value = '';
+46 |   };
+47 | 
+48 |   return (
+49 |     <Card className={cn('overflow-hidden border-dashed', className)}>
+50 |       <CardContent className="p-0">
+51 |         <label
+52 |           htmlFor={inputId}
+53 |           onDragOver={(event) => {
+54 |             event.preventDefault();
+55 |             setIsHovering(true);
+56 |           }}
+57 |           onDragEnter={(event) => {
+58 |             event.preventDefault();
+59 |             setIsHovering(true);
+60 |           }}
+61 |           onDragLeave={() => setIsHovering(false)}
+62 |           onDrop={handleDrop}
+63 |           className={cn(
+64 |             'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition',
+65 |             isHovering ? 'border-primary bg-primary/5' : 'border-border bg-card'
+66 |           )}
+67 |         >
+68 |           <input
+69 |             id={inputId}
+70 |             type="file"
+71 |             accept={acceptAttr}
+72 |             className="sr-only"
+73 |             onChange={handleChange}
+74 |           />
+75 |           <span className="text-sm font-medium text-foreground">Drop a .jsonl/.ndjson file</span>
+76 |           <span className="text-xs text-muted-foreground">or click to choose from disk</span>
+77 |         </label>
+78 |       </CardContent>
+79 |     </Card>
+80 |   );
+81 | }
 ```
 
 src/components/viewer/EventCard.tsx
@@ -2491,44 +2569,50 @@ src/components/viewer/EventCard.tsx
 
 src/components/viewer/FileInputButton.tsx
 ```
-1 | import { useRef } from "react"
-2 | import { Button } from "~/components/ui/button"
+1 | import { useRef } from 'react';
+2 | import { Button } from '~/components/ui/button';
 3 | 
 4 | interface FileInputButtonProps {
-5 |     onFile: (file: File) => void
-6 |     accept?: string
-7 |     label?: string
-8 |     disabled?: boolean
-9 |     className?: string
+5 |   onFile: (file: File) => void;
+6 |   accept?: string;
+7 |   label?: string;
+8 |   disabled?: boolean;
+9 |   className?: string;
 10 | }
 11 | 
 12 | export function FileInputButton({
-13 |     onFile,
-14 |     accept = ".jsonl,.ndjson,.txt",
-15 |     label = "Choose session file",
-16 |     disabled,
-17 |     className
+13 |   onFile,
+14 |   accept = '.jsonl,.ndjson,.txt',
+15 |   label = 'Choose session file',
+16 |   disabled,
+17 |   className,
 18 | }: FileInputButtonProps) {
-19 |     const inputRef = useRef<HTMLInputElement | null>(null)
+19 |   const inputRef = useRef<HTMLInputElement | null>(null);
 20 | 
-21 |     const trigger = () => inputRef.current?.click()
+21 |   const trigger = () => inputRef.current?.click();
 22 | 
-23 |     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-24 |         const file = event.target.files?.[0]
-25 |         if (file) onFile(file)
-26 |         event.target.value = ""
-27 |     }
+23 |   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+24 |     const file = event.target.files?.[0];
+25 |     if (file) onFile(file);
+26 |     event.target.value = '';
+27 |   };
 28 | 
-29 |     return (
-30 |         <>
-31 |             <input ref={inputRef} type="file" accept={accept} onChange={handleChange} className="hidden" aria-hidden />
-32 |             <Button type="button" onClick={trigger} disabled={disabled} className={className}>
-33 |                 {label}
-34 |             </Button>
-35 |         </>
-36 |     )
-37 | }
-38 | 
+29 |   return (
+30 |     <>
+31 |       <input
+32 |         ref={inputRef}
+33 |         type="file"
+34 |         accept={accept}
+35 |         onChange={handleChange}
+36 |         className="hidden"
+37 |         aria-hidden
+38 |       />
+39 |       <Button type="button" onClick={trigger} disabled={disabled} className={className}>
+40 |         {label}
+41 |       </Button>
+42 |     </>
+43 |   );
+44 | }
 ```
 
 src/components/viewer/TimelineList.tsx
@@ -2565,764 +2649,331 @@ src/components/viewer/TimelineList.tsx
 
 src/components/viewer/TimelineView.tsx
 ```
-1 | import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
+1 | import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 2 | 
 3 | export interface TimelineViewProps<T> {
-4 |     items: readonly T[]
-5 |     height?: number
-6 |     estimateItemHeight?: number
-7 |     overscanPx?: number
-8 |     renderItem: (item: T, index: number) => React.ReactNode
-9 |     keyForIndex?: (item: T, index: number) => React.Key
-10 |     className?: string
-11 |     scrollToIndex?: number | null
+4 |   items: readonly T[];
+5 |   height?: number;
+6 |   estimateItemHeight?: number;
+7 |   overscanPx?: number;
+8 |   renderItem: (item: T, index: number) => React.ReactNode;
+9 |   keyForIndex?: (item: T, index: number) => React.Key;
+10 |   className?: string;
+11 |   scrollToIndex?: number | null;
 12 | }
 13 | 
 14 | function useRafThrottle(fn: () => void) {
-15 |     const ticking = useRef(false)
-16 |     return useCallback(() => {
-17 |         if (ticking.current) return
-18 |         ticking.current = true
-19 |         const schedule = typeof window !== "undefined" ? window.requestAnimationFrame : (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16)
-20 |         schedule(() => {
-21 |             ticking.current = false
-22 |             fn()
-23 |         })
-24 |     }, [fn])
-25 | }
-26 | 
-27 | function lowerBound(prefix: ReadonlyArray<number>, target: number) {
-28 |     let lo = 0
-29 |     let hi = prefix.length - 1
-30 |     let ans = prefix.length
-31 |     while (lo <= hi) {
-32 |         const mid = (lo + hi) >> 1
-33 |         if ((prefix[mid] ?? 0) >= target) {
-34 |             ans = mid
-35 |             hi = mid - 1
-36 |         } else {
-37 |             lo = mid + 1
-38 |         }
-39 |     }
-40 |     return ans
-41 | }
-42 | 
-43 | export function TimelineView<T>({
-44 |     items,
-45 |     height = 600,
-46 |     estimateItemHeight = 80,
-47 |     overscanPx = 400,
-48 |     renderItem,
-49 |     keyForIndex,
-50 |     className,
-51 |     scrollToIndex = null
-52 | }: TimelineViewProps<T>) {
-53 |     const containerRef = useRef<HTMLDivElement | null>(null)
-54 |     const [scrollTop, setScrollTop] = useState(0)
-55 |     const [measured, setMeasured] = useState<Map<number, number>>(new Map())
-56 | 
-57 |     const onScroll = useRafThrottle(() => {
-58 |         const el = containerRef.current
-59 |         if (el) setScrollTop(el.scrollTop)
-60 |     })
-61 | 
-62 |     const { offsets, totalHeight } = useMemo(() => {
-63 |         const n = items.length
-64 |         const heights = new Array<number>(n)
-65 |         for (let i = 0; i < n; i++) {
-66 |             heights[i] = measured.get(i) ?? estimateItemHeight
-67 |         }
-68 |         const off = new Array<number>(n)
-69 |         let acc = 0
-70 |         for (let i = 0; i < n; i++) {
-71 |             off[i] = acc
-72 |             acc += heights[i] ?? estimateItemHeight
-73 |         }
-74 |         return { offsets: off, totalHeight: acc }
-75 |     }, [items.length, measured, estimateItemHeight])
-76 | 
-77 |     const start = useMemo(() => {
-78 |         const target = Math.max(0, scrollTop - overscanPx)
-79 |         const idx = lowerBound(offsets, target)
-80 |         return Math.max(0, Math.min(idx, items.length - 1))
-81 |     }, [offsets, scrollTop, overscanPx, items.length])
-82 | 
-83 |     const end = useMemo(() => {
-84 |         const target = Math.min(totalHeight, scrollTop + height + overscanPx)
-85 |         const idx = lowerBound(offsets, target)
-86 |         return Math.max(start, Math.min(items.length - 1, idx))
-87 |     }, [offsets, totalHeight, scrollTop, height, overscanPx, items.length, start])
-88 | 
-89 |     const handleMeasured = useCallback(
-90 |         (index: number, h: number) => {
-91 |             const prev = measured.get(index) ?? 0
-92 |             if (Math.abs(prev - h) > 1) {
-93 |                 setMeasured((map) => {
-94 |                     const next = new Map(map)
-95 |                     next.set(index, h)
-96 |                     return next
-97 |                 })
-98 |             }
-99 |         },
-100 |         [measured]
-101 |     )
-102 | 
-103 |     const visible: number[] = []
-104 |     for (let i = start; i <= end; i++) visible.push(i)
-105 | 
-106 |     if (scrollToIndex != null) {
-107 |         const el = containerRef.current
-108 |         if (el && scrollToIndex >= 0 && scrollToIndex < items.length) {
-109 |             const top = offsets[scrollToIndex] ?? 0
-110 |             if (Math.abs(el.scrollTop - top) > 4) {
-111 |                 el.scrollTop = top
-112 |             }
-113 |         }
-114 |     }
-115 | 
-116 |     return (
-117 |         <div ref={containerRef} onScroll={onScroll} style={{ height, overflowY: "auto", position: "relative" }} className={className}>
-118 |             <div style={{ height: totalHeight, position: "relative" }}>
-119 |                 {visible.map((index) => {
-120 |                     const item = items[index]
-121 |                     if (item === undefined) return null
-122 |                     const top = offsets[index] ?? 0
-123 |                     const key = keyForIndex ? keyForIndex(item, index) : index
-124 |                     return (
-125 |                         <Row key={key} top={top} onMeasured={(h) => handleMeasured(index, h)}>
-126 |                             {renderItem(item, index)}
-127 |                         </Row>
-128 |                     )
-129 |                 })}
-130 |             </div>
-131 |         </div>
-132 |     )
-133 | }
-134 | 
-135 | function Row({ top, onMeasured, children }: { top: number; onMeasured: (h: number) => void; children: React.ReactNode }) {
-136 |     const ref = useRef<HTMLDivElement | null>(null)
-137 |     useLayoutEffect(() => {
-138 |         const el = ref.current
-139 |         if (!el) return
-140 |         onMeasured(el.getBoundingClientRect().height)
-141 |     })
-142 |     return (
-143 |         <div ref={ref} style={{ position: "absolute", top, left: 0, right: 0 }}>
-144 |             {children}
-145 |         </div>
-146 |     )
-147 | }
-148 | 
-```
-
-src/lib/session-parser/index.ts
-```
-1 | export * from "./schemas"
-2 | export * from "./validators"
-3 | export * from "./streaming"
-4 | 
-```
-
-src/lib/session-parser/schemas.ts
-```
-1 | import { z } from "zod"
-2 | 
-3 | export const GitInfoSchema = z
-4 |     .object({
-5 |         repo: z.string().optional(),
-6 |         branch: z.string().optional(),
-7 |         commit: z.string().optional(),
-8 |         remote: z.string().optional(),
-9 |         dirty: z.boolean().optional()
-10 |     })
-11 |     .passthrough()
-12 | 
-13 | export const SessionMetaSchema = z
-14 |     .object({
-15 |         id: z.string().min(1).optional(),
-16 |         timestamp: z.string().min(1, "timestamp required"),
-17 |         instructions: z.string().optional(),
-18 |         git: GitInfoSchema.optional(),
-19 |         version: z.union([z.number(), z.string()]).optional()
-20 |     })
-21 |     .passthrough()
-22 | 
-23 | const BaseEvent = z
-24 |     .object({
-25 |         id: z.string().optional(),
-26 |         at: z.string().optional(),
-27 |         index: z.number().int().optional()
-28 |     })
-29 |     .passthrough()
-30 | 
-31 | const MessagePartSchema = z
-32 |     .object({
-33 |         type: z.literal("text"),
-34 |         text: z.string()
-35 |     })
-36 |     .passthrough()
-37 | 
-38 | const MessageEventSchema = BaseEvent.extend({
-39 |     type: z.literal("Message"),
-40 |     role: z.string(),
-41 |     content: z.union([z.string(), z.array(MessagePartSchema)]),
-42 |     model: z.string().optional()
-43 | })
-44 | 
-45 | const ReasoningEventSchema = BaseEvent.extend({
-46 |     type: z.literal("Reasoning"),
-47 |     content: z.string()
-48 | })
-49 | 
-50 | const FunctionCallEventSchema = BaseEvent.extend({
-51 |     type: z.literal("FunctionCall"),
-52 |     name: z.string(),
-53 |     args: z.unknown().optional(),
-54 |     result: z.unknown().optional(),
-55 |     durationMs: z.number().optional()
-56 | })
-57 | 
-58 | const LocalShellCallEventSchema = BaseEvent.extend({
-59 |     type: z.literal("LocalShellCall"),
-60 |     command: z.string(),
-61 |     cwd: z.string().optional(),
-62 |     exitCode: z.number().int().optional(),
-63 |     stdout: z.string().optional(),
-64 |     stderr: z.string().optional(),
-65 |     durationMs: z.number().optional()
-66 | })
-67 | 
-68 | const WebSearchCallEventSchema = BaseEvent.extend({
-69 |     type: z.literal("WebSearchCall"),
-70 |     query: z.string(),
-71 |     provider: z.string().optional(),
-72 |     results: z
-73 |         .array(
-74 |             z
-75 |                 .object({
-76 |                     title: z.string().optional(),
-77 |                     url: z.string().optional(),
-78 |                     snippet: z.string().optional()
-79 |                 })
-80 |                 .passthrough()
-81 |         )
-82 |         .optional()
-83 | })
-84 | 
-85 | const CustomToolCallEventSchema = BaseEvent.extend({
-86 |     type: z.literal("CustomToolCall"),
-87 |     toolName: z.string(),
-88 |     input: z.unknown().optional(),
-89 |     output: z.unknown().optional()
-90 | })
-91 | 
-92 | const FileChangeEventSchema = BaseEvent.extend({
-93 |     type: z.literal("FileChange"),
-94 |     path: z.string(),
-95 |     diff: z.string().optional()
-96 | })
-97 | 
-98 | const OtherEventSchema = BaseEvent.extend({
-99 |     type: z.literal("Other"),
-100 |     data: z.unknown().optional()
-101 | })
-102 | 
-103 | export const ResponseItemSchema = z.discriminatedUnion("type", [
-104 |     MessageEventSchema,
-105 |     ReasoningEventSchema,
-106 |     FunctionCallEventSchema,
-107 |     LocalShellCallEventSchema,
-108 |     WebSearchCallEventSchema,
-109 |     CustomToolCallEventSchema,
-110 |     FileChangeEventSchema,
-111 |     OtherEventSchema
-112 | ])
-113 | 
-114 | export type SessionMetaParsed = z.infer<typeof SessionMetaSchema>
-115 | export type ResponseItemParsed = z.infer<typeof ResponseItemSchema>
-116 | 
-```
-
-src/lib/session-parser/streaming.ts
-```
-1 | import { streamTextLines } from "~/utils/line-reader"
-2 | import { parseResponseItemLine, parseSessionMetaLine, type ParseFailureReason, type SafeResult } from "./validators"
-3 | import type { ResponseItemParsed, SessionMetaParsed } from "./schemas"
-4 | 
-5 | export interface ParserError {
-6 |     readonly line: number
-7 |     readonly reason: ParseFailureReason
-8 |     readonly message: string
-9 |     readonly raw: string
-10 | }
-11 | 
-12 | export interface ParserStats {
-13 |     readonly totalLines: number
-14 |     readonly parsedEvents: number
-15 |     readonly failedLines: number
-16 |     readonly durationMs: number
-17 | }
-18 | 
-19 | export interface ParserOptions {
-20 |     readonly maxErrors?: number
-21 | }
-22 | 
-23 | export type ParserEvent =
-24 |     | { kind: "meta"; line: 1; meta: SessionMetaParsed; version: string | number }
-25 |     | { kind: "event"; line: number; event: ResponseItemParsed }
-26 |     | { kind: "error"; error: ParserError }
-27 |     | { kind: "done"; stats: ParserStats }
-28 | 
-29 | function pickVersion(meta: SessionMetaParsed | undefined) {
-30 |     const v = meta?.version
-31 |     if (v === undefined || v === null || v === "") return 1
-32 |     return v
-33 | }
-34 | 
-35 | export async function* streamParseSession(blob: Blob, opts: ParserOptions = {}): AsyncGenerator<ParserEvent> {
-36 |     const started = performance.now?.() ?? Date.now()
-37 |     let total = 0
-38 |     let parsed = 0
-39 |     let failed = 0
-40 |     const maxErrors = opts.maxErrors ?? Number.POSITIVE_INFINITY
-41 | 
-42 |     let meta: SessionMetaParsed | undefined
-43 |     let version: string | number = 1
-44 | 
-45 |     const pendingCalls = new Map<string, ResponseItemParsed>()
-46 | 
-47 |     let lineNo = 0
-48 |     for await (const line of streamTextLines(blob)) {
-49 |         lineNo++
-50 |         total++
-51 | 
-52 |         if (!line || line.trim().length === 0) continue
-53 |         const trimmed = line.trim()
-54 |         if (trimmed === "[" || trimmed === "]" || trimmed === "],") continue
-55 | 
-56 |         if (!meta) {
-57 |             const mres = parseSessionMetaLine(line)
-58 |             if (mres.success) {
-59 |                 meta = mres.data
-60 |                 version = pickVersion(meta)
-61 |                 yield { kind: "meta", line: 1 as 1, meta, version }
-62 |                 continue
-63 |             }
-64 |             const evTry = parseResponseItemLine(line)
-65 |             if (evTry.success) {
-66 |                 meta = { timestamp: new Date().toISOString() } as SessionMetaParsed
-67 |                 version = pickVersion(meta)
-68 |                 yield { kind: "meta", line: 1 as 1, meta, version }
-69 |                 parsed++
-70 |                 yield { kind: "event", line: lineNo, event: evTry.data }
-71 |                 continue
-72 |             }
-73 |             try {
-74 |                 const obj = JSON.parse(line) as any
-75 |                 if (obj && typeof obj === "object" && obj.record_type === "state") continue
-76 |             } catch {}
-77 |             failed++
-78 |             yield {
-79 |                 kind: "error",
-80 |                 error: {
-81 |                     line: lineNo,
-82 |                     reason: mres.reason,
-83 |                     message: mres.error.message,
-84 |                     raw: line
-85 |                 }
-86 |             }
-87 |             if (failed >= maxErrors) break
-88 |             continue
-89 |         }
-90 | 
-91 |         try {
-92 |             if (line.trim().startsWith("{")) {
-93 |                 const obj = JSON.parse(line) as any
-94 |                 const rt = obj?.record_type ?? obj?.recordType ?? obj?.kind
-95 |                 if (obj && typeof obj === "object" && typeof rt === "string" && String(rt).toLowerCase() === "state") {
-96 |                     continue
-97 |                 }
-98 |             }
-99 |         } catch {}
-100 | 
-101 |         const res = parseLineByVersion(version, line)
-102 |         if (!res.success) {
-103 |             failed++
-104 |             yield {
-105 |                 kind: "error",
-106 |                 error: {
-107 |                     line: lineNo,
-108 |                     reason: res.reason,
-109 |                     message: res.error.message,
-110 |                     raw: line
-111 |                 }
-112 |             }
-113 |             if (failed >= maxErrors) break
-114 |         } else {
-115 |             const ev = res.data
-116 |             if (ev.type === "FunctionCall") {
-117 |                 const callId = (ev as any).call_id as string | undefined
-118 |                 if (callId) {
-119 |                     if (ev.result === undefined) {
-120 |                         pendingCalls.set(callId, ev)
-121 |                         parsed++
-122 |                         yield { kind: "event", line: lineNo, event: ev }
-123 |                     } else if ((ev as any).args === undefined && pendingCalls.has(callId)) {
-124 |                         const prev = pendingCalls.get(callId)!
-125 |                         if (prev.type === "LocalShellCall" && ev.result && typeof ev.result === "object") {
-126 |                             const r = ev.result as any
-127 |                             if (typeof r.stdout === "string") (prev as any).stdout = r.stdout
-128 |                             if (typeof r.stderr === "string") (prev as any).stderr = r.stderr
-129 |                             if (typeof r.exitCode === "number") (prev as any).exitCode = r.exitCode
-130 |                             else if (typeof r.exit_code === "number") (prev as any).exitCode = r.exit_code
-131 |                             if (typeof r.durationMs === "number") (prev as any).durationMs = r.durationMs
-132 |                             else if (typeof r.duration_ms === "number") (prev as any).durationMs = r.duration_ms
-133 |                             delete (prev as any).result
-134 |                         } else {
-135 |                             ;(prev as any).result = ev.result
-136 |                             if (ev.durationMs !== undefined) (prev as any).durationMs = ev.durationMs
-137 |                         }
-138 |                         pendingCalls.delete(callId)
-139 |                     } else {
-140 |                         parsed++
-141 |                         yield { kind: "event", line: lineNo, event: ev }
-142 |                     }
-143 |                 } else {
-144 |                     parsed++
-145 |                     yield { kind: "event", line: lineNo, event: ev }
-146 |                 }
-147 |             } else if (ev.type === "LocalShellCall") {
-148 |                 const callId = (ev as any).call_id as string | undefined
-149 |                 const hasOutput = ev.stdout !== undefined || ev.stderr !== undefined || ev.exitCode !== undefined || ev.durationMs !== undefined
-150 |                 if (callId) {
-151 |                     if (!hasOutput) {
-152 |                         pendingCalls.set(callId, ev)
-153 |                         parsed++
-154 |                         yield { kind: "event", line: lineNo, event: ev }
-155 |                     } else if (pendingCalls.has(callId)) {
-156 |                         const prev = pendingCalls.get(callId)!
-157 |                         Object.assign(prev, ev)
-158 |                         pendingCalls.delete(callId)
-159 |                     } else {
-160 |                         parsed++
-161 |                         yield { kind: "event", line: lineNo, event: ev }
-162 |                     }
-163 |                 } else {
-164 |                     parsed++
-165 |                     yield { kind: "event", line: lineNo, event: ev }
-166 |                 }
-167 |             } else {
-168 |                 parsed++
-169 |                 yield { kind: "event", line: lineNo, event: ev }
-170 |             }
-171 |         }
-172 |     }
-173 | 
-174 |     const ended = performance.now?.() ?? Date.now()
-175 |     yield {
-176 |         kind: "done",
-177 |         stats: {
-178 |             totalLines: total,
-179 |             parsedEvents: parsed,
-180 |             failedLines: failed,
-181 |             durationMs: Math.max(0, ended - started)
-182 |         }
-183 |     }
-184 | }
-185 | 
-186 | function parseLineByVersion(version: string | number, line: string): SafeResult<ResponseItemParsed> {
-187 |     void version
-188 |     return parseResponseItemLine(line)
-189 | }
-190 | 
-191 | export async function parseSessionToArrays(blob: Blob, opts: ParserOptions = {}) {
-192 |     const errors: ParserError[] = []
-193 |     const events: ResponseItemParsed[] = []
-194 |     let meta: SessionMetaParsed | undefined
-195 |     let stats: ParserStats | undefined
-196 | 
-197 |     for await (const item of streamParseSession(blob, opts)) {
-198 |         if (item.kind === "meta") meta = item.meta
-199 |         else if (item.kind === "event") events.push(item.event)
-200 |         else if (item.kind === "error") errors.push(item.error)
-201 |         else if (item.kind === "done") stats = item.stats
-202 |     }
-203 | 
-204 |     return { meta, events, errors, stats }
-205 | }
-```
-
-src/lib/session-parser/validators.ts
-```
-1 | import { z, type ZodError } from "zod"
-2 | import { ResponseItemSchema, SessionMetaSchema, type ResponseItemParsed, type SessionMetaParsed } from "./schemas"
-3 | import type { MessagePart } from "../types/events"
-4 | 
-5 | export type ParseFailureReason = "invalid_json" | "invalid_schema"
-6 | 
-7 | export type SafeResult<T> =
-8 |     | { success: true; data: T }
-9 |     | { success: false; error: ZodError | SyntaxError; reason: ParseFailureReason }
-10 | 
-11 | function tryParseJson(line: string): { success: true; data: unknown } | { success: false; error: SyntaxError } {
-12 |     let s = line
-13 |     s = s.replace(/^\uFEFF/, "")
-14 |     s = s.replace(/^\)\]\}'?,?\s*/, "")
-15 |     const t = s.trim()
-16 |     if (t === "[" || t === "]" || t === "],") {
-17 |         return { success: true, data: { __csv_token__: t } }
-18 |     }
-19 |     try {
-20 |         return { success: true, data: JSON.parse(s) }
-21 |     } catch (e) {
-22 |         if (/[,\s]$/.test(s)) {
-23 |             try {
-24 |                 return { success: true, data: JSON.parse(s.replace(/[\s,]+$/, "")) }
-25 |             } catch {}
-26 |         }
-27 |         return { success: false, error: e as SyntaxError }
-28 |     }
-29 | }
-30 | 
-31 | function isRecord(v: unknown): v is Record<string, unknown> {
-32 |     return v !== null && typeof v === "object" && !Array.isArray(v)
-33 | }
-34 | 
-35 | export function parseSessionMetaLine(line: string): SafeResult<SessionMetaParsed> {
-36 |     const j = tryParseJson(line)
-37 |     if (!j.success) return { success: false, error: j.error, reason: "invalid_json" }
-38 |     let payload: unknown = j.data
-39 |     if (isRecord(payload)) {
-40 |         const rt = (payload as any).record_type || (payload as any).recordType
-41 |         if (typeof rt === "string" && rt.toLowerCase() === "meta") {
-42 |             const inner = (payload as any).record || (payload as any).data || (payload as any).payload
-43 |             if (inner && typeof inner === "object") payload = inner
-44 |         }
-45 |         const t = (payload as any).type
-46 |         if (typeof t === "string" && t.toLowerCase() === "session_meta") {
-47 |             const inner = (payload as any).payload || (payload as any).data || (payload as any).record
-48 |             if (inner && typeof inner === "object") payload = inner
-49 |         }
-50 |     }
-51 |     const res = SessionMetaSchema.safeParse(payload)
-52 |     if (!res.success) return { success: false, error: res.error, reason: "invalid_schema" }
-53 |     return { success: true, data: res.data }
-54 | }
-55 | 
-56 | export function parseResponseItemLine(line: string): SafeResult<ResponseItemParsed> {
-57 |     const j = tryParseJson(line)
-58 |     if (!j.success) return { success: false, error: j.error, reason: "invalid_json" }
+15 |   const ticking = useRef(false);
+16 |   return useCallback(() => {
+17 |     if (ticking.current) return;
+18 |     ticking.current = true;
+19 |     const schedule =
+20 |       typeof window !== 'undefined'
+21 |         ? window.requestAnimationFrame
+22 |         : (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16);
+23 |     schedule(() => {
+24 |       ticking.current = false;
+25 |       fn();
+26 |     });
+27 |   }, [fn]);
+28 | }
+29 | 
+30 | function lowerBound(prefix: ReadonlyArray<number>, target: number) {
+31 |   let lo = 0;
+32 |   let hi = prefix.length - 1;
+33 |   let ans = prefix.length;
+34 |   while (lo <= hi) {
+35 |     const mid = (lo + hi) >> 1;
+36 |     if ((prefix[mid] ?? 0) >= target) {
+37 |       ans = mid;
+38 |       hi = mid - 1;
+39 |     } else {
+40 |       lo = mid + 1;
+41 |     }
+42 |   }
+43 |   return ans;
+44 | }
+45 | 
+46 | export function TimelineView<T>({
+47 |   items,
+48 |   height = 600,
+49 |   estimateItemHeight = 80,
+50 |   overscanPx = 400,
+51 |   renderItem,
+52 |   keyForIndex,
+53 |   className,
+54 |   scrollToIndex = null,
+55 | }: TimelineViewProps<T>) {
+56 |   const containerRef = useRef<HTMLDivElement | null>(null);
+57 |   const [scrollTop, setScrollTop] = useState(0);
+58 |   const [measured, setMeasured] = useState<Map<number, number>>(new Map());
 59 | 
-60 |     let payload: unknown = j.data
-61 |     if (isRecord(payload)) {
-62 |         const rt = (payload as any).record_type || (payload as any).recordType
-63 |         if (typeof rt === "string") {
-64 |             const rtl = rt.toLowerCase()
-65 |             if (rtl === "event" || rtl === "trace" || rtl === "log") {
-66 |                 const inner =
-67 |                     (payload as any).record ||
-68 |                     (payload as any).event ||
-69 |                     (payload as any).payload ||
-70 |                     (payload as any).data ||
-71 |                     (payload as any).item
-72 |                 if (inner && typeof inner === "object") payload = inner
-73 |             } else if (rtl === "state") {
-74 |                 const fallback = { type: "Other", data: payload }
-75 |                 const alt = ResponseItemSchema.safeParse(fallback)
-76 |                 if (alt.success) return { success: true, data: alt.data }
-77 |             }
-78 |         }
-79 |         const t = (payload as any).type
-80 |         if (typeof t === "string") {
-81 |             const tl = t.toLowerCase()
-82 |             if (tl === "response_item" || tl === "event_msg") {
-83 |                 const inner =
-84 |                     (payload as any).payload ||
-85 |                     (payload as any).data ||
-86 |                     (payload as any).record ||
-87 |                     (payload as any).event ||
-88 |                     (payload as any).item
-89 |                 if (inner && typeof inner === "object") {
-90 |                     if (typeof (payload as any).timestamp === "string" && !(inner as any).at) {
-91 |                         ;(inner as any).at = (payload as any).timestamp
-92 |                     }
-93 |                     payload = inner
-94 |                 }
-95 |             }
-96 |         }
-97 |     }
+60 |   const onScroll = useRafThrottle(() => {
+61 |     const el = containerRef.current;
+62 |     if (el) setScrollTop(el.scrollTop);
+63 |   });
+64 | 
+65 |   const { offsets, totalHeight } = useMemo(() => {
+66 |     const n = items.length;
+67 |     const heights = new Array<number>(n);
+68 |     for (let i = 0; i < n; i++) {
+69 |       heights[i] = measured.get(i) ?? estimateItemHeight;
+70 |     }
+71 |     const off = new Array<number>(n);
+72 |     let acc = 0;
+73 |     for (let i = 0; i < n; i++) {
+74 |       off[i] = acc;
+75 |       acc += heights[i] ?? estimateItemHeight;
+76 |     }
+77 |     return { offsets: off, totalHeight: acc };
+78 |   }, [items.length, measured, estimateItemHeight]);
+79 | 
+80 |   const start = useMemo(() => {
+81 |     const target = Math.max(0, scrollTop - overscanPx);
+82 |     const idx = lowerBound(offsets, target);
+83 |     return Math.max(0, Math.min(idx, items.length - 1));
+84 |   }, [offsets, scrollTop, overscanPx, items.length]);
+85 | 
+86 |   const end = useMemo(() => {
+87 |     const target = Math.min(totalHeight, scrollTop + height + overscanPx);
+88 |     const idx = lowerBound(offsets, target);
+89 |     return Math.max(start, Math.min(items.length - 1, idx));
+90 |   }, [offsets, totalHeight, scrollTop, height, overscanPx, items.length, start]);
+91 | 
+92 |   const handleMeasured = useCallback(
+93 |     (index: number, h: number) => {
+94 |       const prev = measured.get(index) ?? 0;
+95 |       if (Math.abs(prev - h) > 1) {
+96 |         setMeasured((map) => {
+97 |           const next = new Map(map);
+98 |           next.set(index, h);
+99 |           return next;
+100 |         });
+101 |       }
+102 |     },
+103 |     [measured]
+104 |   );
+105 | 
+106 |   const visible: number[] = [];
+107 |   for (let i = start; i <= end; i++) visible.push(i);
+108 | 
+109 |   if (scrollToIndex != null) {
+110 |     const el = containerRef.current;
+111 |     if (el && scrollToIndex >= 0 && scrollToIndex < items.length) {
+112 |       const top = offsets[scrollToIndex] ?? 0;
+113 |       if (Math.abs(el.scrollTop - top) > 4) {
+114 |         el.scrollTop = top;
+115 |       }
+116 |     }
+117 |   }
+118 | 
+119 |   return (
+120 |     <div
+121 |       ref={containerRef}
+122 |       onScroll={onScroll}
+123 |       style={{ height, overflowY: 'auto', position: 'relative' }}
+124 |       className={className}
+125 |     >
+126 |       <div style={{ height: totalHeight, position: 'relative' }}>
+127 |         {visible.map((index) => {
+128 |           const item = items[index];
+129 |           if (item === undefined) return null;
+130 |           const top = offsets[index] ?? 0;
+131 |           const key = keyForIndex ? keyForIndex(item, index) : index;
+132 |           return (
+133 |             <Row key={key} top={top} onMeasured={(h) => handleMeasured(index, h)}>
+134 |               {renderItem(item, index)}
+135 |             </Row>
+136 |           );
+137 |         })}
+138 |       </div>
+139 |     </div>
+140 |   );
+141 | }
+142 | 
+143 | function Row({
+144 |   top,
+145 |   onMeasured,
+146 |   children,
+147 | }: {
+148 |   top: number;
+149 |   onMeasured: (h: number) => void;
+150 |   children: React.ReactNode;
+151 | }) {
+152 |   const ref = useRef<HTMLDivElement | null>(null);
+153 |   useLayoutEffect(() => {
+154 |     const el = ref.current;
+155 |     if (!el) return;
+156 |     onMeasured(el.getBoundingClientRect().height);
+157 |   });
+158 |   return (
+159 |     <div ref={ref} style={{ position: 'absolute', top, left: 0, right: 0 }}>
+160 |       {children}
+161 |     </div>
+162 |   );
+163 | }
+```
+
+src/.cursor/rules/ruler_cursor_instructions.mdc
+```
+1 | ---
+2 | alwaysApply: true
+3 | ---
+4 | <!-- Source: .ruler/tanstack-environment-server-client-only-rules.md -->
+5 | 
+6 | # ClientOnly
+7 | 
+8 | Client-only render to avoid SSR hydration issues. Import from `@tanstack/react-router`:
+9 | 
+10 | ```typescript
+11 | import { ClientOnly } from '@tanstack/react-router';
+12 | 
+13 | <ClientOnly fallback={<span>—</span>}>
+14 |   <ComponentThatUsesClientHooks />
+15 | </ClientOnly>
+16 | ```
+17 | 
+18 | Alternative: Custom implementation using mounted pattern if needed (see hydration errors below).
+19 | 
+20 | # Environment functions
+21 | 
+22 | From `@tanstack/react-start`:
+23 | 
+24 | ## createIsomorphicFn
+25 | 
+26 | Adapts to client/server:
+27 | 
+28 | ```typescript
+29 | import { createIsomorphicFn } from '@tanstack/react-start';
+30 | const getEnv = createIsomorphicFn()
+31 |   .server(() => 'server')
+32 |   .client(() => 'client');
+33 | getEnv(); // 'server' on server, 'client' on client
+34 | ```
+35 | 
+36 | Partial: `.server()` no-op on client, `.client()` no-op on server.
+37 | 
+38 | ## createServerOnlyFn / createClientOnlyFn
+39 | 
+40 | RC1: `serverOnly` → `createServerOnlyFn`, `clientOnly` → `createClientOnlyFn`
+41 | 
+42 | Strict environment execution (throws if called wrong env):
+43 | 
+44 | ```typescript
+45 | import { createServerOnlyFn, createClientOnlyFn } from '@tanstack/react-start';
+46 | const serverFn = createServerOnlyFn(() => 'bar'); // throws on client
+47 | const clientFn = createClientOnlyFn(() => 'bar'); // throws on server
+48 | ```
+49 | 
+50 | Tree-shaken: client code removed from server bundle, server code removed from client bundle.
+51 | 
+52 | # Hydration errors
+53 | 
+54 | Mismatch: Server HTML differs from client render. Common causes: Intl (locale/timezone), Date.now(), random IDs, responsive logic, feature flags, user prefs.
+55 | 
+56 | Strategies:
+57 | 1. Make server and client match: deterministic locale/timezone on server (cookie or Accept-Language header), compute once and hydrate as initial state.
+58 | 2. Let client tell environment: set cookie with client timezone on first visit, SSR uses UTC until then.
+59 | 3. Make it client-only: wrap unstable UI in `<ClientOnly>` to avoid SSR mismatches.
+60 | 4. Disable/limit SSR: use selective SSR (`ssr: 'data-only'` or `false`) when server HTML cannot be stable.
+61 | 5. Last resort: React's `suppressHydrationWarning` for small known-different nodes (use sparingly).
+62 | 
+63 | Checklist: Deterministic inputs (locale, timezone, feature flags). Prefer cookies for client context. Use `<ClientOnly>` for dynamic UI. Use selective SSR when server HTML unstable. Avoid blind suppression.
+64 | 
+65 | # TanStack Start basics
+66 | 
+67 | Depends: @tanstack/react-router, Vite. Router: getRouter() (was createRouter() in beta). routeTree.gen.ts auto-generated on first dev run. Optional: server handler via @tanstack/react-start/server; client hydrate via StartClient from @tanstack/react-start/client. RC1: Import StartClient from @tanstack/react-start/client (not @tanstack/react-start). StartClient no longer requires router prop. Root route head: utf-8, viewport, title; component wraps Outlet in RootDocument. Routes: createFileRoute() code-split + lazy-load; loader runs server/client. Navigation: Link (typed), useNavigate (imperative), useRouter (instance).
+68 | 
+69 | # Server functions
+70 | 
+71 | createServerFn({ method }) + zod .inputValidator + .handler(ctx). After mutations: router.invalidate(); queryClient.invalidateQueries(['entity', id]).
+72 | 
+73 | # Typed Links
+74 | 
+75 | Link to="/posts/$postId" with params; activeProps for styling.
+76 | 
+77 | 
+78 | 
+79 | <!-- Source: .ruler/tanstack-query-rules.md -->
+80 | 
+81 | # TanStack Query Rules
+82 | 
+83 | Server state via TanStack Query + server functions. Type-safe fetching and mutations.
+84 | 
+85 | ## Query Pattern
+86 | 
+87 | Define in `lib/{resource}/queries.ts` using `queryOptions`:
+88 | 
+89 | ```typescript
+90 | export const todosQueryOptions = () =>
+91 |   queryOptions({
+92 |     queryKey: ['todos'],
+93 |     queryFn: async ({ signal }) => await getTodos({ signal }),
+94 |     staleTime: 1000 * 60 * 5,
+95 |     gcTime: 1000 * 60 * 10,
+96 |   });
+97 | ```
 98 | 
-99 |     if (isRecord(payload)) {
-100 |         const normalized = normalizeForeignEventShape(payload)
-101 |         if (normalized) {
-102 |             const normRes = ResponseItemSchema.safeParse(normalized)
-103 |             if (normRes.success) return { success: true, data: normRes.data }
-104 |         }
-105 |     }
+99 | Use: `const { data, isLoading } = useQuery(todosQueryOptions())`. Prefer `useSuspenseQuery` with Suspense.
+100 | 
+101 | ## Server Functions in Queries
+102 | 
+103 | Call server functions directly in `queryFn`. No `useServerFn` hook. TanStack Start proxies. Pass `signal` for cancellation.
+104 | 
+105 | ## Mutation Pattern
 106 | 
-107 |     const res = ResponseItemSchema.safeParse(payload)
-108 |     if (res.success) return { success: true, data: res.data }
-109 | 
-110 |     if (isRecord(payload)) {
-111 |         const base = payload
-112 |         const t = typeof (base as any).type === "string" ? (base as any).type : undefined
-113 |         const known = ["Message", "Reasoning", "FunctionCall", "LocalShellCall", "WebSearchCall", "CustomToolCall", "FileChange", "Other"]
-114 |         if (!t || !known.includes(t)) {
-115 |             const fallback = {
-116 |                 type: "Other",
-117 |                 id: typeof base.id === "string" ? base.id : undefined,
-118 |                 at: typeof base.at === "string" ? base.at : undefined,
-119 |                 index: typeof base.index === "number" ? base.index : undefined,
-120 |                 data: base
-121 |             }
-122 |             const alt = ResponseItemSchema.safeParse(fallback)
-123 |             if (alt.success) return { success: true, data: alt.data }
-124 |         }
-125 |     }
-126 | 
-127 |     return { success: false, error: res.error, reason: "invalid_schema" }
-128 | }
+107 | ```typescript
+108 | const mutation = useMutation({
+109 |   mutationFn: async (text: string) => await createTodo({ data: { text } }),
+110 |   onSuccess: () => {
+111 |     queryClient.invalidateQueries({ queryKey: todosQueryOptions().queryKey });
+112 |     toast.success('Success');
+113 |   },
+114 |   onError: (error) => toast.error(error.message || 'Failed'),
+115 | });
+116 | ```
+117 | 
+118 | Call via `mutation.mutate(data)` or `mutateAsync` for promises.
+119 | 
+120 | ## Query Invalidation
+121 | 
+122 | After mutations: `queryClient.invalidateQueries({ queryKey: ... })`. Use specific keys, not broad.
+123 | 
+124 | ## Mutation States
+125 | 
+126 | Access: `isPending`, `isError`, `isSuccess`, `error`, `data`. Disable UI during `isPending`.
+127 | 
+128 | ## Error Handling
 129 | 
-130 | function asString(v: unknown): string | undefined {
-131 |     if (typeof v === "string") return v
-132 |     if (v == null) return undefined
-133 |     try {
-134 |         return JSON.stringify(v)
-135 |     } catch {
-136 |         return String(v)
-137 |     }
-138 | }
-139 | 
-140 | function toCamel<T extends Record<string, any>>(obj: T): T {
-141 |     const out: Record<string, any> = {}
-142 |     for (const [k, v] of Object.entries(obj)) {
-143 |         const ck = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
-144 |         out[ck] = v
-145 |     }
-146 |     return out as T
-147 | }
+130 | Handle in `onError`. Toast messages. Access: `error.message || 'Default'`.
+131 | 
+132 | ## Query Keys
+133 | 
+134 | Hierarchical: `['todos']`, `['todo', id]`, `['todos', 'completed']`. Include all affecting variables.
+135 | 
+136 | ## Stale Time vs GC Time
+137 | 
+138 | `staleTime`: freshness duration (no refetch). Default 0. Set for stable data.
+139 | `gcTime`: unused cache duration (was `cacheTime`). Default 5min. Memory management.
+140 | 
+141 | ## Infinite Queries
+142 | 
+143 | `useInfiniteQuery` for pagination. Required: `initialPageParam`, `getNextPageParam`, `fetchNextPage`. Access `data.pages`. Check `hasNextPage` before fetching.
+144 | 
+145 | ## Optimistic Updates
+146 | 
+147 | `onMutate` for optimistic updates. Rollback in `onError`. Update cache via `queryClient.setQueryData`.
 148 | 
-149 | function flattenContent(content: unknown): string | undefined
-150 | function flattenContent(content: unknown, preserveArray: false): string | undefined
-151 | function flattenContent(content: unknown, preserveArray: true): string | MessagePart[] | undefined
-152 | function flattenContent(content: unknown, preserveArray = false): string | MessagePart[] | undefined {
-153 |     if (typeof content === "string") return content
-154 |     if (Array.isArray(content)) {
-155 |         const parts: MessagePart[] = []
-156 |         for (const b of content) {
-157 |             if (b && typeof b === "object" && "text" in (b as any)) {
-158 |                 parts.push({ type: "text", text: String((b as any).text) })
-159 |             } else {
-160 |                 const text = asString(b)
-161 |                 if (text != null) parts.push({ type: "text", text })
-162 |             }
-163 |         }
-164 |         return preserveArray ? parts : parts.map((p) => p.text).join("\n")
-165 |     }
-166 |     return asString(content)
-167 | }
-168 | 
-169 | function extractReasoningContent(src: Record<string, any>): string | null {
-170 |     let content = flattenContent(src.content)
-171 |     if (typeof content === "string" && content.trim() !== "") return content
-172 |     const summary = flattenContent(src.summary)
-173 |     if (typeof summary === "string" && summary.trim() !== "") return summary
-174 |     if ("encryptedContent" in src) return "[encrypted]"
-175 |     return null
-176 | }
-177 | 
-178 | function tryParseJsonText(s?: string): unknown {
-179 |     if (!s) return undefined
-180 |     try {
-181 |         return JSON.parse(s)
-182 |     } catch {
-183 |         return s
-184 |     }
-185 | }
-186 | 
-187 | function extractMessageFromResponse(resp: any): string | undefined {
-188 |     if (!resp || typeof resp !== "object") return undefined
-189 |     if (Array.isArray(resp.output_text) && resp.output_text.length) {
-190 |         return resp.output_text.map((x: any) => (typeof x === "string" ? x : asString(x) ?? "")).join("\n")
-191 |     }
-192 |     if (Array.isArray(resp.output)) {
-193 |         const parts: string[] = []
-194 |         for (const seg of resp.output) {
-195 |             if (Array.isArray(seg?.content)) {
-196 |                 for (const item of seg.content) {
-197 |                     if (item && typeof item === "object") {
-198 |                         if ("text" in item && typeof item.text === "string") parts.push(item.text)
-199 |                         else if ("type" in item && item.type === "tool_output") {
-200 |                             const text = asString(item.output_text ?? item.output)
-201 |                             if (text) parts.push(text)
-202 |                         }
-203 |                     }
-204 |                 }
-205 |             }
-206 |         }
-207 |         if (parts.length) return parts.join("\n")
-208 |     }
-209 |     if (typeof resp.text === "string") return resp.text
-210 |     if (Array.isArray(resp.text)) {
-211 |         return resp.text.map((x: any) => (typeof x === "string" ? x : asString(x) ?? "")).join("\n")
-212 |     }
-213 |     return undefined
-214 | }
-215 | 
-216 | function normalizeForeignEventShape(payload: Record<string, any>) {
-217 |     const next = toCamel(payload)
-218 |     const type = typeof next.type === "string" ? next.type : typeof next.eventType === "string" ? next.eventType : undefined
-219 |     if (!type) return null
-220 |     const normalized: Record<string, any> = { ...next, type }
-221 | 
-222 |     if (type === "message" || type === "chat_message") {
-223 |         normalized.type = "Message"
-224 |         normalized.role = next.role ?? next.author ?? "assistant"
-225 |         if (typeof next.content === "string") normalized.content = next.content
-226 |         else if (Array.isArray(next.content)) normalized.content = flattenContent(next.content, true)
-227 |         else normalized.content = flattenContent(next.body, true) ?? flattenContent(next.payload)
-228 |         if (!normalized.content) normalized.content = extractMessageFromResponse(next.response)
-229 |         if (!normalized.content && typeof next.response_text === "string") normalized.content = next.response_text
-230 |         normalized.model = next.model ?? next.engine
-231 |     } else if (type === "reasoning" || type === "thought") {
-232 |         normalized.type = "Reasoning"
-233 |         const content = extractReasoningContent(next)
-234 |         if (content) normalized.content = content
-235 |     } else if (type === "tool_call" || type === "function_call") {
-236 |         normalized.type = "FunctionCall"
-237 |         normalized.name = next.toolName ?? next.functionName ?? next.name ?? "call"
-238 |         normalized.args = next.args ?? tryParseJsonText(next.arguments)
-239 |         normalized.result = next.result ?? next.output ?? tryParseJsonText(next.response)
-240 |         normalized.durationMs = next.durationMs ?? next.latencyMs ?? next.duration
-241 |     } else if (type === "shell" || type === "command") {
-242 |         normalized.type = "LocalShellCall"
-243 |         normalized.command = next.command ?? next.cmd ?? ""
-244 |         normalized.cwd = next.cwd ?? next.directory
-245 |         normalized.stdout = next.stdout ?? next.output ?? extractMessageFromResponse(next.response)
-246 |         normalized.stderr = next.stderr
-247 |         normalized.exitCode = next.exitCode ?? next.code
-248 |         normalized.durationMs = next.durationMs ?? next.runtimeMs
-249 |     } else if (type === "file_change" || type === "diff") {
-250 |         normalized.type = "FileChange"
-251 |         normalized.path = next.path ?? next.file ?? next.filePath ?? "unknown"
-252 |         normalized.diff = next.diff ?? next.patch ?? next.content
-253 |     } else if (type === "web_search") {
-254 |         normalized.type = "WebSearchCall"
-255 |         normalized.query = next.query ?? next.prompt ?? ""
-256 |         normalized.provider = next.provider ?? next.engine
-257 |         normalized.results = Array.isArray(next.results) ? next.results : undefined
-258 |     } else if (type === "custom_tool") {
-259 |         normalized.type = "CustomToolCall"
-260 |         normalized.toolName = next.toolName ?? next.name ?? "tool"
-261 |         normalized.input = next.input ?? next.payload
-262 |         normalized.output = next.output ?? next.result
-263 |     } else {
-264 |         return null
-265 |     }
-266 | 
-267 |     return normalized
-268 | }
-269 | 
+149 | ## Best Practices
+150 | 
+151 | 1. Queries in `lib/{resource}/queries.ts` with `queryOptions`
+152 | 2. Call server functions directly (no `useServerFn` in callbacks)
+153 | 3. Invalidate after mutations
+154 | 4. Toast for feedback
+155 | 5. Handle loading/error states
+156 | 6. Use TypeScript types from query options
+157 | 7. Set `staleTime`/`gcTime` appropriately
+158 | 8. Prefer `useSuspenseQuery` with Suspense
 ```
 
 src/lib/todos/queries.ts
@@ -3734,65 +3385,64 @@ src/routes/(site)/viewer.tsx
 83 |                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Codex Session Viewer</p>
 84 |                 <h1 className="text-3xl font-bold tracking-tight">Workspace Discovery</h1>
 85 |                 <p className="text-muted-foreground">
-86 |                     This is the first slice of the migration: project files and session logs are fetched in the route loader so hydration never
-87 |                     flashes loading spinners. Drop in a session to stream its timeline, then iterate with the chat dock.
-88 |                 </p>
-89 |             </section>
-90 | 
-91 |             <DiscoveryPanel
-92 |                 projectFiles={data.projectFiles}
-93 |                 sessionAssets={data.sessionAssets}
-94 |                 query={search.query}
-95 |                 onQueryChange={handleQueryChange}
-96 |             />
-97 | 
-98 |             <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-99 |                 <div className="flex flex-col gap-6">
-100 |                     <div className="grid gap-4 md:grid-cols-[2fr,auto]">
-101 |                         <DropZone onFile={handleFile} className="md:col-span-1" />
-102 |                         <div className="flex flex-col gap-4 rounded-xl border bg-card/70 p-5">
-103 |                             <div className="space-y-2">
-104 |                                 <p className="text-sm font-semibold">Session controls</p>
-105 |                                 <p className="text-xs text-muted-foreground">Upload a .jsonl/.ndjson session log to hydrate the timeline.</p>
-106 |                             </div>
-107 |                             <FileInputButton onFile={handleFile} disabled={loader.state.phase === "parsing"} />
-108 |                             <dl className="space-y-2 text-sm">
-109 |                                 <div className="flex items-center justify-between">
-110 |                                     <dt className="text-muted-foreground">Status</dt>
-111 |                                     <dd>{progressLabel}</dd>
-112 |                                 </div>
-113 |                                 {meta?.timestamp ? (
-114 |                                     <div className="flex items-center justify-between">
-115 |                                         <dt className="text-muted-foreground">Timestamp</dt>
-116 |                                         <dd>{new Date(meta.timestamp).toLocaleString()}</dd>
-117 |                                     </div>
-118 |                                 ) : null}
-119 |                                 {meta?.git?.repo ? (
-120 |                                     <div className="flex items-center justify-between">
-121 |                                         <dt className="text-muted-foreground">Repo</dt>
-122 |                                         <dd>{meta.git.repo}</dd>
-123 |                                     </div>
-124 |                                 ) : null}
-125 |                             </dl>
-126 |                         </div>
-127 |                     </div>
-128 | 
-129 |                     <div className="rounded-2xl border p-4">
-130 |                         <div className="mb-4 flex items-center justify-between">
-131 |                             <div>
-132 |                                 <p className="text-sm font-semibold">Timeline</p>
-133 |                                 <p className="text-xs text-muted-foreground">Virtualized list of parsed events.</p>
-134 |                             </div>
-135 |                         </div>
-136 |                         {timelineContent}
-137 |                     </div>
-138 |                 </div>
-139 | 
-140 |                 <ChatDock />
-141 |             </section>
-142 |         </main>
-143 |     )
-144 | }
+86 |                     Drop in a session to stream its timeline, then iterate with the chat dock.
+87 |                 </p>
+88 |             </section>
+89 | 
+90 |             <DiscoveryPanel
+91 |                 projectFiles={data.projectFiles}
+92 |                 sessionAssets={data.sessionAssets}
+93 |                 query={search.query}
+94 |                 onQueryChange={handleQueryChange}
+95 |             />
+96 | 
+97 |             <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+98 |                 <div className="flex flex-col gap-6">
+99 |                     <div className="grid gap-4 md:grid-cols-[2fr,auto]">
+100 |                         <DropZone onFile={handleFile} className="md:col-span-1" />
+101 |                         <div className="flex flex-col gap-4 rounded-xl border bg-card/70 p-5">
+102 |                             <div className="space-y-2">
+103 |                                 <p className="text-sm font-semibold">Session controls</p>
+104 |                                 <p className="text-xs text-muted-foreground">Upload a .jsonl/.ndjson session log.</p>
+105 |                             </div>
+106 |                             <FileInputButton onFile={handleFile} disabled={loader.state.phase === "parsing"} />
+107 |                             <dl className="space-y-2 text-sm">
+108 |                                 <div className="flex items-center justify-between">
+109 |                                     <dt className="text-muted-foreground">Status</dt>
+110 |                                     <dd>{progressLabel}</dd>
+111 |                                 </div>
+112 |                                 {meta?.timestamp ? (
+113 |                                     <div className="flex items-center justify-between">
+114 |                                         <dt className="text-muted-foreground">Timestamp</dt>
+115 |                                         <dd>{new Date(meta.timestamp).toLocaleString()}</dd>
+116 |                                     </div>
+117 |                                 ) : null}
+118 |                                 {meta?.git?.repo ? (
+119 |                                     <div className="flex items-center justify-between">
+120 |                                         <dt className="text-muted-foreground">Repo</dt>
+121 |                                         <dd>{meta.git.repo}</dd>
+122 |                                     </div>
+123 |                                 ) : null}
+124 |                             </dl>
+125 |                         </div>
+126 |                     </div>
+127 | 
+128 |                     <div className="rounded-2xl border p-4">
+129 |                         <div className="mb-4 flex items-center justify-between">
+130 |                             <div>
+131 |                                 <p className="text-sm font-semibold">Timeline</p>
+132 |                                 <p className="text-xs text-muted-foreground">Virtualized list of parsed events.</p>
+133 |                             </div>
+134 |                         </div>
+135 |                         {timelineContent}
+136 |                     </div>
+137 |                 </div>
+138 | 
+139 |                 <ChatDock />
+140 |             </section>
+141 |         </main>
+142 |     )
+143 | }
 ```
 
 src/routes/.ruler/tanstack-server-routes.md
@@ -3870,6 +3520,886 @@ src/routes/api/test.ts
 32 | });
 ```
 
+src/lib/session-parser/index.ts
+```
+1 | export * from './schemas';
+2 | export * from './validators';
+3 | export * from './streaming';
+```
+
+src/lib/session-parser/schemas.ts
+```
+1 | import { z } from 'zod';
+2 | export const GitInfoSchema = z
+3 |   .object({
+4 |     repo: z.string().optional(),
+5 |     branch: z.string().optional(),
+6 |     commit: z.string().optional(),
+7 |     remote: z.string().optional(),
+8 |     dirty: z.boolean().optional(),
+9 |   })
+10 |   .passthrough();
+11 | export const SessionMetaSchema = z
+12 |   .object({
+13 |     id: z.string().min(1).optional(),
+14 |     timestamp: z.string().min(1, 'timestamp required'),
+15 |     instructions: z.string().optional(),
+16 |     git: GitInfoSchema.optional(),
+17 |     version: z.union([z.number(), z.string()]).optional(),
+18 |   })
+19 |   .passthrough();
+20 | const BaseEvent = z
+21 |   .object({
+22 |     id: z.string().optional(),
+23 |     at: z.string().optional(),
+24 |     index: z.number().int().optional(),
+25 |   })
+26 |   .passthrough();
+27 | const MessagePartSchema = z
+28 |   .object({
+29 |     type: z.literal('text'),
+30 |     text: z.string(),
+31 |   })
+32 |   .passthrough();
+33 | const MessageEventSchema = BaseEvent.extend({
+34 |   type: z.literal('Message'),
+35 |   role: z.string(),
+36 |   content: z.union([z.string(), z.array(MessagePartSchema)]),
+37 |   model: z.string().optional(),
+38 | });
+39 | const ReasoningEventSchema = BaseEvent.extend({
+40 |   type: z.literal('Reasoning'),
+41 |   content: z.string(),
+42 | });
+43 | const FunctionCallEventSchema = BaseEvent.extend({
+44 |   type: z.literal('FunctionCall'),
+45 |   name: z.string(),
+46 |   args: z.unknown().optional(),
+47 |   result: z.unknown().optional(),
+48 |   durationMs: z.number().optional(),
+49 | });
+50 | const LocalShellCallEventSchema = BaseEvent.extend({
+51 |   type: z.literal('LocalShellCall'),
+52 |   command: z.string(),
+53 |   cwd: z.string().optional(),
+54 |   exitCode: z.number().int().optional(),
+55 |   stdout: z.string().optional(),
+56 |   stderr: z.string().optional(),
+57 |   durationMs: z.number().optional(),
+58 | });
+59 | const WebSearchCallEventSchema = BaseEvent.extend({
+60 |   type: z.literal('WebSearchCall'),
+61 |   query: z.string(),
+62 |   provider: z.string().optional(),
+63 |   results: z
+64 |     .array(
+65 |       z
+66 |         .object({
+67 |           title: z.string().optional(),
+68 |           url: z.string().optional(),
+69 |           snippet: z.string().optional(),
+70 |         })
+71 |         .passthrough()
+72 |     )
+73 |     .optional(),
+74 | });
+75 | const CustomToolCallEventSchema = BaseEvent.extend({
+76 |   type: z.literal('CustomToolCall'),
+77 |   toolName: z.string(),
+78 |   input: z.unknown().optional(),
+79 |   output: z.unknown().optional(),
+80 | });
+81 | const FileChangeEventSchema = BaseEvent.extend({
+82 |   type: z.literal('FileChange'),
+83 |   path: z.string(),
+84 |   diff: z.string().optional(),
+85 | });
+86 | const OtherEventSchema = BaseEvent.extend({
+87 |   type: z.literal('Other'),
+88 |   data: z.unknown().optional(),
+89 | });
+90 | export const ResponseItemSchema = z.discriminatedUnion('type', [
+91 |   MessageEventSchema,
+92 |   ReasoningEventSchema,
+93 |   FunctionCallEventSchema,
+94 |   LocalShellCallEventSchema,
+95 |   WebSearchCallEventSchema,
+96 |   CustomToolCallEventSchema,
+97 |   FileChangeEventSchema,
+98 |   OtherEventSchema,
+99 | ]);
+100 | export type SessionMetaParsed = z.infer<typeof SessionMetaSchema>;
+101 | export type ResponseItemParsed = z.infer<typeof ResponseItemSchema>;
+```
+
+src/lib/session-parser/streaming.ts
+```
+1 | import { streamTextLines } from '~/utils/line-reader';
+2 | import {
+3 |   parseResponseItemLine,
+4 |   parseSessionMetaLine,
+5 |   type ParseFailureReason,
+6 |   type SafeResult,
+7 | } from './validators';
+8 | import type { ResponseItemParsed, SessionMetaParsed } from './schemas';
+9 | 
+10 | export interface ParserError {
+11 |   readonly line: number;
+12 |   readonly reason: ParseFailureReason;
+13 |   readonly message: string;
+14 |   readonly raw: string;
+15 | }
+16 | 
+17 | export interface ParserStats {
+18 |   readonly totalLines: number;
+19 |   readonly parsedEvents: number;
+20 |   readonly failedLines: number;
+21 |   readonly durationMs: number;
+22 | }
+23 | 
+24 | export interface ParserOptions {
+25 |   readonly maxErrors?: number;
+26 | }
+27 | 
+28 | export type ParserEvent =
+29 |   | { kind: 'meta'; line: 1; meta: SessionMetaParsed; version: string | number }
+30 |   | { kind: 'event'; line: number; event: ResponseItemParsed }
+31 |   | { kind: 'error'; error: ParserError }
+32 |   | { kind: 'done'; stats: ParserStats };
+33 | 
+34 | function pickVersion(meta: SessionMetaParsed | undefined) {
+35 |   const v = meta?.version;
+36 |   if (v === undefined || v === null || v === '') return 1;
+37 |   return v;
+38 | }
+39 | 
+40 | export async function* streamParseSession(
+41 |   blob: Blob,
+42 |   opts: ParserOptions = {}
+43 | ): AsyncGenerator<ParserEvent> {
+44 |   const started = performance.now?.() ?? Date.now();
+45 |   let total = 0;
+46 |   let parsed = 0;
+47 |   let failed = 0;
+48 |   const maxErrors = opts.maxErrors ?? Number.POSITIVE_INFINITY;
+49 | 
+50 |   let meta: SessionMetaParsed | undefined;
+51 |   let version: string | number = 1;
+52 | 
+53 |   const pendingCalls = new Map<string, ResponseItemParsed>();
+54 | 
+55 |   let lineNo = 0;
+56 |   for await (const line of streamTextLines(blob)) {
+57 |     lineNo++;
+58 |     total++;
+59 | 
+60 |     if (!line || line.trim().length === 0) continue;
+61 |     const trimmed = line.trim();
+62 |     if (trimmed === '[' || trimmed === ']' || trimmed === '],') continue;
+63 | 
+64 |     if (!meta) {
+65 |       const mres = parseSessionMetaLine(line);
+66 |       if (mres.success) {
+67 |         meta = mres.data;
+68 |         version = pickVersion(meta);
+69 |         yield { kind: 'meta', line: 1 as 1, meta, version };
+70 |         continue;
+71 |       }
+72 |       const evTry = parseResponseItemLine(line);
+73 |       if (evTry.success) {
+74 |         meta = { timestamp: new Date().toISOString() } as SessionMetaParsed;
+75 |         version = pickVersion(meta);
+76 |         yield { kind: 'meta', line: 1 as 1, meta, version };
+77 |         parsed++;
+78 |         yield { kind: 'event', line: lineNo, event: evTry.data };
+79 |         continue;
+80 |       }
+81 |       try {
+82 |         const obj = JSON.parse(line) as any;
+83 |         if (obj && typeof obj === 'object' && obj.record_type === 'state') continue;
+84 |       } catch {}
+85 |       failed++;
+86 |       yield {
+87 |         kind: 'error',
+88 |         error: {
+89 |           line: lineNo,
+90 |           reason: mres.reason,
+91 |           message: mres.error.message,
+92 |           raw: line,
+93 |         },
+94 |       };
+95 |       if (failed >= maxErrors) break;
+96 |       continue;
+97 |     }
+98 | 
+99 |     try {
+100 |       if (line.trim().startsWith('{')) {
+101 |         const obj = JSON.parse(line) as any;
+102 |         const rt = obj?.record_type ?? obj?.recordType ?? obj?.kind;
+103 |         if (
+104 |           obj &&
+105 |           typeof obj === 'object' &&
+106 |           typeof rt === 'string' &&
+107 |           String(rt).toLowerCase() === 'state'
+108 |         ) {
+109 |           continue;
+110 |         }
+111 |       }
+112 |     } catch {}
+113 | 
+114 |     const res = parseLineByVersion(version, line);
+115 |     if (!res.success) {
+116 |       failed++;
+117 |       yield {
+118 |         kind: 'error',
+119 |         error: {
+120 |           line: lineNo,
+121 |           reason: res.reason,
+122 |           message: res.error.message,
+123 |           raw: line,
+124 |         },
+125 |       };
+126 |       if (failed >= maxErrors) break;
+127 |     } else {
+128 |       const ev = res.data;
+129 |       if (ev.type === 'FunctionCall') {
+130 |         const callId = (ev as any).call_id as string | undefined;
+131 |         if (callId) {
+132 |           if (ev.result === undefined) {
+133 |             pendingCalls.set(callId, ev);
+134 |             parsed++;
+135 |             yield { kind: 'event', line: lineNo, event: ev };
+136 |           } else if ((ev as any).args === undefined && pendingCalls.has(callId)) {
+137 |             const prev = pendingCalls.get(callId)!;
+138 |             if (prev.type === 'LocalShellCall' && ev.result && typeof ev.result === 'object') {
+139 |               const r = ev.result as any;
+140 |               if (typeof r.stdout === 'string') (prev as any).stdout = r.stdout;
+141 |               if (typeof r.stderr === 'string') (prev as any).stderr = r.stderr;
+142 |               if (typeof r.exitCode === 'number') (prev as any).exitCode = r.exitCode;
+143 |               else if (typeof r.exit_code === 'number') (prev as any).exitCode = r.exit_code;
+144 |               if (typeof r.durationMs === 'number') (prev as any).durationMs = r.durationMs;
+145 |               else if (typeof r.duration_ms === 'number') (prev as any).durationMs = r.duration_ms;
+146 |               delete (prev as any).result;
+147 |             } else {
+148 |               (prev as any).result = ev.result;
+149 |               if (ev.durationMs !== undefined) (prev as any).durationMs = ev.durationMs;
+150 |             }
+151 |             pendingCalls.delete(callId);
+152 |           } else {
+153 |             parsed++;
+154 |             yield { kind: 'event', line: lineNo, event: ev };
+155 |           }
+156 |         } else {
+157 |           parsed++;
+158 |           yield { kind: 'event', line: lineNo, event: ev };
+159 |         }
+160 |       } else if (ev.type === 'LocalShellCall') {
+161 |         const callId = (ev as any).call_id as string | undefined;
+162 |         const hasOutput =
+163 |           ev.stdout !== undefined ||
+164 |           ev.stderr !== undefined ||
+165 |           ev.exitCode !== undefined ||
+166 |           ev.durationMs !== undefined;
+167 |         if (callId) {
+168 |           if (!hasOutput) {
+169 |             pendingCalls.set(callId, ev);
+170 |             parsed++;
+171 |             yield { kind: 'event', line: lineNo, event: ev };
+172 |           } else if (pendingCalls.has(callId)) {
+173 |             const prev = pendingCalls.get(callId)!;
+174 |             Object.assign(prev, ev);
+175 |             pendingCalls.delete(callId);
+176 |           } else {
+177 |             parsed++;
+178 |             yield { kind: 'event', line: lineNo, event: ev };
+179 |           }
+180 |         } else {
+181 |           parsed++;
+182 |           yield { kind: 'event', line: lineNo, event: ev };
+183 |         }
+184 |       } else {
+185 |         parsed++;
+186 |         yield { kind: 'event', line: lineNo, event: ev };
+187 |       }
+188 |     }
+189 |   }
+190 | 
+191 |   const ended = performance.now?.() ?? Date.now();
+192 |   yield {
+193 |     kind: 'done',
+194 |     stats: {
+195 |       totalLines: total,
+196 |       parsedEvents: parsed,
+197 |       failedLines: failed,
+198 |       durationMs: Math.max(0, ended - started),
+199 |     },
+200 |   };
+201 | }
+202 | 
+203 | function parseLineByVersion(
+204 |   version: string | number,
+205 |   line: string
+206 | ): SafeResult<ResponseItemParsed> {
+207 |   void version;
+208 |   return parseResponseItemLine(line);
+209 | }
+210 | 
+211 | export async function parseSessionToArrays(blob: Blob, opts: ParserOptions = {}) {
+212 |   const errors: ParserError[] = [];
+213 |   const events: ResponseItemParsed[] = [];
+214 |   let meta: SessionMetaParsed | undefined;
+215 |   let stats: ParserStats | undefined;
+216 | 
+217 |   for await (const item of streamParseSession(blob, opts)) {
+218 |     if (item.kind === 'meta') meta = item.meta;
+219 |     else if (item.kind === 'event') events.push(item.event);
+220 |     else if (item.kind === 'error') errors.push(item.error);
+221 |     else if (item.kind === 'done') stats = item.stats;
+222 |   }
+223 | 
+224 |   return { meta, events, errors, stats };
+225 | }
+```
+
+src/lib/session-parser/validators.ts
+```
+1 | import { z, type ZodError } from 'zod';
+2 | import {
+3 |   ResponseItemSchema,
+4 |   SessionMetaSchema,
+5 |   type ResponseItemParsed,
+6 |   type SessionMetaParsed,
+7 | } from './schemas';
+8 | import type { MessagePart } from '~/lib/viewer-types/events';
+9 | 
+10 | export type ParseFailureReason = 'invalid_json' | 'invalid_schema';
+11 | 
+12 | export type SafeResult<T> =
+13 |   | { success: true; data: T }
+14 |   | { success: false; error: ZodError | SyntaxError; reason: ParseFailureReason };
+15 | 
+16 | function tryParseJson(
+17 |   line: string
+18 | ): { success: true; data: unknown } | { success: false; error: SyntaxError } {
+19 |   let s = line;
+20 |   s = s.replace(/^\uFEFF/, '');
+21 |   s = s.replace(/^$$\}'?,?\s*/, '');
+22 |   const t = s.trim();
+23 |   if (t === '[' || t === ']' || t === '],') {
+24 |     return { success: true, data: { __csv_token__: t } };
+25 |   }
+26 |   try {
+27 |     return { success: true, data: JSON.parse(s) };
+28 |   } catch (e) {
+29 |     if (/[,\s]$/.test(s)) {
+30 |       try {
+31 |         return { success: true, data: JSON.parse(s.replace(/[\s,]+$/, '')) };
+32 |       } catch {}
+33 |     }
+34 |     return { success: false, error: e as SyntaxError };
+35 |   }
+36 | }
+37 | 
+38 | function isRecord(v: unknown): v is Record<string, unknown> {
+39 |   return v !== null && typeof v === 'object' && !Array.isArray(v);
+40 | }
+41 | 
+42 | export function parseSessionMetaLine(line: string): SafeResult<SessionMetaParsed> {
+43 |   const j = tryParseJson(line);
+44 |   if (!j.success) return { success: false, error: j.error, reason: 'invalid_json' };
+45 |   let payload: unknown = j.data;
+46 |   if (isRecord(payload)) {
+47 |     const rt = (payload as any).record_type || (payload as any).recordType;
+48 |     if (typeof rt === 'string' && rt.toLowerCase() === 'meta') {
+49 |       const inner = (payload as any).record || (payload as any).data || (payload as any).payload;
+50 |       if (inner && typeof inner === 'object') payload = inner;
+51 |     }
+52 |     const t = (payload as any).type;
+53 |     if (typeof t === 'string' && t.toLowerCase() === 'session_meta') {
+54 |       const inner = (payload as any).payload || (payload as any).data || (payload as any).record;
+55 |       if (inner && typeof inner === 'object') payload = inner;
+56 |     }
+57 |   }
+58 |   const res = SessionMetaSchema.safeParse(payload);
+59 |   if (!res.success) return { success: false, error: res.error, reason: 'invalid_schema' };
+60 |   return { success: true, data: res.data };
+61 | }
+62 | 
+63 | export function parseResponseItemLine(line: string): SafeResult<ResponseItemParsed> {
+64 |   const j = tryParseJson(line);
+65 |   if (!j.success) return { success: false, error: j.error, reason: 'invalid_json' };
+66 | 
+67 |   let payload: unknown = j.data;
+68 |   if (isRecord(payload)) {
+69 |     const rt = (payload as any).record_type || (payload as any).recordType;
+70 |     if (typeof rt === 'string') {
+71 |       const rtl = rt.toLowerCase();
+72 |       if (rtl === 'event' || rtl === 'trace' || rtl === 'log') {
+73 |         const inner =
+74 |           (payload as any).record ||
+75 |           (payload as any).event ||
+76 |           (payload as any).payload ||
+77 |           (payload as any).data ||
+78 |           (payload as any).item;
+79 |         if (inner && typeof inner === 'object') payload = inner;
+80 |       } else if (rtl === 'state') {
+81 |         const fallback = { type: 'Other', data: payload };
+82 |         const alt = ResponseItemSchema.safeParse(fallback);
+83 |         if (alt.success) return { success: true, data: alt.data };
+84 |       }
+85 |     }
+86 |     const t = (payload as any).type;
+87 |     if (typeof t === 'string') {
+88 |       const tl = t.toLowerCase();
+89 |       if (tl === 'response_item' || tl === 'event_msg') {
+90 |         const inner =
+91 |           (payload as any).payload ||
+92 |           (payload as any).data ||
+93 |           (payload as any).record ||
+94 |           (payload as any).event ||
+95 |           (payload as any).item;
+96 |         if (inner && typeof inner === 'object') {
+97 |           if (typeof (payload as any).timestamp === 'string' && !(inner as any).at) {
+98 |             (inner as any).at = (payload as any).timestamp;
+99 |           }
+100 |           payload = inner;
+101 |         }
+102 |       }
+103 |     }
+104 |   }
+105 | 
+106 |   if (isRecord(payload)) {
+107 |     const normalized = normalizeForeignEventShape(payload);
+108 |     if (normalized) {
+109 |       const normRes = ResponseItemSchema.safeParse(normalized);
+110 |       if (normRes.success) return { success: true, data: normRes.data };
+111 |     }
+112 |   }
+113 | 
+114 |   const res = ResponseItemSchema.safeParse(payload);
+115 |   if (res.success) return { success: true, data: res.data };
+116 | 
+117 |   if (isRecord(payload)) {
+118 |     const base = payload;
+119 |     const t = typeof (base as any).type === 'string' ? (base as any).type : undefined;
+120 |     const known = [
+121 |       'Message',
+122 |       'Reasoning',
+123 |       'FunctionCall',
+124 |       'LocalShellCall',
+125 |       'WebSearchCall',
+126 |       'CustomToolCall',
+127 |       'FileChange',
+128 |       'Other',
+129 |     ];
+130 |     if (!t || !known.includes(t)) {
+131 |       const fallback = {
+132 |         type: 'Other',
+133 |         id: typeof base.id === 'string' ? base.id : undefined,
+134 |         at: typeof base.at === 'string' ? base.at : undefined,
+135 |         index: typeof base.index === 'number' ? base.index : undefined,
+136 |         data: base,
+137 |       };
+138 |       const alt = ResponseItemSchema.safeParse(fallback);
+139 |       if (alt.success) return { success: true, data: alt.data };
+140 |     }
+141 |   }
+142 | 
+143 |   return { success: false, error: res.error, reason: 'invalid_schema' };
+144 | }
+145 | 
+146 | function asString(v: unknown): string | undefined {
+147 |   if (typeof v === 'string') return v;
+148 |   if (v == null) return undefined;
+149 |   try {
+150 |     return JSON.stringify(v);
+151 |   } catch {
+152 |     return String(v);
+153 |   }
+154 | }
+155 | 
+156 | function toCamel<T extends Record<string, any>>(obj: T): T {
+157 |   const out: Record<string, any> = {};
+158 |   for (const [k, v] of Object.entries(obj)) {
+159 |     const ck = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+160 |     out[ck] = v;
+161 |   }
+162 |   return out as T;
+163 | }
+164 | 
+165 | function flattenContent(content: unknown): string | undefined;
+166 | function flattenContent(content: unknown, preserveArray: false): string | undefined;
+167 | function flattenContent(content: unknown, preserveArray: true): string | MessagePart[] | undefined;
+168 | function flattenContent(
+169 |   content: unknown,
+170 |   preserveArray = false
+171 | ): string | MessagePart[] | undefined {
+172 |   if (typeof content === 'string') return content;
+173 |   if (Array.isArray(content)) {
+174 |     const parts: MessagePart[] = [];
+175 |     for (const b of content) {
+176 |       if (b && typeof b === 'object' && 'text' in (b as any)) {
+177 |         parts.push({ type: 'text', text: String((b as any).text) });
+178 |       } else {
+179 |         const text = asString(b);
+180 |         if (text != null) parts.push({ type: 'text', text });
+181 |       }
+182 |     }
+183 |     return preserveArray ? parts : parts.map((p) => p.text).join('\n');
+184 |   }
+185 |   return asString(content);
+186 | }
+187 | 
+188 | function extractReasoningContent(src: Record<string, any>): string | null {
+189 |   let content = flattenContent(src.content);
+190 |   if (typeof content === 'string' && content.trim() !== '') return content;
+191 |   const summary = flattenContent(src.summary);
+192 |   if (typeof summary === 'string' && summary.trim() !== '') return summary;
+193 |   if ('encryptedContent' in src) return '[encrypted]';
+194 |   return null;
+195 | }
+196 | 
+197 | function tryParseJsonText(s?: string): unknown {
+198 |   if (!s) return undefined;
+199 |   try {
+200 |     return JSON.parse(s);
+201 |   } catch {
+202 |     return s;
+203 |   }
+204 | }
+205 | 
+206 | function extractMessageFromResponse(resp: any): string | undefined {
+207 |   if (!resp || typeof resp !== 'object') return undefined;
+208 |   if (Array.isArray(resp.output_text) && resp.output_text.length) {
+209 |     return resp.output_text
+210 |       .map((x: any) => (typeof x === 'string' ? x : (asString(x) ?? '')))
+211 |       .join('\n');
+212 |   }
+213 |   if (Array.isArray(resp.output)) {
+214 |     const parts: string[] = [];
+215 |     for (const seg of resp.output) {
+216 |       if (Array.isArray(seg?.content)) {
+217 |         for (const item of seg.content) {
+218 |           if (item && typeof item === 'object') {
+219 |             if ('text' in item && typeof item.text === 'string') parts.push(item.text);
+220 |             else if ('type' in item && item.type === 'tool_output') {
+221 |               const text = asString(item.output_text ?? item.output);
+222 |               if (text) parts.push(text);
+223 |             }
+224 |           }
+225 |         }
+226 |       }
+227 |     }
+228 |     if (parts.length) return parts.join('\n');
+229 |   }
+230 |   if (typeof resp.text === 'string') return resp.text;
+231 |   if (Array.isArray(resp.text)) {
+232 |     return resp.text.map((x: any) => (typeof x === 'string' ? x : (asString(x) ?? ''))).join('\n');
+233 |   }
+234 |   return undefined;
+235 | }
+236 | 
+237 | function normalizeForeignEventShape(payload: Record<string, any>) {
+238 |   const next = toCamel(payload);
+239 |   const type =
+240 |     typeof next.type === 'string'
+241 |       ? next.type
+242 |       : typeof next.eventType === 'string'
+243 |         ? next.eventType
+244 |         : undefined;
+245 |   if (!type) return null;
+246 |   const normalized: Record<string, any> = { ...next, type };
+247 | 
+248 |   if (type === 'message' || type === 'chat_message') {
+249 |     normalized.type = 'Message';
+250 |     normalized.role = next.role ?? next.author ?? 'assistant';
+251 |     if (typeof next.content === 'string') normalized.content = next.content;
+252 |     else if (Array.isArray(next.content)) normalized.content = flattenContent(next.content, true);
+253 |     else normalized.content = flattenContent(next.body, true) ?? flattenContent(next.payload);
+254 |     if (!normalized.content) normalized.content = extractMessageFromResponse(next.response);
+255 |     if (!normalized.content && typeof next.response_text === 'string')
+256 |       normalized.content = next.response_text;
+257 |     normalized.model = next.model ?? next.engine;
+258 |   } else if (type === 'reasoning' || type === 'thought') {
+259 |     normalized.type = 'Reasoning';
+260 |     const content = extractReasoningContent(next);
+261 |     if (content) normalized.content = content;
+262 |   } else if (type === 'tool_call' || type === 'function_call') {
+263 |     normalized.type = 'FunctionCall';
+264 |     normalized.name = next.toolName ?? next.functionName ?? next.name ?? 'call';
+265 |     normalized.args = next.args ?? tryParseJsonText(next.arguments);
+266 |     normalized.result = next.result ?? next.output ?? tryParseJsonText(next.response);
+267 |     normalized.durationMs = next.durationMs ?? next.latencyMs ?? next.duration;
+268 |   } else if (type === 'shell' || type === 'command') {
+269 |     normalized.type = 'LocalShellCall';
+270 |     normalized.command = next.command ?? next.cmd ?? '';
+271 |     normalized.cwd = next.cwd ?? next.directory;
+272 |     normalized.stdout = next.stdout ?? next.output ?? extractMessageFromResponse(next.response);
+273 |     normalized.stderr = next.stderr;
+274 |     normalized.exitCode = next.exitCode ?? next.code;
+275 |     normalized.durationMs = next.durationMs ?? next.runtimeMs;
+276 |   } else if (type === 'file_change' || type === 'diff') {
+277 |     normalized.type = 'FileChange';
+278 |     normalized.path = next.path ?? next.file ?? next.filePath ?? 'unknown';
+279 |     normalized.diff = next.diff ?? next.patch ?? next.content;
+280 |   } else if (type === 'web_search') {
+281 |     normalized.type = 'WebSearchCall';
+282 |     normalized.query = next.query ?? next.prompt ?? '';
+283 |     normalized.provider = next.provider ?? next.engine;
+284 |     normalized.results = Array.isArray(next.results) ? next.results : undefined;
+285 |   } else if (type === 'custom_tool') {
+286 |     normalized.type = 'CustomToolCall';
+287 |     normalized.toolName = next.toolName ?? next.name ?? 'tool';
+288 |     normalized.input = next.input ?? next.payload;
+289 |     normalized.output = next.output ?? next.result;
+290 |   } else {
+291 |     return null;
+292 |   }
+293 | 
+294 |   return normalized;
+295 | }
+```
+
+src/lib/viewer-types/events.ts
+```
+1 | import type { FilePath, ISO8601String, Id } from "./primitives"
+2 | 
+3 | /** Base event fields shared by all timeline items. */
+4 | export interface BaseEvent {
+5 |     readonly id?: Id<"event"> | string
+6 |     readonly at?: ISO8601String | string
+7 |     readonly index?: number
+8 | }
+9 | 
+10 | /** Structured segments that make up a message. */
+11 | export interface MessagePart {
+12 |     readonly type: "text"
+13 |     readonly text: string
+14 | }
+15 | 
+16 | /** Message emitted by user/assistant/system. */
+17 | export interface MessageEvent extends BaseEvent {
+18 |     readonly type: "Message"
+19 |     readonly role: "user" | "assistant" | "system" | string
+20 |     readonly content: string | ReadonlyArray<MessagePart>
+21 |     readonly model?: string
+22 | }
+23 | 
+24 | /** Model reasoning trace (if available). */
+25 | export interface ReasoningEvent extends BaseEvent {
+26 |     readonly type: "Reasoning"
+27 |     readonly content: string
+28 | }
+29 | 
+30 | /** Generic function/tool call with structured arguments. */
+31 | export interface FunctionCallEvent extends BaseEvent {
+32 |     readonly type: "FunctionCall"
+33 |     readonly name: string
+34 |     readonly args?: unknown
+35 |     readonly result?: unknown
+36 |     readonly durationMs?: number
+37 | }
+38 | 
+39 | /** Local shell command execution event. */
+40 | export interface LocalShellCallEvent extends BaseEvent {
+41 |     readonly type: "LocalShellCall"
+42 |     readonly command: string
+43 |     readonly cwd?: FilePath | string
+44 |     readonly exitCode?: number
+45 |     readonly stdout?: string
+46 |     readonly stderr?: string
+47 |     readonly durationMs?: number
+48 | }
+49 | 
+50 | /** Web search action event. */
+51 | export interface WebSearchCallEvent extends BaseEvent {
+52 |     readonly type: "WebSearchCall"
+53 |     readonly query: string
+54 |     readonly provider?: string
+55 |     readonly results?: ReadonlyArray<{ title?: string; url?: string; snippet?: string }>
+56 |     readonly raw?: unknown
+57 | }
+58 | 
+59 | /** Custom/plugin tool call envelope for unknown tool types. */
+60 | export interface CustomToolCallEvent extends BaseEvent {
+61 |     readonly type: "CustomToolCall"
+62 |     readonly toolName: string
+63 |     readonly input?: unknown
+64 |     readonly output?: unknown
+65 | }
+66 | 
+67 | /** File change event referencing modified paths. */
+68 | export interface FileChangeEvent extends BaseEvent {
+69 |     readonly type: "FileChange"
+70 |     readonly path: FilePath | string
+71 |     readonly diff?: string
+72 | }
+73 | 
+74 | /** Fallback for unrecognized records. Preserves the raw payload. */
+75 | export interface OtherEvent extends BaseEvent {
+76 |     readonly type: "Other"
+77 |     readonly data?: unknown
+78 | }
+79 | 
+80 | /** Discriminated union of all supported event variants. */
+81 | export type ResponseItem =
+82 |     | MessageEvent
+83 |     | ReasoningEvent
+84 |     | FunctionCallEvent
+85 |     | LocalShellCallEvent
+86 |     | WebSearchCallEvent
+87 |     | CustomToolCallEvent
+88 |     | FileChangeEvent
+89 |     | OtherEvent
+90 | 
+```
+
+src/lib/viewer-types/git.ts
+```
+1 | /** Minimal git info attached to session metadata. */
+2 | export interface GitInfo {
+3 |     readonly repo?: string
+4 |     readonly branch?: string
+5 |     readonly commit?: string
+6 |     readonly remote?: string
+7 |     readonly dirty?: boolean
+8 | }
+9 | 
+```
+
+src/lib/viewer-types/index.ts
+```
+1 | export * from "./primitives"
+2 | export * from "./git"
+3 | export * from "./events"
+4 | export * from "./session"
+5 | 
+```
+
+src/lib/viewer-types/primitives.ts
+```
+1 | /** Primitive and branded types used across the viewer domain. */
+2 | 
+3 | /** ISO-8601 timestamp string, e.g., 2025-09-08T17:12:03.123Z */
+4 | export type ISO8601String = string & { readonly __brand: "iso8601" }
+5 | 
+6 | /** Opaque ID string branding to avoid mixing different id kinds. */
+7 | export type Id<T extends string> = string & { readonly __brand: T }
+8 | 
+9 | /** File system path (posix-like). */
+10 | export type FilePath = string & { readonly __brand: "filepath" }
+11 | 
+```
+
+src/lib/viewer-types/session.ts
+```
+1 | import type { ResponseItem } from "./events"
+2 | import type { FilePath, ISO8601String, Id } from "./primitives"
+3 | import type { GitInfo } from "./git"
+4 | 
+5 | /** Session-level metadata parsed from line 1 of the JSONL file. */
+6 | export interface SessionMeta {
+7 |     readonly id: Id<"session"> | string
+8 |     readonly timestamp: ISO8601String | string
+9 |     readonly instructions?: string
+10 |     readonly git?: GitInfo
+11 |     /** Optional schema versioning to mitigate drift. */
+12 |     readonly version?: number | string
+13 | }
+14 | 
+15 | /** A single file change captured during the session. */
+16 | export interface FileChange {
+17 |     readonly path: FilePath | string
+18 |     readonly diff?: string
+19 |     readonly patches?: readonly string[]
+20 | }
+21 | 
+22 | /** Artifact generated during the session (e.g., export, compiled asset). */
+23 | export interface Artifact {
+24 |     readonly name: string
+25 |     readonly path?: FilePath | string
+26 |     readonly contentType?: string
+27 |     readonly bytes?: Uint8Array
+28 | }
+29 | 
+30 | /** Parsed session bundle returned by the parser. */
+31 | export interface ParsedSession {
+32 |     readonly meta: SessionMeta
+33 |     readonly events: readonly ResponseItem[]
+34 |     readonly fileChanges: readonly FileChange[]
+35 |     readonly artifacts: readonly Artifact[]
+36 | }
+37 | 
+38 | export interface SessionPreviewSummary {
+39 |     readonly path: FilePath | string
+40 |     readonly byteLength: number
+41 |     readonly meta?: SessionMeta
+42 |     readonly repoName?: string
+43 |     readonly firstUserMessage?: string
+44 |     readonly firstTimestamp?: ISO8601String | string
+45 |     readonly lastTimestamp?: ISO8601String | string
+46 |     readonly agents: readonly string[]
+47 |     readonly errors: readonly string[]
+48 |     readonly tools: readonly string[]
+49 | }
+50 | 
+```
+
+src/server/function/CLAUDE.md
+```
+1 | 
+2 | 
+3 | <!-- Source: .ruler/tanstack-server-fn.md -->
+4 | 
+5 | # TanStack Server Functions
+6 | 
+7 | Server-only logic callable anywhere (loaders, hooks, components, routes, client). File top level. No stable public URL. Access request context, headers/cookies, env secrets. Return primitives/JSON/Response, throw redirect/notFound. Framework-agnostic HTTP, no serial bottlenecks.
+8 | 
+9 | How it works: Server bundle executes. Client strips and proxies via fetch. RPC but isomorphic. Middleware supported.
+10 | 
+11 | Import: import { createServerFn } from '@tanstack/react-start'
+12 | 
+13 | Define: createServerFn({ method: 'GET'|'POST' }).handler(...). Callable from server/client/other server functions. RC1: response modes removed; return Response object for custom behavior.
+14 | 
+15 | Params: single param may be primitive, Array, Object, FormData, ReadableStream, Promise. Typical { data, signal? }.
+16 | 
+17 | Validation: .inputValidator enforces runtime input, drives types. Works with Zod. Transformed output → ctx.data. Identity validator for typed I/O without checks. Use .inputValidator() not deprecated .validator().
+18 | 
+19 | JSON/FormData: supports JSON. FormData requires encType="multipart/form-data".
+20 | 
+21 | Context (from @tanstack/react-start/server, h3): RC1 renames: getWebRequest→getRequest, getHeaders→getRequestHeaders, getHeader→getRequestHeader, setHeaders→setResponseHeaders, setHeader→setResponseHeader, parseCookies→getCookies. Available: getRequest, getRequestHeaders|getRequestHeader, setResponseHeader, setResponseStatus, getCookies, sessions, multipart, custom context.
+22 | 
+23 | Returns: primitives/JSON, redirect/notFound, or Response. Return Response directly for custom.
+24 | 
+25 | Errors: thrown errors → 500 JSON; catch as needed.
+26 | 
+27 | Cancellation: AbortSignal supported. Server notified on disconnect.
+28 | 
+29 | Integration: route lifecycles auto-handle redirect/notFound. Components use useServerFn. Elsewhere handle manually.
+30 | 
+31 | Redirects: use redirect from @tanstack/react-router with to|href, status, headers, path/search/hash/params. SSR: 302. Client auto-handles. Don't use sendRedirect.
+32 | 
+33 | Not Found: use notFound() for router 404 in lifecycles.
+34 | 
+35 | No-JS: execute via HTML form with serverFn.url. Pass args via inputs. Use encType for multipart. Cannot read return value; redirect or reload via loader.
+36 | 
+37 | Static functions: use staticFunctionMiddleware from @tanstack/start-static-server-functions. Must be final middleware. Caches build-time as static JSON (key: function ID+params hash). Used in prerender/hydration. Client fetches static JSON. Default cache: fs+fetch. Override: createServerFnStaticCache + setServerFnStaticCache.
+38 | 
+39 | Example:
+40 | ```typescript
+41 | import { createServerFn } from '@tanstack/react-start'
+42 | import { staticFunctionMiddleware } from '@tanstack/start-static-server-functions'
+43 | 
+44 | const myServerFn = createServerFn({ method: 'GET' })
+45 |   .middleware([staticFunctionMiddleware])
+46 |   .handler(async () => 'Hello, world!')
+47 | ```
+48 | 
+49 | Compilation: injects use server if missing. Client extracts to server bundle, proxies. Server runs as-is. Dead-code elimination.
+50 | 
+51 | Notes: inspired by tRPC. Always invoke normalizeInput(schema, preprocess?) inside handler. Don't rely on .validator(). When writing preprocess, unwrap wrappers ({ data: ... }, SuperJSON $values, stringified arrays) so validation runs on real payload.
+```
+
 src/server/function/todos.ts
 ```
 1 | import { createServerFn } from '@tanstack/react-start';
@@ -3933,6 +4463,10 @@ src/db/schema/.ruler/db.schema.md
 2 | 
 ```
 
+src/routes/(site)/viewer/index.tsx
+```
+```
+
 src/server/function/.ruler/tanstack-server-fn.md
 ```
 1 | # TanStack Server Functions
@@ -3984,4 +4518,112 @@ src/server/function/.ruler/tanstack-server-fn.md
 47 | Notes: inspired by tRPC. Always invoke normalizeInput(schema, preprocess?) inside handler. Don't rely on .validator(). When writing preprocess, unwrap wrappers ({ data: ... }, SuperJSON $values, stringified arrays) so validation runs on real payload.
 ```
 
-</current_codebase>
+src/routes/.cursor/rules/ruler_cursor_instructions.mdc
+```
+1 | ---
+2 | alwaysApply: true
+3 | ---
+4 | <!-- Source: .ruler/tanstack-server-routes.md -->
+5 | 
+6 | # Server Routes — TanStack Start
+7 | 
+8 | Server HTTP endpoints for requests, forms, auth. Location: ./src/routes. Export Route to create API route. ServerRoute and Route can coexist in same file.
+9 | 
+10 | Routing mirrors TanStack Router: dynamic $id, splat $, escaped [.], nested dirs/dotted filenames map to paths. One handler per resolved path (duplicates error). Examples: users.ts → /users; users/$id.ts → /users/$id; api/file/$.ts → /api/file/$; my-script[.]js.ts → /my-script.js.
+11 | 
+12 | Middleware: pathless layout routes add group middleware; break-out routes skip parents.
+13 | 
+14 | RC1 server entry signature: export default { fetch(req: Request): Promise<Response> { ... } }
+15 | 
+16 | Define handlers: use createFileRoute() from @tanstack/react-router with server: { handlers: { ... } }. Methods per HTTP verb, with optional middleware builder. createServerFileRoute removed in RC1; use createFileRoute with server property.
+17 | 
+18 | Handler receives { request, params, context }; return Response or Promise<Response>. Helpers from @tanstack/react-start allowed.
+19 | 
+20 | Bodies: request.json(), request.text(), request.formData() for POST/PUT/PATCH/DELETE.
+21 | 
+22 | JSON/status/headers: return JSON manually or via json(); set status via Response init or setResponseStatus(); set headers via Response init or setHeaders().
+23 | 
+24 | Params: /users/$id → params.id; /users/$id/posts/$postId → params.id + params.postId; /file/$ → params._splat.
+25 | 
+26 | Unique path rule: one file per resolved path; users.ts vs users.index.ts vs users/index.ts conflicts.
+27 | 
+28 | RC1 structure:
+29 | ```typescript
+30 | import { createFileRoute } from '@tanstack/react-router'
+31 | 
+32 | export const Route = createFileRoute('/api/example')({
+33 |   server: {
+34 |     handlers: {
+35 |       GET: ({ request }) => new Response('Hello'),
+36 |       POST: ({ request }) => new Response('Created', { status: 201 })
+37 |     }
+38 |   }
+39 | })
+40 | ```
+```
+
+src/db/schema/.cursor/rules/ruler_cursor_instructions.mdc
+```
+1 | ---
+2 | alwaysApply: true
+3 | ---
+4 | <!-- Source: .ruler/db.schema.md -->
+5 | 
+6 | - Schema files have always this naming pattern `<name>.schema.ts`
+```
+
+src/server/function/.cursor/rules/ruler_cursor_instructions.mdc
+```
+1 | ---
+2 | alwaysApply: true
+3 | ---
+4 | <!-- Source: .ruler/tanstack-server-fn.md -->
+5 | 
+6 | # TanStack Server Functions
+7 | 
+8 | Server-only logic callable anywhere (loaders, hooks, components, routes, client). File top level. No stable public URL. Access request context, headers/cookies, env secrets. Return primitives/JSON/Response, throw redirect/notFound. Framework-agnostic HTTP, no serial bottlenecks.
+9 | 
+10 | How it works: Server bundle executes. Client strips and proxies via fetch. RPC but isomorphic. Middleware supported.
+11 | 
+12 | Import: import { createServerFn } from '@tanstack/react-start'
+13 | 
+14 | Define: createServerFn({ method: 'GET'|'POST' }).handler(...). Callable from server/client/other server functions. RC1: response modes removed; return Response object for custom behavior.
+15 | 
+16 | Params: single param may be primitive, Array, Object, FormData, ReadableStream, Promise. Typical { data, signal? }.
+17 | 
+18 | Validation: .inputValidator enforces runtime input, drives types. Works with Zod. Transformed output → ctx.data. Identity validator for typed I/O without checks. Use .inputValidator() not deprecated .validator().
+19 | 
+20 | JSON/FormData: supports JSON. FormData requires encType="multipart/form-data".
+21 | 
+22 | Context (from @tanstack/react-start/server, h3): RC1 renames: getWebRequest→getRequest, getHeaders→getRequestHeaders, getHeader→getRequestHeader, setHeaders→setResponseHeaders, setHeader→setResponseHeader, parseCookies→getCookies. Available: getRequest, getRequestHeaders|getRequestHeader, setResponseHeader, setResponseStatus, getCookies, sessions, multipart, custom context.
+23 | 
+24 | Returns: primitives/JSON, redirect/notFound, or Response. Return Response directly for custom.
+25 | 
+26 | Errors: thrown errors → 500 JSON; catch as needed.
+27 | 
+28 | Cancellation: AbortSignal supported. Server notified on disconnect.
+29 | 
+30 | Integration: route lifecycles auto-handle redirect/notFound. Components use useServerFn. Elsewhere handle manually.
+31 | 
+32 | Redirects: use redirect from @tanstack/react-router with to|href, status, headers, path/search/hash/params. SSR: 302. Client auto-handles. Don't use sendRedirect.
+33 | 
+34 | Not Found: use notFound() for router 404 in lifecycles.
+35 | 
+36 | No-JS: execute via HTML form with serverFn.url. Pass args via inputs. Use encType for multipart. Cannot read return value; redirect or reload via loader.
+37 | 
+38 | Static functions: use staticFunctionMiddleware from @tanstack/start-static-server-functions. Must be final middleware. Caches build-time as static JSON (key: function ID+params hash). Used in prerender/hydration. Client fetches static JSON. Default cache: fs+fetch. Override: createServerFnStaticCache + setServerFnStaticCache.
+39 | 
+40 | Example:
+41 | ```typescript
+42 | import { createServerFn } from '@tanstack/react-start'
+43 | import { staticFunctionMiddleware } from '@tanstack/start-static-server-functions'
+44 | 
+45 | const myServerFn = createServerFn({ method: 'GET' })
+46 |   .middleware([staticFunctionMiddleware])
+47 |   .handler(async () => 'Hello, world!')
+48 | ```
+49 | 
+50 | Compilation: injects use server if missing. Client extracts to server bundle, proxies. Server runs as-is. Dead-code elimination.
+51 | 
+52 | Notes: inspired by tRPC. Always invoke normalizeInput(schema, preprocess?) inside handler. Don't rely on .validator(). When writing preprocess, unwrap wrappers ({ data: ... }, SuperJSON $values, stringified arrays) so validation runs on real payload.
+```
