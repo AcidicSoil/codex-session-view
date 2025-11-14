@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react"
-import type { ResponseItem } from "~/types"
+import type { ResponseItem } from "~/lib/viewer-types"
 import { eventKey } from "~/utils/event-key"
 import { EventCard } from "./EventCard"
 import { TimelineView } from "./TimelineView"

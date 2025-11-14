@@ -2,7 +2,20 @@
 
 <[filter](https://reui.io/docs/filters)>
 
+---
+
+<[timeline-list](https://reui.io/docs/collapsible)>
+
+
 <[animated-list(sessions-batched-view)](https://reactbits.dev/components/animated-list)>
+
+<[flying-posters](https://reactbits.dev/components/flying-posters)>
+
+<[wrap codeblock with timeline](https://www.kibo-ui.com/components/code-block)>
+
+---
+
+<[electric-card](https://reactbits.dev/animations/electric-border)>
 
 <[code comparision(diff-view)](https://magicui.design/docs/components/code-comparison)>
 
