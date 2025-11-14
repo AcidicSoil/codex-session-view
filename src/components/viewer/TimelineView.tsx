@@ -9,6 +9,7 @@ export interface TimelineViewProps<T> {
   keyForIndex?: (item: T, index: number) => React.Key;
   className?: string;
   scrollToIndex?: number | null;
+  onScrollChange?: (state: { scrollTop: number; totalHeight: number; height: number }) => void;
 }
 
 function useRafThrottle(fn: () => void) {
@@ -52,15 +53,11 @@ export function TimelineView<T>({
   keyForIndex,
   className,
   scrollToIndex = null,
+  onScrollChange,
 }: TimelineViewProps<T>) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [measured, setMeasured] = useState<Map<number, number>>(new Map());
-
-  const onScroll = useRafThrottle(() => {
-    const el = containerRef.current;
-    if (el) setScrollTop(el.scrollTop);
-  });
 
   const { offsets, totalHeight } = useMemo(() => {
     const n = items.length;
@@ -76,6 +73,15 @@ export function TimelineView<T>({
     }
     return { offsets: off, totalHeight: acc };
   }, [items.length, measured, estimateItemHeight]);
+
+  const onScroll = useRafThrottle(() => {
+    const el = containerRef.current;
+    if (el) {
+      const nextTop = el.scrollTop;
+      setScrollTop(nextTop);
+      onScrollChange?.({ scrollTop: nextTop, totalHeight, height });
+    }
+  });
 
   const start = useMemo(() => {
     const target = Math.max(0, scrollTop - overscanPx);

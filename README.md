@@ -17,6 +17,7 @@
 - **[TanStack Router](https://tanstack.com/router)** - Type-safe file-based routing
 - **[Browser Echo](https://github.com/browser-echo/browser-echo)** - Advanced client-side logging and debugging
 - **[Unplugin Icons](https://github.com/antfu/unplugin-icons)** - Automatic icon loading and optimization
+- **Session Viewer controls** – Upload sessions, filter timeline events, toggle persistence, and eject snapshots instantly
 
 ## 🚀 Quick Start
 
@@ -83,6 +84,12 @@ src/
 | **Browser Echo** | Client-side logging | [Docs](https://github.com/browser-echo/browser-echo) |
 | **Unplugin Icons** | Icon optimization | [Docs](https://github.com/antfu/unplugin-icons) |
 
+## 🗂 Session Viewer Highlights
+
+- **Drag-and-drop loader** with Intent UI’s FileTrigger + DropZone hybrid so you can click or drop `.jsonl/.ndjson` logs.
+- **Timeline filters** powered by Kibo Snippets, CodeBlocks, and quick-type toggles so parsing hundreds of events stays manageable.
+- **Persistence controls** directly in the viewer (“Persist session” switch + “Eject session” button). The switch stores the parsed session locally, and the eject button clears it instantly while firing a toast confirmation.
+
 ## 🔧 Configuration
 
 ### Adding shadcn/ui Components
@@ -123,5 +130,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <div align="center">
   <p>Built with ❤️ using modern React tools</p>
 </div>
-
 

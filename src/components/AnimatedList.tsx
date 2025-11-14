@@ -11,16 +11,16 @@ interface AnimatedItemProps {
 
 const AnimatedItem: React.FC<AnimatedItemProps> = ({ children, delay = 10, index, onMouseEnter, onClick }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { amount: .5, once: false });
+  const inView = useInView(ref, { amount: .2, once: false });
   return (
     <motion.div
       ref={ref}
       data-index={index}
       onMouseEnter={onMouseEnter}
       onClick={onClick}
-      initial={{ scale: 0.8, opacity: 0.7 }}
-      animate={inView ? { scale: 1, opacity: 1 } : { scale: .8, opacity: 0.7 }}
-      transition={{ duration: .1, delay }}
+      initial={{ scale: 0.5, opacity: 0.8 }}
+      animate={inView ? { scale: 1, opacity: 1 } : { scale: .8, opacity: 0.5 }}
+      transition={{ duration: .6, delay }}
       className="mb-4 cursor-pointer"
     >
       {children}
@@ -48,7 +48,14 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
     'Item 5',
     'Item 6',
     'Item 7',
-    'Item 8'
+    'Item 8',
+    'Item 9',
+    'Item 10',
+    'Item 11',
+    'Item 12',
+    'Item 13',
+    'Item 14',
+    'Item 15',
   ],
   onItemSelect,
   showGradients = true,
@@ -56,12 +63,12 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
   className = '',
   itemClassName = '',
   displayScrollbar = true,
-  initialSelectedIndex = -1
+  initialSelectedIndex = -1,
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(initialSelectedIndex);
   const [keyboardNav, setKeyboardNav] = useState<boolean>(false);
-  const [topGradientOpacity, setTopGradientOpacity] = useState<number>(3);
+  const [topGradientOpacity, setTopGradientOpacity] = useState<number>(0);
   const [bottomGradientOpacity, setBottomGradientOpacity] = useState<number>(1);
 
   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
@@ -77,11 +84,11 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
       if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
         e.preventDefault();
         setKeyboardNav(true);
-        setSelectedIndex(prev => Math.min(prev + 1, items.length - 1));
+        setSelectedIndex((prev) => Math.min(prev + 1, items.length - 1));
       } else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
         e.preventDefault();
         setKeyboardNav(true);
-        setSelectedIndex(prev => Math.max(prev - 1, 0));
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter') {
         if (selectedIndex >= 0 && selectedIndex < items.length) {
           e.preventDefault();
@@ -99,7 +106,9 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
   useEffect(() => {
     if (!keyboardNav || selectedIndex < 0 || !listRef.current) return;
     const container = listRef.current;
-    const selectedItem = container.querySelector(`[data-index="${selectedIndex}"]`) as HTMLElement | null;
+    const selectedItem = container.querySelector(
+      `[data-index="${selectedIndex}"]`
+    ) as HTMLElement | null;
     if (selectedItem) {
       const extraMargin = 50;
       const containerScrollTop = container.scrollTop;
@@ -111,7 +120,7 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
       } else if (itemBottom > containerScrollTop + containerHeight - extraMargin) {
         container.scrollTo({
           top: itemBottom - containerHeight + extraMargin,
-          behavior: 'smooth'
+          behavior: 'smooth',
         });
       }
     }
@@ -119,10 +128,10 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
   }, [selectedIndex, keyboardNav]);
 
   return (
-    <div className={`relative w-full max-w-full ${className}`}>
+    <div className={`relative max-w-[400]px ${className}`}>
       <div
         ref={listRef}
-        className={`max-h-[70vh] overflow-y-auto p-4 ${
+        className={`max-h-[400]px overflow-y-auto p-4 ${
           displayScrollbar
             ? '[&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-[#060010] [&::-webkit-scrollbar-thumb]:bg-[#222] [&::-webkit-scrollbar-thumb]:rounded-[4px]'
             : 'scrollbar-hide'
@@ -136,7 +145,7 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
         {items.map((item, index) => (
           <AnimatedItem
             key={index}
-            delay={0}
+            delay={0.7}
             index={index}
             onMouseEnter={() => setSelectedIndex(index)}
             onClick={() => {
