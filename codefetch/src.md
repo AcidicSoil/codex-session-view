@@ -9,7 +9,6 @@ Project Structure:
 ├── codefetch
 │   ├── routes.md
 │   └── src.md
-├── components-TODO.md
 ├── components.json
 ├── docs
 │   ├── avoid-useEffect-summary.md
@@ -25,11 +24,14 @@ Project Structure:
 │   ├── favicon.ico
 │   ├── favicon.png
 │   └── site.webmanifest
+├── session-id.md
+├── session-list-component-TODO.md
 ├── src
 │   ├── AGENTS.md
 │   ├── CLAUDE.md
 │   ├── CLAUDE.md.bak
 │   ├── components
+│   │   ├── AnimatedList.tsx
 │   │   ├── DefaultCatchBoundary.tsx
 │   │   ├── Header.tsx
 │   │   ├── NotFound.tsx
@@ -45,6 +47,7 @@ Project Structure:
 │   │   │   ├── dropdown-menu.tsx
 │   │   │   └── textarea.tsx
 │   │   └── viewer
+│   │       ├── AnimatedTimelineList.tsx
 │   │       ├── ChatDock.tsx
 │   │       ├── DiscoveryPanel.test.tsx
 │   │       ├── DiscoveryPanel.tsx
@@ -89,9 +92,8 @@ Project Structure:
 │   │   │   ├── docs.tsx
 │   │   │   ├── index.tsx
 │   │   │   ├── route.tsx
-│   │   │   ├── viewer
-│   │   │   │   └── index.tsx
-│   │   │   └── viewer.tsx
+│   │   │   └── viewer
+│   │   │       └── index.tsx
 │   │   ├── AGENTS.md
 │   │   ├── CLAUDE.md
 │   │   ├── CLAUDE.md.bak
@@ -120,6 +122,7 @@ Project Structure:
 │   ├── DiscoveryPanel.test.tsx
 │   ├── setup.ts
 │   └── streaming.test.ts
+├── timeline-component-TODO.md
 ├── tsconfig.json
 ├── vite.config.ts
 └── vitest.config.ts
@@ -508,6 +511,192 @@ src/.ruler/tanstack-query-rules.md
 78 | 8. Prefer `useSuspenseQuery` with Suspense
 ```
 
+src/components/AnimatedList.tsx
+```
+1 | import React, { useRef, useState, useEffect, ReactNode, MouseEventHandler, UIEvent } from 'react';
+2 | import { motion, useInView } from 'motion/react';
+3 | 
+4 | interface AnimatedItemProps {
+5 |   children: ReactNode;
+6 |   delay?: number;
+7 |   index: number;
+8 |   onMouseEnter?: MouseEventHandler<HTMLDivElement>;
+9 |   onClick?: MouseEventHandler<HTMLDivElement>;
+10 | }
+11 | 
+12 | const AnimatedItem: React.FC<AnimatedItemProps> = ({ children, delay = 10, index, onMouseEnter, onClick }) => {
+13 |   const ref = useRef<HTMLDivElement>(null);
+14 |   const inView = useInView(ref, { amount: .1, once: false });
+15 |   return (
+16 |     <motion.div
+17 |       ref={ref}
+18 |       data-index={index}
+19 |       onMouseEnter={onMouseEnter}
+20 |       onClick={onClick}
+21 |       initial={{ scale: 0.5, opacity: 0.5 }}
+22 |       animate={inView ? { scale: 1, opacity: 1 } : { scale: .8, opacity: 0.7 }}
+23 |       transition={{ duration: .3, delay }}
+24 |       className="mb-4 cursor-pointer"
+25 |     >
+26 |       {children}
+27 |     </motion.div>
+28 |   );
+29 | };
+30 | 
+31 | interface AnimatedListProps {
+32 |   items?: ReadonlyArray<ReactNode>;
+33 |   onItemSelect?: (item: ReactNode, index: number) => void;
+34 |   showGradients?: boolean;
+35 |   enableArrowNavigation?: boolean;
+36 |   className?: string;
+37 |   itemClassName?: string;
+38 |   displayScrollbar?: boolean;
+39 |   initialSelectedIndex?: number;
+40 | }
+41 | 
+42 | const AnimatedList: React.FC<AnimatedListProps> = ({
+43 |   items = [
+44 |     'Item 1',
+45 |     'Item 2',
+46 |     'Item 3',
+47 |     'Item 4',
+48 |     'Item 5',
+49 |     'Item 6',
+50 |     'Item 7',
+51 |     'Item 8',
+52 |     'Item 9',
+53 |     'Item 10',
+54 |     'Item 11',
+55 |     'Item 12',
+56 |     'Item 13',
+57 |     'Item 14',
+58 |     'Item 15'
+59 |   ],
+60 |   onItemSelect,
+61 |   showGradients = true,
+62 |   enableArrowNavigation = true,
+63 |   className = '',
+64 |   itemClassName = '',
+65 |   displayScrollbar = true,
+66 |   initialSelectedIndex = -1
+67 | }) => {
+68 |   const listRef = useRef<HTMLDivElement>(null);
+69 |   const [selectedIndex, setSelectedIndex] = useState<number>(initialSelectedIndex);
+70 |   const [keyboardNav, setKeyboardNav] = useState<boolean>(false);
+71 |   const [topGradientOpacity, setTopGradientOpacity] = useState<number>(3);
+72 |   const [bottomGradientOpacity, setBottomGradientOpacity] = useState<number>(3);
+73 | 
+74 |   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
+75 |     const { scrollTop, scrollHeight, clientHeight } = e.target as HTMLDivElement;
+76 |     setTopGradientOpacity(Math.min(scrollTop / 50, 1));
+77 |     const bottomDistance = scrollHeight - (scrollTop + clientHeight);
+78 |     setBottomGradientOpacity(scrollHeight <= clientHeight ? 0 : Math.min(bottomDistance / 50, 1));
+79 |   };
+80 | 
+81 |   useEffect(() => {
+82 |     if (!enableArrowNavigation) return;
+83 |     const handleKeyDown = (e: KeyboardEvent) => {
+84 |       if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
+85 |         e.preventDefault();
+86 |         setKeyboardNav(true);
+87 |         setSelectedIndex(prev => Math.min(prev + 1, items.length - 1));
+88 |       } else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
+89 |         e.preventDefault();
+90 |         setKeyboardNav(true);
+91 |         setSelectedIndex(prev => Math.max(prev - 1, 0));
+92 |       } else if (e.key === 'Enter') {
+93 |         if (selectedIndex >= 0 && selectedIndex < items.length) {
+94 |           e.preventDefault();
+95 |           if (onItemSelect) {
+96 |             onItemSelect(items[selectedIndex], selectedIndex);
+97 |           }
+98 |         }
+99 |       }
+100 |     };
+101 | 
+102 |     window.addEventListener('keydown', handleKeyDown);
+103 |     return () => window.removeEventListener('keydown', handleKeyDown);
+104 |   }, [items, selectedIndex, onItemSelect, enableArrowNavigation]);
+105 | 
+106 |   useEffect(() => {
+107 |     if (!keyboardNav || selectedIndex < 0 || !listRef.current) return;
+108 |     const container = listRef.current;
+109 |     const selectedItem = container.querySelector(`[data-index="${selectedIndex}"]`) as HTMLElement | null;
+110 |     if (selectedItem) {
+111 |       const extraMargin = 10000;
+112 |       const containerScrollTop = container.scrollTop;
+113 |       const containerHeight = container.clientHeight;
+114 |       const itemTop = selectedItem.offsetTop;
+115 |       const itemBottom = itemTop + selectedItem.offsetHeight;
+116 |       if (itemTop < containerScrollTop + extraMargin) {
+117 |         container.scrollTo({ top: itemTop - extraMargin, behavior: 'smooth' });
+118 |       } else if (itemBottom > containerScrollTop + containerHeight - extraMargin) {
+119 |         container.scrollTo({
+120 |           top: itemBottom - containerHeight + extraMargin,
+121 |           behavior: 'smooth'
+122 |         });
+123 |       }
+124 |     }
+125 |     setKeyboardNav(false);
+126 |   }, [selectedIndex, keyboardNav]);
+127 | 
+128 |   return (
+129 |     <div className={`relative w-[400px] ${className}`}>
+130 |       <div
+131 |         ref={listRef}
+132 |         className={`max-h-[1000px] overflow-y-auto p-4 ${
+133 |           displayScrollbar
+134 |             ? '[&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-[#060010] [&::-webkit-scrollbar-thumb]:bg-[#222] [&::-webkit-scrollbar-thumb]:rounded-[4px]'
+135 |             : 'scrollbar-hide'
+136 |         }`}
+137 |         onScroll={handleScroll}
+138 |         style={{
+139 |           scrollbarWidth: displayScrollbar ? 'thin' : 'none',
+140 |           scrollbarColor: '#222 #060010'
+141 |         }}
+142 |       >
+143 |         {items.map((item, index) => (
+144 |           <AnimatedItem
+145 |             key={index}
+146 |             delay={0.101}
+147 |             index={index}
+148 |             onMouseEnter={() => setSelectedIndex(index)}
+149 |             onClick={() => {
+150 |               setSelectedIndex(index);
+151 |               if (onItemSelect) {
+152 |                 onItemSelect(item, index);
+153 |               }
+154 |             }}
+155 |           >
+156 |             <div className={`p-4 bg-[#111] rounded-lg ${selectedIndex === index ? 'bg-[#222]' : ''} ${itemClassName}`}>
+157 |               {typeof item === 'string' || typeof item === 'number' ? (
+158 |                 <p className="text-white m-0">{item}</p>
+159 |               ) : (
+160 |                 item
+161 |               )}
+162 |             </div>
+163 |           </AnimatedItem>
+164 |         ))}
+165 |       </div>
+166 |       {showGradients && (
+167 |         <>
+168 |           <div
+169 |             className="absolute top-0 left-0 right-0 h-[50px] bg-gradient-to-b from-[#060010] to-transparent pointer-events-none transition-opacity duration-300 ease"
+170 |             style={{ opacity: topGradientOpacity }}
+171 |           ></div>
+172 |           <div
+173 |             className="absolute bottom-0 left-0 right-0 h-[100px] bg-gradient-to-t from-[#060010] to-transparent pointer-events-none transition-opacity duration-300 ease"
+174 |             style={{ opacity: bottomGradientOpacity }}
+175 |           ></div>
+176 |         </>
+177 |       )}
+178 |     </div>
+179 |   );
+180 | };
+181 | 
+182 | export default AnimatedList;
+```
+
 src/components/DefaultCatchBoundary.tsx
 ```
 1 | import { ErrorComponent, Link, rootRouteId, useMatch, useRouter } from '@tanstack/react-router';
@@ -845,159 +1034,6 @@ src/components/theme-provider.tsx
 69 | };
 ```
 
-src/env/client.ts
-```
-1 | import { createEnv } from '@t3-oss/env-core';
-2 | import * as z from 'zod';
-3 | 
-4 | export const env = createEnv({
-5 |   clientPrefix: 'VITE_',
-6 |   client: {
-7 |     VITE_BASE_URL: z.url().default('http://localhost:3000'),
-8 |   },
-9 |   runtimeEnv: import.meta.env,
-10 | });
-```
-
-src/env/server.ts
-```
-1 | import { createEnv } from '@t3-oss/env-core';
-2 | import * as z from 'zod';
-3 | 
-4 | export const env = createEnv({
-5 |   server: {
-6 |     MY_SECRET_VAR: z.url(),
-7 |   },
-8 |   runtimeEnv: process.env,
-9 | });
-```
-
-src/hooks/useFileLoader.ts
-```
-1 | import { useCallback, useMemo, useReducer } from 'react';
-2 | import { streamParseSession, type ParserError } from '~/lib/session-parser';
-3 | import type { ResponseItemParsed, SessionMetaParsed } from '~/lib/session-parser';
-4 | 
-5 | export type LoadPhase = 'idle' | 'parsing' | 'error' | 'success';
-6 | 
-7 | interface State {
-8 |   phase: LoadPhase;
-9 |   meta?: SessionMetaParsed;
-10 |   events: ResponseItemParsed[];
-11 |   ok: number;
-12 |   fail: number;
-13 |   lastError?: ParserError;
-14 | }
-15 | 
-16 | type Action =
-17 |   | { type: 'reset' }
-18 |   | { type: 'start' }
-19 |   | { type: 'meta'; meta: SessionMetaParsed }
-20 |   | { type: 'event'; event: ResponseItemParsed }
-21 |   | { type: 'fail'; error: ParserError }
-22 |   | { type: 'done' };
-23 | 
-24 | const initialState: State = {
-25 |   phase: 'idle',
-26 |   events: [],
-27 |   ok: 0,
-28 |   fail: 0,
-29 | };
-30 | 
-31 | function reducer(state: State, action: Action): State {
-32 |   switch (action.type) {
-33 |     case 'reset':
-34 |       return { ...initialState };
-35 |     case 'start':
-36 |       return { ...initialState, phase: 'parsing' };
-37 |     case 'meta':
-38 |       return { ...state, meta: action.meta };
-39 |     case 'event':
-40 |       return {
-41 |         ...state,
-42 |         ok: state.ok + 1,
-43 |         events: [...state.events, action.event],
-44 |       };
-45 |     case 'fail':
-46 |       return {
-47 |         ...state,
-48 |         fail: state.fail + 1,
-49 |         lastError: action.error,
-50 |       };
-51 |     case 'done':
-52 |       return {
-53 |         ...state,
-54 |         phase: state.fail > 0 ? 'error' : 'success',
-55 |       };
-56 |     default:
-57 |       return state;
-58 |   }
-59 | }
-60 | 
-61 | export function useFileLoader() {
-62 |   const [state, dispatch] = useReducer(reducer, initialState);
-63 | 
-64 |   const start = useCallback(
-65 |     async (file: File) => {
-66 |       dispatch({ type: 'start' });
-67 |       try {
-68 |         for await (const item of streamParseSession(file)) {
-69 |           if (item.kind === 'meta') {
-70 |             dispatch({ type: 'meta', meta: item.meta });
-71 |           } else if (item.kind === 'event') {
-72 |             dispatch({ type: 'event', event: item.event });
-73 |           } else if (item.kind === 'error') {
-74 |             dispatch({ type: 'fail', error: item.error });
-75 |           }
-76 |         }
-77 |         dispatch({ type: 'done' });
-78 |       } catch (error) {
-79 |         dispatch({
-80 |           type: 'fail',
-81 |           error: {
-82 |             line: -1,
-83 |             reason: 'invalid_schema',
-84 |             message: error instanceof Error ? error.message : 'Unknown error',
-85 |             raw: '',
-86 |           },
-87 |         });
-88 |         dispatch({ type: 'done' });
-89 |       }
-90 |     },
-91 |     [dispatch]
-92 |   );
-93 | 
-94 |   const reset = useCallback(() => dispatch({ type: 'reset' }), []);
-95 | 
-96 |   const progress = useMemo(() => {
-97 |     const total = state.ok + state.fail;
-98 |     return { ok: state.ok, fail: state.fail, total };
-99 |   }, [state.ok, state.fail]);
-100 | 
-101 |   return { state, progress, start, reset };
-102 | }
-103 | 
-104 | export type FileLoaderHook = ReturnType<typeof useFileLoader>;
-```
-
-src/hooks/useSessionStorage.ts
-```
-1 | import * as React from 'react';
-2 | 
-3 | export function useSessionStorage<T>(key: string, initialValue: T) {
-4 |   const state = React.useState<T>(() => {
-5 |     const stored = sessionStorage.getItem(key);
-6 |     return stored ? JSON.parse(stored) : initialValue;
-7 |   });
-8 | 
-9 |   React.useEffect(() => {
-10 |     sessionStorage.setItem(key, JSON.stringify(state[0]));
-11 |   }, [state[0]]);
-12 | 
-13 |   return state;
-14 | }
-```
-
 src/lib/theme.ts
 ```
 1 | import { createServerFn } from "@tanstack/react-start"
@@ -1280,6 +1316,164 @@ src/routes/__root.tsx
 107 | }
 ```
 
+src/env/client.ts
+```
+1 | import { createEnv } from '@t3-oss/env-core';
+2 | import * as z from 'zod';
+3 | 
+4 | export const env = createEnv({
+5 |   clientPrefix: 'VITE_',
+6 |   client: {
+7 |     VITE_BASE_URL: z.url().default('http://localhost:3000'),
+8 |   },
+9 |   runtimeEnv: import.meta.env,
+10 | });
+```
+
+src/env/server.ts
+```
+1 | import { createEnv } from '@t3-oss/env-core';
+2 | import * as z from 'zod';
+3 | 
+4 | export const env = createEnv({
+5 |   server: {
+6 |     MY_SECRET_VAR: z.url(),
+7 |   },
+8 |   runtimeEnv: process.env,
+9 | });
+```
+
+src/hooks/useFileLoader.ts
+```
+1 | import { useCallback, useMemo, useReducer } from 'react';
+2 | import { streamParseSession, type ParserError } from '~/lib/session-parser';
+3 | import type { ResponseItemParsed, SessionMetaParsed } from '~/lib/session-parser';
+4 | 
+5 | export type LoadPhase = 'idle' | 'parsing' | 'error' | 'success';
+6 | 
+7 | interface State {
+8 |   phase: LoadPhase;
+9 |   meta?: SessionMetaParsed;
+10 |   events: ResponseItemParsed[];
+11 |   ok: number;
+12 |   fail: number;
+13 |   lastError?: ParserError;
+14 | }
+15 | 
+16 | type Action =
+17 |   | { type: 'reset' }
+18 |   | { type: 'start' }
+19 |   | { type: 'meta'; meta: SessionMetaParsed }
+20 |   | { type: 'event'; event: ResponseItemParsed }
+21 |   | { type: 'fail'; error: ParserError }
+22 |   | { type: 'done' };
+23 | 
+24 | const initialState: State = {
+25 |   phase: 'idle',
+26 |   events: [],
+27 |   ok: 0,
+28 |   fail: 0,
+29 | };
+30 | 
+31 | function reducer(state: State, action: Action): State {
+32 |   switch (action.type) {
+33 |     case 'reset':
+34 |       return { ...initialState };
+35 |     case 'start':
+36 |       return { ...initialState, phase: 'parsing' };
+37 |     case 'meta':
+38 |       return { ...state, meta: action.meta };
+39 |     case 'event':
+40 |       return {
+41 |         ...state,
+42 |         ok: state.ok + 1,
+43 |         events: [...state.events, action.event],
+44 |       };
+45 |     case 'fail':
+46 |       return {
+47 |         ...state,
+48 |         fail: state.fail + 1,
+49 |         lastError: action.error,
+50 |       };
+51 |     case 'done':
+52 |       return {
+53 |         ...state,
+54 |         phase: state.fail > 0 ? 'error' : 'success',
+55 |       };
+56 |     default:
+57 |       return state;
+58 |   }
+59 | }
+60 | 
+61 | export function useFileLoader() {
+62 |   const [state, dispatch] = useReducer(reducer, initialState);
+63 | 
+64 |   const start = useCallback(
+65 |     async (file: File) => {
+66 |       dispatch({ type: 'start' });
+67 |       try {
+68 |         for await (const item of streamParseSession(file)) {
+69 |           if (item.kind === 'meta') {
+70 |             dispatch({ type: 'meta', meta: item.meta });
+71 |           } else if (item.kind === 'event') {
+72 |             dispatch({ type: 'event', event: item.event });
+73 |           } else if (item.kind === 'error') {
+74 |             dispatch({ type: 'fail', error: item.error });
+75 |           }
+76 |         }
+77 |         dispatch({ type: 'done' });
+78 |       } catch (error) {
+79 |         dispatch({
+80 |           type: 'fail',
+81 |           error: {
+82 |             line: -1,
+83 |             reason: 'invalid_schema',
+84 |             message: error instanceof Error ? error.message : 'Unknown error',
+85 |             raw: '',
+86 |           },
+87 |         });
+88 |         dispatch({ type: 'done' });
+89 |       }
+90 |     },
+91 |     [dispatch]
+92 |   );
+93 | 
+94 |   const reset = useCallback(() => dispatch({ type: 'reset' }), []);
+95 | 
+96 |   const progress = useMemo(() => {
+97 |     const total = state.ok + state.fail;
+98 |     return { ok: state.ok, fail: state.fail, total };
+99 |   }, [state.ok, state.fail]);
+100 | 
+101 |   return { state, progress, start, reset };
+102 | }
+103 | 
+104 | export type FileLoaderHook = ReturnType<typeof useFileLoader>;
+```
+
+src/hooks/useSessionStorage.ts
+```
+1 | import * as React from 'react';
+2 | 
+3 | export function useSessionStorage<T>(key: string, initialValue: T) {
+4 |   const state = React.useState<T>(() => {
+5 |     const stored = sessionStorage.getItem(key);
+6 |     return stored ? JSON.parse(stored) : initialValue;
+7 |   });
+8 | 
+9 |   React.useEffect(() => {
+10 |     sessionStorage.setItem(key, JSON.stringify(state[0]));
+11 |   }, [state[0]]);
+12 | 
+13 |   return state;
+14 | }
+```
+
+src/types/browser-echo.d.ts
+```
+1 | declare module 'virtual:browser-echo';
+```
+
 src/styles/app.css
 ```
 1 | @import "tailwindcss";
@@ -1462,8 +1656,8 @@ src/styles/custom.css
 6 |   --card-foreground: oklch(0.141 0.005 285.823);
 7 |   --popover: oklch(1 0 0);
 8 |   --popover-foreground: oklch(0.141 0.005 285.823);
-9 |   --primary: oklch(0.648 0.2 131.684);
-10 |   --primary-foreground: oklch(0.986 0.031 120.757);
+9 |   --primary: oklch(0.488 0.243 264.376);
+10 |   --primary-foreground: oklch(0.97 0.014 254.604);
 11 |   --secondary: oklch(0.967 0.001 286.375);
 12 |   --secondary-foreground: oklch(0.21 0.006 285.885);
 13 |   --muted: oklch(0.967 0.001 286.375);
@@ -1473,20 +1667,20 @@ src/styles/custom.css
 17 |   --destructive: oklch(0.577 0.245 27.325);
 18 |   --border: oklch(0.92 0.004 286.32);
 19 |   --input: oklch(0.92 0.004 286.32);
-20 |   --ring: oklch(0.841 0.238 128.85);
-21 |   --chart-1: oklch(0.871 0.15 154.449);
-22 |   --chart-2: oklch(0.723 0.219 149.579);
-23 |   --chart-3: oklch(0.627 0.194 149.214);
-24 |   --chart-4: oklch(0.527 0.154 150.069);
-25 |   --chart-5: oklch(0.448 0.119 151.328);
+20 |   --ring: oklch(0.708 0 0);
+21 |   --chart-1: oklch(0.809 0.105 251.813);
+22 |   --chart-2: oklch(0.623 0.214 259.815);
+23 |   --chart-3: oklch(0.546 0.245 262.881);
+24 |   --chart-4: oklch(0.488 0.243 264.376);
+25 |   --chart-5: oklch(0.424 0.199 265.638);
 26 |   --sidebar: oklch(0.985 0 0);
 27 |   --sidebar-foreground: oklch(0.141 0.005 285.823);
-28 |   --sidebar-primary: oklch(0.648 0.2 131.684);
-29 |   --sidebar-primary-foreground: oklch(0.986 0.031 120.757);
+28 |   --sidebar-primary: oklch(0.546 0.245 262.881);
+29 |   --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
 30 |   --sidebar-accent: oklch(0.967 0.001 286.375);
 31 |   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
 32 |   --sidebar-border: oklch(0.92 0.004 286.32);
-33 |   --sidebar-ring: oklch(0.841 0.238 128.85);
+33 |   --sidebar-ring: oklch(0.708 0 0);
 34 | }
 35 | 
 36 | .dark {
@@ -1496,8 +1690,8 @@ src/styles/custom.css
 40 |   --card-foreground: oklch(0.985 0 0);
 41 |   --popover: oklch(0.21 0.006 285.885);
 42 |   --popover-foreground: oklch(0.985 0 0);
-43 |   --primary: oklch(0.648 0.2 131.684);
-44 |   --primary-foreground: oklch(0.986 0.031 120.757);
+43 |   --primary: oklch(0.488 0.243 264.376);
+44 |   --primary-foreground: oklch(0.97 0.014 254.604);
 45 |   --secondary: oklch(0.274 0.006 286.033);
 46 |   --secondary-foreground: oklch(0.985 0 0);
 47 |   --muted: oklch(0.274 0.006 286.033);
@@ -1507,677 +1701,261 @@ src/styles/custom.css
 51 |   --destructive: oklch(0.704 0.191 22.216);
 52 |   --border: oklch(1 0 0 / 10%);
 53 |   --input: oklch(1 0 0 / 15%);
-54 |   --ring: oklch(0.405 0.101 131.063);
-55 |   --chart-1: oklch(0.871 0.15 154.449);
-56 |   --chart-2: oklch(0.723 0.219 149.579);
-57 |   --chart-3: oklch(0.627 0.194 149.214);
-58 |   --chart-4: oklch(0.527 0.154 150.069);
-59 |   --chart-5: oklch(0.448 0.119 151.328);
+54 |   --ring: oklch(0.556 0 0);
+55 |   --chart-1: oklch(0.809 0.105 251.813);
+56 |   --chart-2: oklch(0.623 0.214 259.815);
+57 |   --chart-3: oklch(0.546 0.245 262.881);
+58 |   --chart-4: oklch(0.488 0.243 264.376);
+59 |   --chart-5: oklch(0.424 0.199 265.638);
 60 |   --sidebar: oklch(0.21 0.006 285.885);
 61 |   --sidebar-foreground: oklch(0.985 0 0);
-62 |   --sidebar-primary: oklch(0.768 0.233 130.85);
-63 |   --sidebar-primary-foreground: oklch(0.986 0.031 120.757);
+62 |   --sidebar-primary: oklch(0.623 0.214 259.815);
+63 |   --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
 64 |   --sidebar-accent: oklch(0.274 0.006 286.033);
 65 |   --sidebar-accent-foreground: oklch(0.985 0 0);
 66 |   --sidebar-border: oklch(1 0 0 / 10%);
-67 |   --sidebar-ring: oklch(0.405 0.101 131.063);
+67 |   --sidebar-ring: oklch(0.439 0 0);
 68 | }
 ```
 
-src/types/browser-echo.d.ts
+src/components/viewer/AnimatedTimelineList.tsx
 ```
-1 | declare module 'virtual:browser-echo';
-```
-
-src/utils/event-key.ts
-```
-1 | import type { ResponseItem } from '../types';
-2 | 
-3 | export function eventKey(item: ResponseItem, absoluteIndex: number): string {
-4 |   const anyItem = item as any;
-5 |   if (anyItem?.id) return String(anyItem.id);
-6 |   if (typeof anyItem?.index === 'number') return `idx-${anyItem.index}`;
-7 |   return `idx-${absoluteIndex}`;
-8 | }
-```
-
-src/utils/id-generator.ts
-```
-1 | import { randomUUID } from 'node:crypto';
-2 | 
-3 | const prefixes = {
-4 |     files: 'file',
-5 |     user: 'user',
-6 | } as const;
+1 | import { useMemo, useState } from 'react'
+2 | import AnimatedList from '~/components/AnimatedList'
+3 | import type { ResponseItem, MessageEvent, MessagePart } from '~/lib/viewer-types'
+4 | import type { ResponseItemParsed } from '~/lib/session-parser'
+5 | 
+6 | type TimelineEvent = ResponseItem | ResponseItemParsed
 7 | 
-8 | export const generateId = (prefix: keyof typeof prefixes | string) => {
-9 |     const resolvedPrefix = (prefix in prefixes) ? prefixes[prefix as keyof typeof prefixes] : prefix;
-10 |     return `${resolvedPrefix}_${randomUUID()}`;
-11 | }
-```
-
-src/utils/line-reader.ts
-```
-1 | export function splitLinesTransform(): TransformStream<string, string> {
-2 |   let carry = '';
-3 |   return new TransformStream<string, string>({
-4 |     transform(chunk, controller) {
-5 |       const text = carry + chunk;
-6 |       const parts = text.split(/\n/);
-7 |       carry = parts.pop() ?? '';
-8 |       for (const line of parts) {
-9 |         controller.enqueue(line.endsWith('\r') ? line.slice(0, -1) : line);
-10 |       }
-11 |     },
-12 |     flush(controller) {
-13 |       if (carry.length > 0) {
-14 |         controller.enqueue(carry.endsWith('\r') ? carry.slice(0, -1) : carry);
-15 |       }
-16 |     },
-17 |   });
-18 | }
-19 | 
-20 | async function readBlobAsArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
-21 |   if (typeof (blob as any).arrayBuffer === 'function') {
-22 |     return blob.arrayBuffer();
-23 |   }
-24 |   if (typeof FileReader !== 'undefined') {
-25 |     return new Promise<ArrayBuffer>((resolve, reject) => {
-26 |       const reader = new FileReader();
-27 |       reader.onerror = () => reject(reader.error);
-28 |       reader.onload = () => resolve(reader.result as ArrayBuffer);
-29 |       reader.readAsArrayBuffer(blob);
-30 |     });
-31 |   }
-32 |   if (typeof (blob as any).text === 'function') {
-33 |     const text = await blob.text();
-34 |     return new TextEncoder().encode(text).buffer;
-35 |   }
-36 |   return new ArrayBuffer(0);
-37 | }
-38 | 
-39 | function getBlobStream(blob: Blob): ReadableStream<Uint8Array> {
-40 |   if (typeof (blob as any).stream === 'function') {
-41 |     return (blob as any).stream();
-42 |   }
-43 |   return new ReadableStream<Uint8Array>({
-44 |     async start(controller) {
-45 |       try {
-46 |         const buffer = await readBlobAsArrayBuffer(blob);
-47 |         controller.enqueue(new Uint8Array(buffer));
-48 |         controller.close();
-49 |       } catch (error) {
-50 |         controller.error(error);
-51 |       }
-52 |     },
-53 |   });
-54 | }
-55 | 
-56 | export async function* streamTextLines(blob: Blob, encoding = 'utf-8'): AsyncGenerator<string> {
-57 |   const hasDecoderStream = typeof (globalThis as any).TextDecoderStream === 'function';
-58 | 
-59 |   if (hasDecoderStream) {
-60 |     const decoded = getBlobStream(blob)
-61 |       // @ts-ignore TextDecoderStream exists in modern runtimes; fallback below otherwise.
-62 |       .pipeThrough(new TextDecoderStream(encoding))
-63 |       .pipeThrough(splitLinesTransform());
-64 | 
-65 |     for await (const line of decoded as any as AsyncIterable<string>) {
-66 |       yield line;
-67 |     }
-68 |     return;
-69 |   }
-70 | 
-71 |   const reader = getBlobStream(blob).getReader();
-72 |   const decoder = new TextDecoder(encoding);
-73 |   let carry = '';
-74 |   try {
-75 |     for (;;) {
-76 |       const { value, done } = await reader.read();
-77 |       if (done) break;
-78 |       const chunk = decoder.decode(value, { stream: true });
-79 |       const text = carry + chunk;
-80 |       const parts = text.split(/\n/);
-81 |       carry = parts.pop() ?? '';
-82 |       for (const line of parts) {
-83 |         yield line.endsWith('\r') ? line.slice(0, -1) : line;
-84 |       }
-85 |     }
-86 |     const last = decoder.decode();
-87 |     if (last) {
-88 |       const text = carry + last;
-89 |       const parts = text.split(/\n/);
-90 |       carry = parts.pop() ?? '';
-91 |       for (const line of parts) {
-92 |         yield line.endsWith('\r') ? line.slice(0, -1) : line;
-93 |       }
-94 |     }
-95 |     if (carry.length) {
-96 |       yield carry.endsWith('\r') ? carry.slice(0, -1) : carry;
-97 |     }
-98 |   } finally {
-99 |     reader.releaseLock();
-100 |   }
-101 | }
-```
-
-src/utils/seo.ts
-```
-1 | export const seo = ({
-2 |     title,
-3 |     description,
-4 |     keywords,
-5 |     image
-6 | }: {
-7 |     title: string
-8 |     description?: string
-9 |     image?: string
-10 |     keywords?: string
-11 | }) => {
-12 |     const tags = [
-13 |       { title },
-14 |       { name: 'description', content: description },
-15 |       { name: 'keywords', content: keywords },
-16 |       { name: 'twitter:title', content: title },
-17 |       { name: 'twitter:description', content: description },
-18 |       { name: 'twitter:creator', content: '@d1rt7d4t4' },
-19 |       { name: 'twitter:site', content: '@d1rt7d4t4' },
-20 |       { name: 'og:type', content: 'website' },
-21 |       { name: 'og:title', content: title },
-22 |       { name: 'og:description', content: description },
-23 |       ...(image
-24 |         ? [
-25 |             { name: 'twitter:image', content: image },
-26 |             { name: 'twitter:card', content: 'summary_large_image' },
-27 |             { name: 'og:image', content: image },
-28 |           ]
-29 |         : []),
-30 |     ];
-31 | 
-32 |     return tags
-33 | }
-```
-
-src/db/schema/CLAUDE.md
-```
-1 | 
-2 | 
-3 | <!-- Source: .ruler/db.schema.md -->
-4 | 
-5 | - Schema files have always this naming pattern `<name>.schema.ts`
-```
-
-src/components/ui/badge.tsx
-```
-1 | import { cva, type VariantProps } from 'class-variance-authority';
-2 | import type { HTMLAttributes } from 'react';
-3 | import { cn } from '~/lib/utils';
-4 | 
-5 | const badgeVariants = cva(
-6 |   'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
-7 |   {
-8 |     variants: {
-9 |       variant: {
-10 |         default: 'border-transparent bg-primary text-primary-foreground',
-11 |         secondary: 'border-transparent bg-secondary text-secondary-foreground',
-12 |         outline: 'border-border text-foreground',
-13 |       },
-14 |     },
-15 |     defaultVariants: {
-16 |       variant: 'default',
-17 |     },
-18 |   }
-19 | );
-20 | 
-21 | export interface BadgeProps
-22 |   extends HTMLAttributes<HTMLDivElement>,
-23 |     VariantProps<typeof badgeVariants> {}
-24 | 
-25 | export function Badge({ className, variant, ...props }: BadgeProps) {
-26 |   return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
-27 | }
-```
-
-src/components/ui/button.tsx
-```
-1 | import * as React from "react"
-2 | import { Slot } from "@radix-ui/react-slot"
-3 | import { cva, type VariantProps } from "class-variance-authority"
-4 | 
-5 | import { cn } from "~/lib/utils"
-6 | 
-7 | const buttonVariants = cva(
-8 |   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-9 |   {
-10 |     variants: {
-11 |       variant: {
-12 |         default:
-13 |           "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
-14 |         destructive:
-15 |           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-16 |         outline:
-17 |           "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
-18 |         secondary:
-19 |           "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
-20 |         ghost:
-21 |           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-22 |         link: "text-primary underline-offset-4 hover:underline",
-23 |       },
-24 |       size: {
-25 |         default: "h-9 px-4 py-2 has-[>svg]:px-3",
-26 |         sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-27 |         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-28 |         icon: "size-9",
-29 |       },
-30 |     },
-31 |     defaultVariants: {
-32 |       variant: "default",
-33 |       size: "default",
-34 |     },
-35 |   }
-36 | )
-37 | 
-38 | function Button({
-39 |   className,
-40 |   variant,
-41 |   size,
-42 |   asChild = false,
-43 |   ...props
-44 | }: React.ComponentProps<"button"> &
-45 |   VariantProps<typeof buttonVariants> & {
-46 |     asChild?: boolean
-47 |   }) {
-48 |   const Comp = asChild ? Slot : "button"
-49 | 
-50 |   return (
-51 |     <Comp
-52 |       data-slot="button"
-53 |       className={cn(buttonVariants({ variant, size, className }))}
-54 |       {...props}
-55 |     />
-56 |   )
-57 | }
-58 | 
-59 | export { Button, buttonVariants }
-```
-
-src/components/ui/card.tsx
-```
-1 | import * as React from "react"
-2 | 
-3 | import { cn } from "~/lib/utils"
-4 | 
-5 | function Card({ className, ...props }: React.ComponentProps<"div">) {
-6 |   return (
-7 |     <div
-8 |       data-slot="card"
-9 |       className={cn(
-10 |         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
-11 |         className
-12 |       )}
-13 |       {...props}
-14 |     />
-15 |   )
-16 | }
-17 | 
-18 | function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
-19 |   return (
-20 |     <div
-21 |       data-slot="card-header"
-22 |       className={cn(
-23 |         "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
-24 |         className
-25 |       )}
-26 |       {...props}
-27 |     />
-28 |   )
-29 | }
-30 | 
-31 | function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
-32 |   return (
-33 |     <div
-34 |       data-slot="card-title"
-35 |       className={cn("leading-none font-semibold", className)}
-36 |       {...props}
-37 |     />
-38 |   )
-39 | }
-40 | 
-41 | function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
-42 |   return (
-43 |     <div
-44 |       data-slot="card-description"
-45 |       className={cn("text-muted-foreground text-sm", className)}
-46 |       {...props}
-47 |     />
-48 |   )
-49 | }
-50 | 
-51 | function CardAction({ className, ...props }: React.ComponentProps<"div">) {
-52 |   return (
-53 |     <div
-54 |       data-slot="card-action"
-55 |       className={cn(
-56 |         "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
-57 |         className
-58 |       )}
-59 |       {...props}
-60 |     />
-61 |   )
-62 | }
-63 | 
-64 | function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-65 |   return (
-66 |     <div
-67 |       data-slot="card-content"
-68 |       className={cn("px-6", className)}
-69 |       {...props}
-70 |     />
-71 |   )
-72 | }
-73 | 
-74 | function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
-75 |   return (
-76 |     <div
-77 |       data-slot="card-footer"
-78 |       className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
-79 |       {...props}
-80 |     />
-81 |   )
-82 | }
-83 | 
-84 | export {
-85 |   Card,
-86 |   CardHeader,
-87 |   CardFooter,
-88 |   CardTitle,
-89 |   CardAction,
-90 |   CardDescription,
-91 |   CardContent,
-92 | }
-```
-
-src/components/ui/dropdown-menu.tsx
-```
-1 | import * as React from "react"
-2 | import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-3 | import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
-4 | 
-5 | import { cn } from "~/lib/utils"
-6 | 
-7 | function DropdownMenu({
-8 |   ...props
-9 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-10 |   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
-11 | }
-12 | 
-13 | function DropdownMenuPortal({
-14 |   ...props
-15 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
-16 |   return (
-17 |     <DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
-18 |   )
-19 | }
-20 | 
-21 | function DropdownMenuTrigger({
-22 |   ...props
-23 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger>) {
-24 |   return (
-25 |     <DropdownMenuPrimitive.Trigger
-26 |       data-slot="dropdown-menu-trigger"
-27 |       {...props}
-28 |     />
-29 |   )
-30 | }
-31 | 
-32 | function DropdownMenuContent({
-33 |   className,
-34 |   sideOffset = 4,
-35 |   ...props
-36 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
-37 |   return (
-38 |     <DropdownMenuPrimitive.Portal>
-39 |       <DropdownMenuPrimitive.Content
-40 |         data-slot="dropdown-menu-content"
-41 |         sideOffset={sideOffset}
-42 |         className={cn(
-43 |           "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
-44 |           className
-45 |         )}
-46 |         {...props}
-47 |       />
-48 |     </DropdownMenuPrimitive.Portal>
-49 |   )
-50 | }
-51 | 
-52 | function DropdownMenuGroup({
-53 |   ...props
-54 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Group>) {
-55 |   return (
-56 |     <DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
-57 |   )
-58 | }
-59 | 
-60 | function DropdownMenuItem({
-61 |   className,
-62 |   inset,
-63 |   variant = "default",
-64 |   ...props
-65 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
-66 |   inset?: boolean
-67 |   variant?: "default" | "destructive"
-68 | }) {
-69 |   return (
-70 |     <DropdownMenuPrimitive.Item
-71 |       data-slot="dropdown-menu-item"
-72 |       data-inset={inset}
-73 |       data-variant={variant}
-74 |       className={cn(
-75 |         "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-76 |         className
-77 |       )}
-78 |       {...props}
-79 |     />
-80 |   )
-81 | }
-82 | 
-83 | function DropdownMenuCheckboxItem({
-84 |   className,
-85 |   children,
-86 |   checked,
-87 |   ...props
-88 | }: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
-89 |   return (
-90 |     <DropdownMenuPrimitive.CheckboxItem
-91 |       data-slot="dropdown-menu-checkbox-item"
-92 |       className={cn(
-93 |         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-94 |         className
-95 |       )}
-96 |       checked={checked}
-97 |       {...props}
-98 |     >
-99 |       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
-100 |         <DropdownMenuPrimitive.ItemIndicator>
-101 |           <CheckIcon className="size-4" />
-102 |         </DropdownMenuPrimitive.ItemIndicator>
-103 |       </span>
-104 |       {children}
-105 |     </DropdownMenuPrimitive.CheckboxItem>
-106 |   )
-107 | }
-108 | 
-109 | function DropdownMenuRadioGroup({
-110 |   ...props
-111 | }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) {
-112 |   return (
-113 |     <DropdownMenuPrimitive.RadioGroup
-114 |       data-slot="dropdown-menu-radio-group"
-115 |       {...props}
-116 |     />
-117 |   )
-118 | }
-119 | 
-120 | function DropdownMenuRadioItem({
-121 |   className,
-122 |   children,
-123 |   ...props
-124 | }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
-125 |   return (
-126 |     <DropdownMenuPrimitive.RadioItem
-127 |       data-slot="dropdown-menu-radio-item"
-128 |       className={cn(
-129 |         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-130 |         className
-131 |       )}
-132 |       {...props}
-133 |     >
-134 |       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
-135 |         <DropdownMenuPrimitive.ItemIndicator>
-136 |           <CircleIcon className="size-2 fill-current" />
-137 |         </DropdownMenuPrimitive.ItemIndicator>
-138 |       </span>
-139 |       {children}
-140 |     </DropdownMenuPrimitive.RadioItem>
-141 |   )
-142 | }
-143 | 
-144 | function DropdownMenuLabel({
-145 |   className,
-146 |   inset,
-147 |   ...props
-148 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Label> & {
-149 |   inset?: boolean
-150 | }) {
-151 |   return (
-152 |     <DropdownMenuPrimitive.Label
-153 |       data-slot="dropdown-menu-label"
-154 |       data-inset={inset}
-155 |       className={cn(
-156 |         "px-2 py-1.5 text-sm font-medium data-[inset]:pl-8",
-157 |         className
-158 |       )}
-159 |       {...props}
-160 |     />
-161 |   )
-162 | }
-163 | 
-164 | function DropdownMenuSeparator({
-165 |   className,
-166 |   ...props
-167 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
-168 |   return (
-169 |     <DropdownMenuPrimitive.Separator
-170 |       data-slot="dropdown-menu-separator"
-171 |       className={cn("bg-border -mx-1 my-1 h-px", className)}
-172 |       {...props}
-173 |     />
-174 |   )
-175 | }
-176 | 
-177 | function DropdownMenuShortcut({
-178 |   className,
-179 |   ...props
-180 | }: React.ComponentProps<"span">) {
-181 |   return (
-182 |     <span
-183 |       data-slot="dropdown-menu-shortcut"
-184 |       className={cn(
-185 |         "text-muted-foreground ml-auto text-xs tracking-widest",
-186 |         className
-187 |       )}
-188 |       {...props}
-189 |     />
-190 |   )
-191 | }
-192 | 
-193 | function DropdownMenuSub({
-194 |   ...props
-195 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
-196 |   return <DropdownMenuPrimitive.Sub data-slot="dropdown-menu-sub" {...props} />
-197 | }
-198 | 
-199 | function DropdownMenuSubTrigger({
-200 |   className,
-201 |   inset,
-202 |   children,
-203 |   ...props
-204 | }: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {
-205 |   inset?: boolean
-206 | }) {
-207 |   return (
-208 |     <DropdownMenuPrimitive.SubTrigger
-209 |       data-slot="dropdown-menu-sub-trigger"
-210 |       data-inset={inset}
-211 |       className={cn(
-212 |         "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8",
-213 |         className
-214 |       )}
-215 |       {...props}
-216 |     >
-217 |       {children}
-218 |       <ChevronRightIcon className="ml-auto size-4" />
-219 |     </DropdownMenuPrimitive.SubTrigger>
-220 |   )
-221 | }
-222 | 
-223 | function DropdownMenuSubContent({
-224 |   className,
-225 |   ...props
-226 | }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
-227 |   return (
-228 |     <DropdownMenuPrimitive.SubContent
-229 |       data-slot="dropdown-menu-sub-content"
-230 |       className={cn(
-231 |         "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-md border p-1 shadow-lg",
-232 |         className
-233 |       )}
-234 |       {...props}
-235 |     />
-236 |   )
-237 | }
-238 | 
-239 | export {
-240 |   DropdownMenu,
-241 |   DropdownMenuPortal,
-242 |   DropdownMenuTrigger,
-243 |   DropdownMenuContent,
-244 |   DropdownMenuGroup,
-245 |   DropdownMenuLabel,
-246 |   DropdownMenuItem,
-247 |   DropdownMenuCheckboxItem,
-248 |   DropdownMenuRadioGroup,
-249 |   DropdownMenuRadioItem,
-250 |   DropdownMenuSeparator,
-251 |   DropdownMenuShortcut,
-252 |   DropdownMenuSub,
-253 |   DropdownMenuSubTrigger,
-254 |   DropdownMenuSubContent,
-255 | }
-```
-
-src/components/ui/textarea.tsx
-```
-1 | import * as React from 'react';
-2 | import { cn } from '~/lib/utils';
-3 | 
-4 | const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'textarea'>>(
-5 |   ({ className, ...props }, ref) => {
-6 |     return (
-7 |       <textarea
-8 |         className={cn(
-9 |           'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-10 |           className
-11 |         )}
-12 |         ref={ref}
-13 |         {...props}
-14 |       />
-15 |     );
-16 |   }
-17 | );
-18 | Textarea.displayName = 'Textarea';
-19 | 
-20 | export { Textarea };
+8 | interface AnimatedTimelineListProps {
+9 |   events: readonly TimelineEvent[]
+10 |   className?: string
+11 |   onSelect?: (event: TimelineEvent, index: number) => void
+12 | }
+13 | 
+14 | const SNIPPET_LENGTH = 100
+15 | 
+16 | export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTimelineListProps) {
+17 |   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+18 |   const items = useMemo(
+19 |     () => events.map((event, index) => renderTimelineItem(event, index, expandedIndex === index)),
+20 |     [events, expandedIndex]
+21 |   )
+22 | 
+23 |   if (!events.length) {
+24 |     return <p className="text-sm text-muted-foreground">Load or drop a session to populate the timeline.</p>
+25 |   }
+26 | 
+27 |   const initialIndex = -1
+28 | 
+29 |   return (
+30 |     <AnimatedList
+31 |       className={`w-full ${className ?? ''}`}
+32 |       itemClassName="text-left"
+33 |       items={items}
+34 |       onItemSelect={(_, index) => {
+35 |         const event = events[index]
+36 |         if (event) {
+37 |           setExpandedIndex((prev) => (prev === index ? null : index))
+38 |           onSelect?.(event, index)
+39 |         }
+40 |       }}
+41 |       displayScrollbar={false}
+42 |       showGradients={events.length > 6}
+43 |       initialSelectedIndex={initialIndex}
+44 |     />
+45 |   )
+46 | }
+47 | 
+48 | function renderTimelineItem(event: TimelineEvent, index: number, expanded: boolean) {
+49 |   return (
+50 |     <div className="space-y-2">
+51 |       <div className="flex items-start justify-between gap-3">
+52 |         <div className="space-y-1">
+53 |           <p className="text-sm font-semibold text-white">{buildLabel(event, index)}</p>
+54 |           <p className="text-xs text-muted-foreground">{buildMetaLine(event)}</p>
+55 |         </div>
+56 |         <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+57 |           {event.type}
+58 |         </span>
+59 |       </div>
+60 |       {expanded ? (
+61 |         <div className="rounded-lg border border-white/5 bg-black/40 p-3 text-sm text-slate-100">
+62 |           {renderEventDetail(event)}
+63 |         </div>
+64 |       ) : null}
+65 |     </div>
+66 |   )
+67 | }
+68 | 
+69 | function buildLabel(event: TimelineEvent, index: number) {
+70 |   const prefix = `#${index + 1}`
+71 |   const formatted = event.at ? formatTimestamp(event.at) : ''
+72 |   const stamp = formatted ? ` · ${formatted}` : ''
+73 |   const summary = summarizeEvent(event)
+74 |   return `${prefix}${stamp} — ${summary}`
+75 | }
+76 | 
+77 | function summarizeEvent(event: TimelineEvent) {
+78 |   switch (event.type) {
+79 |     case 'Message': {
+80 |       const role = capitalize(event.role ?? 'message')
+81 |       return `${role}: ${truncate(extractMessageText(event.content))}`
+82 |     }
+83 |     case 'Reasoning':
+84 |       return `Reasoning: ${truncate(event.content ?? '')}`
+85 |     case 'FunctionCall': {
+86 |       const name = event.name ?? 'function'
+87 |       return `Function ${name}(${event.durationMs ? `${event.durationMs}ms` : 'call'})`
+88 |     }
+89 |     case 'LocalShellCall':
+90 |       return `Shell ${event.command ?? ''}`.trim()
+91 |     case 'WebSearchCall':
+92 |       return `Web search: ${truncate(event.query ?? '')}`
+93 |     case 'CustomToolCall':
+94 |       return `Tool ${event.toolName}`
+95 |     case 'FileChange':
+96 |       return `File change: ${event.path}`
+97 |     default:
+98 |       return event.type ?? 'Event'
+99 |   }
+100 | }
+101 | 
+102 | function buildMetaLine(event: TimelineEvent) {
+103 |   let value: string | undefined
+104 |   switch (event.type) {
+105 |     case 'Message':
+106 |       value = [capitalize(event.role ?? 'message'), event.model].filter(Boolean).join(' · ')
+107 |       break
+108 |     case 'FunctionCall': {
+109 |       const duration = event.durationMs ? `${event.durationMs}ms` : null
+110 |       value = [event.name, duration].filter(Boolean).join(' · ')
+111 |       break
+112 |     }
+113 |     case 'LocalShellCall': {
+114 |       const exit = typeof event.exitCode === 'number' ? `exit ${event.exitCode}` : null
+115 |       value = [event.command, exit].filter(Boolean).join(' · ')
+116 |       break
+117 |     }
+118 |     case 'WebSearchCall':
+119 |       value = event.query ?? 'Search'
+120 |       break
+121 |     case 'FileChange':
+122 |       value = event.path
+123 |       break
+124 |     case 'CustomToolCall':
+125 |       value = event.toolName
+126 |       break
+127 |     default:
+128 |       value = event.at ? formatTimestamp(event.at) : 'Event'
+129 |   }
+130 |   return value && value.length > 0 ? value : 'Event'
+131 | }
+132 | 
+133 | function renderEventDetail(event: TimelineEvent) {
+134 |   switch (event.type) {
+135 |     case 'Message': {
+136 |       const text = extractMessageText(event.content)
+137 |       return text ? <DetailText value={text} label="Content" /> : <EmptyDetail message="No message content." />
+138 |     }
+139 |     case 'Reasoning':
+140 |       return event.content ? <DetailText value={event.content} label="Trace" /> : <EmptyDetail message="No reasoning trace." />
+141 |     case 'FunctionCall': {
+142 |       const args = safeStringify(event.args)
+143 |       const result = safeStringify(event.result)
+144 |       if (!args && !result) {
+145 |         return <EmptyDetail message="No arguments or result recorded." />
+146 |       }
+147 |       return (
+148 |         <div className="space-y-3">
+149 |           <DetailText value={args} label="Args" />
+150 |           <DetailText value={result} label="Result" />
+151 |         </div>
+152 |       )
+153 |     }
+154 |     case 'LocalShellCall': {
+155 |       const stdout = event.stdout ?? ''
+156 |       const stderr = event.stderr ?? ''
+157 |       if (!stdout && !stderr) {
+158 |         return <EmptyDetail message="No output captured." />
+159 |       }
+160 |       return (
+161 |         <div className="space-y-3">
+162 |           <DetailText value={stdout} label="stdout" />
+163 |           <DetailText value={stderr} label="stderr" />
+164 |         </div>
+165 |       )
+166 |     }
+167 |     case 'WebSearchCall':
+168 |       return event.query ? <DetailText value={event.query} label="Query" /> : <EmptyDetail message="No query string." />
+169 |     case 'CustomToolCall': {
+170 |       const payload = safeStringify(event.output ?? event.input)
+171 |       return payload ? <DetailText value={payload} label="Payload" /> : <EmptyDetail message="No payload." />
+172 |     }
+173 |     case 'FileChange':
+174 |       return event.diff ? <DetailText value={event.diff} label="Diff" /> : <EmptyDetail message="No diff provided." />
+175 |     default: {
+176 |       const payload = safeStringify(event)
+177 |       return payload ? <DetailText value={payload} label="Event" /> : <EmptyDetail message="No additional data." />
+178 |     }
+179 |   }
+180 | }
+181 | 
+182 | function DetailText({ value, label }: { value: string; label: string }) {
+183 |   if (!value) return null
+184 |   return (
+185 |     <div className="space-y-1">
+186 |       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+187 |       <pre className="whitespace-pre-wrap break-words rounded-md bg-white/5 p-2 font-mono text-xs text-white/90">
+188 |         {value}
+189 |       </pre>
+190 |     </div>
+191 |   )
+192 | }
+193 | 
+194 | function EmptyDetail({ message }: { message: string }) {
+195 |   return <p className="text-xs text-muted-foreground">{message}</p>
+196 | }
+197 | 
+198 | function extractMessageText(content: MessageEvent['content'] | undefined) {
+199 |   if (typeof content === 'string') {
+200 |     return content
+201 |   }
+202 |   if (Array.isArray(content)) {
+203 |     return content
+204 |       .map((part) => (typeof part === 'string' ? part : (part as MessagePart).text ?? ''))
+205 |       .join(' ')
+206 |   }
+207 |   return ''
+208 | }
+209 | 
+210 | function truncate(value: string, limit = SNIPPET_LENGTH) {
+211 |   if (!value) return ''
+212 |   return value.length > limit ? `${value.slice(0, limit - 1)}…` : value
+213 | }
+214 | 
+215 | function formatTimestamp(date: string | number | Date) {
+216 |   const value = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
+217 |   return Number.isNaN(value.getTime()) ? '' : value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+218 | }
+219 | 
+220 | function capitalize(value: string) {
+221 |   return value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
+222 | }
+223 | 
+224 | function safeStringify(value: unknown) {
+225 |   if (value == null) return ''
+226 |   try {
+227 |     if (typeof value === 'string') {
+228 |       return value
+229 |     }
+230 |     return JSON.stringify(value, null, 2)
+231 |   } catch (error) {
+232 |     return String(value)
+233 |   }
+234 | }
+235 | 
+236 | export default AnimatedTimelineList
 ```
 
 src/components/viewer/ChatDock.tsx
@@ -2618,7 +2396,7 @@ src/components/viewer/FileInputButton.tsx
 src/components/viewer/TimelineList.tsx
 ```
 1 | import { memo, useMemo } from "react"
-2 | import type { ResponseItem } from "~/types"
+2 | import type { ResponseItem } from "~/lib/viewer-types"
 3 | import { eventKey } from "~/utils/event-key"
 4 | import { EventCard } from "./EventCard"
 5 | import { TimelineView } from "./TimelineView"
@@ -2814,710 +2592,173 @@ src/components/viewer/TimelineView.tsx
 163 | }
 ```
 
-src/.cursor/rules/ruler_cursor_instructions.mdc
+src/utils/event-key.ts
 ```
-1 | ---
-2 | alwaysApply: true
-3 | ---
-4 | <!-- Source: .ruler/tanstack-environment-server-client-only-rules.md -->
-5 | 
-6 | # ClientOnly
-7 | 
-8 | Client-only render to avoid SSR hydration issues. Import from `@tanstack/react-router`:
-9 | 
-10 | ```typescript
-11 | import { ClientOnly } from '@tanstack/react-router';
-12 | 
-13 | <ClientOnly fallback={<span>—</span>}>
-14 |   <ComponentThatUsesClientHooks />
-15 | </ClientOnly>
-16 | ```
-17 | 
-18 | Alternative: Custom implementation using mounted pattern if needed (see hydration errors below).
-19 | 
-20 | # Environment functions
-21 | 
-22 | From `@tanstack/react-start`:
-23 | 
-24 | ## createIsomorphicFn
-25 | 
-26 | Adapts to client/server:
-27 | 
-28 | ```typescript
-29 | import { createIsomorphicFn } from '@tanstack/react-start';
-30 | const getEnv = createIsomorphicFn()
-31 |   .server(() => 'server')
-32 |   .client(() => 'client');
-33 | getEnv(); // 'server' on server, 'client' on client
-34 | ```
-35 | 
-36 | Partial: `.server()` no-op on client, `.client()` no-op on server.
-37 | 
-38 | ## createServerOnlyFn / createClientOnlyFn
-39 | 
-40 | RC1: `serverOnly` → `createServerOnlyFn`, `clientOnly` → `createClientOnlyFn`
-41 | 
-42 | Strict environment execution (throws if called wrong env):
-43 | 
-44 | ```typescript
-45 | import { createServerOnlyFn, createClientOnlyFn } from '@tanstack/react-start';
-46 | const serverFn = createServerOnlyFn(() => 'bar'); // throws on client
-47 | const clientFn = createClientOnlyFn(() => 'bar'); // throws on server
-48 | ```
-49 | 
-50 | Tree-shaken: client code removed from server bundle, server code removed from client bundle.
-51 | 
-52 | # Hydration errors
-53 | 
-54 | Mismatch: Server HTML differs from client render. Common causes: Intl (locale/timezone), Date.now(), random IDs, responsive logic, feature flags, user prefs.
-55 | 
-56 | Strategies:
-57 | 1. Make server and client match: deterministic locale/timezone on server (cookie or Accept-Language header), compute once and hydrate as initial state.
-58 | 2. Let client tell environment: set cookie with client timezone on first visit, SSR uses UTC until then.
-59 | 3. Make it client-only: wrap unstable UI in `<ClientOnly>` to avoid SSR mismatches.
-60 | 4. Disable/limit SSR: use selective SSR (`ssr: 'data-only'` or `false`) when server HTML cannot be stable.
-61 | 5. Last resort: React's `suppressHydrationWarning` for small known-different nodes (use sparingly).
-62 | 
-63 | Checklist: Deterministic inputs (locale, timezone, feature flags). Prefer cookies for client context. Use `<ClientOnly>` for dynamic UI. Use selective SSR when server HTML unstable. Avoid blind suppression.
-64 | 
-65 | # TanStack Start basics
-66 | 
-67 | Depends: @tanstack/react-router, Vite. Router: getRouter() (was createRouter() in beta). routeTree.gen.ts auto-generated on first dev run. Optional: server handler via @tanstack/react-start/server; client hydrate via StartClient from @tanstack/react-start/client. RC1: Import StartClient from @tanstack/react-start/client (not @tanstack/react-start). StartClient no longer requires router prop. Root route head: utf-8, viewport, title; component wraps Outlet in RootDocument. Routes: createFileRoute() code-split + lazy-load; loader runs server/client. Navigation: Link (typed), useNavigate (imperative), useRouter (instance).
-68 | 
-69 | # Server functions
-70 | 
-71 | createServerFn({ method }) + zod .inputValidator + .handler(ctx). After mutations: router.invalidate(); queryClient.invalidateQueries(['entity', id]).
-72 | 
-73 | # Typed Links
-74 | 
-75 | Link to="/posts/$postId" with params; activeProps for styling.
-76 | 
-77 | 
-78 | 
-79 | <!-- Source: .ruler/tanstack-query-rules.md -->
-80 | 
-81 | # TanStack Query Rules
-82 | 
-83 | Server state via TanStack Query + server functions. Type-safe fetching and mutations.
-84 | 
-85 | ## Query Pattern
-86 | 
-87 | Define in `lib/{resource}/queries.ts` using `queryOptions`:
-88 | 
-89 | ```typescript
-90 | export const todosQueryOptions = () =>
-91 |   queryOptions({
-92 |     queryKey: ['todos'],
-93 |     queryFn: async ({ signal }) => await getTodos({ signal }),
-94 |     staleTime: 1000 * 60 * 5,
-95 |     gcTime: 1000 * 60 * 10,
-96 |   });
-97 | ```
-98 | 
-99 | Use: `const { data, isLoading } = useQuery(todosQueryOptions())`. Prefer `useSuspenseQuery` with Suspense.
-100 | 
-101 | ## Server Functions in Queries
-102 | 
-103 | Call server functions directly in `queryFn`. No `useServerFn` hook. TanStack Start proxies. Pass `signal` for cancellation.
-104 | 
-105 | ## Mutation Pattern
-106 | 
-107 | ```typescript
-108 | const mutation = useMutation({
-109 |   mutationFn: async (text: string) => await createTodo({ data: { text } }),
-110 |   onSuccess: () => {
-111 |     queryClient.invalidateQueries({ queryKey: todosQueryOptions().queryKey });
-112 |     toast.success('Success');
-113 |   },
-114 |   onError: (error) => toast.error(error.message || 'Failed'),
-115 | });
-116 | ```
-117 | 
-118 | Call via `mutation.mutate(data)` or `mutateAsync` for promises.
-119 | 
-120 | ## Query Invalidation
-121 | 
-122 | After mutations: `queryClient.invalidateQueries({ queryKey: ... })`. Use specific keys, not broad.
-123 | 
-124 | ## Mutation States
-125 | 
-126 | Access: `isPending`, `isError`, `isSuccess`, `error`, `data`. Disable UI during `isPending`.
-127 | 
-128 | ## Error Handling
-129 | 
-130 | Handle in `onError`. Toast messages. Access: `error.message || 'Default'`.
-131 | 
-132 | ## Query Keys
-133 | 
-134 | Hierarchical: `['todos']`, `['todo', id]`, `['todos', 'completed']`. Include all affecting variables.
-135 | 
-136 | ## Stale Time vs GC Time
-137 | 
-138 | `staleTime`: freshness duration (no refetch). Default 0. Set for stable data.
-139 | `gcTime`: unused cache duration (was `cacheTime`). Default 5min. Memory management.
-140 | 
-141 | ## Infinite Queries
-142 | 
-143 | `useInfiniteQuery` for pagination. Required: `initialPageParam`, `getNextPageParam`, `fetchNextPage`. Access `data.pages`. Check `hasNextPage` before fetching.
-144 | 
-145 | ## Optimistic Updates
-146 | 
-147 | `onMutate` for optimistic updates. Rollback in `onError`. Update cache via `queryClient.setQueryData`.
-148 | 
-149 | ## Best Practices
-150 | 
-151 | 1. Queries in `lib/{resource}/queries.ts` with `queryOptions`
-152 | 2. Call server functions directly (no `useServerFn` in callbacks)
-153 | 3. Invalidate after mutations
-154 | 4. Toast for feedback
-155 | 5. Handle loading/error states
-156 | 6. Use TypeScript types from query options
-157 | 7. Set `staleTime`/`gcTime` appropriately
-158 | 8. Prefer `useSuspenseQuery` with Suspense
-```
-
-src/lib/todos/queries.ts
-```
-1 | import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-2 | import { getTodos, createTodo, toggleTodo, deleteTodo } from '~/server/function/todos';
-3 | import { toast } from 'sonner';
-4 | 
-5 | export type Todo = { id: string; text: string; completed: boolean };
-6 | 
-7 | export const todosQueries = {
-8 |   list: () =>
-9 |     queryOptions({
-10 |       queryKey: ['todos'],
-11 |       queryFn: async ({ signal }) => await getTodos({ signal }),
-12 |       staleTime: 1000 * 60 * 5,
-13 |     }),
-14 | };
-15 | 
-16 | export function useCreateTodoMutation() {
-17 |   const queryClient = useQueryClient();
-18 |   return useMutation({
-19 |     mutationFn: async (text: string) => await createTodo({ data: { text } }),
-20 |     onSuccess: () => {
-21 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
-22 |       toast.success('Todo created successfully!');
-23 |     },
-24 |     onError: (error) => {
-25 |       toast.error(error.message || 'Failed to create todo');
-26 |     },
-27 |   });
-28 | }
-29 | 
-30 | export function useToggleTodoMutation() {
-31 |   const queryClient = useQueryClient();
-32 |   return useMutation({
-33 |     mutationFn: async (id: string) => await toggleTodo({ data: { id } }),
-34 |     onSuccess: () => {
-35 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
-36 |     },
-37 |     onError: (error) => {
-38 |       toast.error(error.message || 'Failed to toggle todo');
-39 |     },
-40 |   });
-41 | }
-42 | 
-43 | export function useDeleteTodoMutation() {
-44 |   const queryClient = useQueryClient();
-45 |   return useMutation({
-46 |     mutationFn: async (id: string) => await deleteTodo({ data: { id } }),
-47 |     onSuccess: () => {
-48 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
-49 |       toast.success('Todo deleted successfully!');
-50 |     },
-51 |     onError: (error) => {
-52 |       toast.error(error.message || 'Failed to delete todo');
-53 |     },
-54 |   });
-55 | }
-```
-
-src/routes/(site)/docs.tsx
-```
-1 | import { createFileRoute } from '@tanstack/react-router'
-2 | export const Route = createFileRoute('/(site)/docs')({
-3 |     component: DocsPage
-4 | })
-5 | 
-6 | function DocsPage() {
-7 |     return (
-8 |         <div className="container mx-auto px-4 py-8">
-9 |             <h1 className="mb-6 font-bold text-4xl">Documentation</h1>
-10 |             <div className="prose dark:prose-invert max-w-none">
-11 |                 <p className="mb-4 text-lg text-muted-foreground">
-12 |                     Welcome to the documentation for the TanStack Starter project.
-13 |                 </p>
-14 | 
-15 |                 <h2 className="mt-8 mb-4 font-semibold text-2xl">Getting Started</h2>
-16 |                 <p>
-17 |                     This starter template provides a modern foundation for building web applications
-18 |                     with TanStack Router, React Query, and other powerful tools.
-19 |                 </p>
-20 | 
-21 |                 <h2 className="mt-8 mb-4 font-semibold text-2xl">Features</h2>
-22 |                 <ul className="list-inside list-disc space-y-2">
-23 |                     <li>Type-safe routing with TanStack Router</li>
-24 |                     <li>Server-side rendering (SSR) support</li>
-25 |                     <li>Dark mode with theme persistence</li>
-26 |                     <li>Tailwind CSS for styling</li>
-27 |                     <li>TypeScript for type safety</li>
-28 |                 </ul>
-29 | 
-30 |                 <h2 className="mt-8 mb-4 font-semibold text-2xl">Project Structure</h2>
-31 |                 <pre className="overflow-x-auto rounded-lg bg-muted p-4">
-32 |                     {`src/
-33 | ├── components/     # Reusable UI components
-34 | ├── routes/         # Route definitions
-35 | ├── styles/         # Global styles
-36 | ├── lib/           # Utility functions
-37 | └── utils/         # Helper utilities`}
-38 |                 </pre>
-39 |             </div>
-40 |         </div>
-41 |     )
-42 | }
-```
-
-src/routes/(site)/index.tsx
-```
-1 | import { createFileRoute } from '@tanstack/react-router';
-2 | import GradientOrb from '~/components/gradient-orb';
-3 | import { useState } from 'react';
-4 | import { useSuspenseQuery } from '@tanstack/react-query';
-5 | import {
-6 |   todosQueries,
-7 |   useCreateTodoMutation,
-8 |   useToggleTodoMutation,
-9 |   useDeleteTodoMutation,
-10 |   type Todo,
-11 | } from '~/lib/todos/queries';
-12 | import { Button } from '~/components/ui/button';
-13 | import axios from 'redaxios';
-14 | import { toast } from 'sonner';
-15 | 
-16 | export const Route = createFileRoute('/(site)/')({
-17 |   loader: async (opts) => {
-18 |     await opts.context.queryClient.ensureQueryData(todosQueries.list());
-19 |   },
-20 |   component: RouteComponent,
-21 | });
-22 | 
-23 | function RouteComponent() {
-24 |   const [getResponse, setGetResponse] = useState<string | null>(null);
-25 |   const [postResponse, setPostResponse] = useState<string | null>(null);
-26 | 
-27 |   // Query for todos using TanStack Query (suspense)
-28 |   const todosQuery = useSuspenseQuery(todosQueries.list());
-29 |   const { data: todos = [], refetch: refetchTodos } = todosQuery;
-30 | 
-31 |   // Mutations
-32 |   const createTodoMutation = useCreateTodoMutation();
-33 |   const toggleTodoMutation = useToggleTodoMutation();
-34 |   const deleteTodoMutation = useDeleteTodoMutation();
-35 | 
-36 |   // Todo input state
-37 |   const [newTodoText, setNewTodoText] = useState('');
-38 | 
-39 |   const handleGet = async () => {
-40 |     try {
-41 |       const res = await axios.get('/api/test');
-42 |       setGetResponse(JSON.stringify(res.data, null, 2));
-43 |     } catch (error) {
-44 |       setGetResponse(`Error: ${error instanceof Error ? error.message : String(error)}`);
-45 |     }
-46 |   };
-47 | 
-48 |   const handlePost = async () => {
-49 |     try {
-50 |       const res = await axios.post('/api/test', { test: 'data', number: 42 });
-51 |       setPostResponse(JSON.stringify(res.data, null, 2));
-52 |     } catch (error) {
-53 |       setPostResponse(`Error: ${error instanceof Error ? error.message : String(error)}`);
-54 |     }
-55 |   };
-56 | 
-57 |   const handleCreateTodo = () => {
-58 |     if (!newTodoText.trim()) {
-59 |       toast.error('Todo text cannot be empty');
-60 |       return;
-61 |     }
-62 |     createTodoMutation.mutate(newTodoText.trim());
-63 |     setNewTodoText('');
-64 |   };
-65 | 
-66 |   const handleToggleTodo = (id: string) => {
-67 |     toggleTodoMutation.mutate(id);
-68 |   };
-69 | 
-70 |   const handleDeleteTodo = (id: string) => {
-71 |     deleteTodoMutation.mutate(id);
-72 |   };
-73 | 
-74 |   return (
-75 |     <div className="relative min-h-screen overflow-hidden bg-background">
-76 |       {/* Hero Section */}
-77 |       <main className="container relative z-0 mx-auto flex flex-col items-center px-4 pt-20 text-center md:pt-32">
-78 |         <GradientOrb className="-translate-x-1/2 absolute top-0 left-1/2 z-[-1] transform" />
-79 | 
-80 |         <h1 className="max-w-4xl font-medium text-4xl text-foreground md:text-6xl lg:text-7xl">
-81 |           TanStack Start React boilerplate with Tailwind 4 & shadcn
-82 |         </h1>
-83 | 
-84 |         <p className="mt-6 text-lg text-muted-foreground md:text-xl">
-85 |           The perfect starting point for your next web application
-86 |         </p>
-87 | 
-88 |         <p className="mt-4 text-muted-foreground text-xs uppercase tracking-wider">
-89 |           Under heavy development
-90 |         </p>
-91 | 
-92 |         {/* API Test Section */}
-93 |         <div className="mt-12 w-full max-w-2xl space-y-6 rounded-lg border border-border bg-card p-6">
-94 |           <h2 className="text-2xl font-semibold">API Test</h2>
-95 | 
-96 |           <div className="space-y-4">
-97 |             <div>
-98 |               <Button onClick={handleGet}>Test GET</Button>
-99 |               {getResponse && (
-100 |                 <pre className="mt-2 rounded-md bg-muted p-4 text-left text-sm overflow-auto">
-101 |                   {getResponse}
-102 |                 </pre>
-103 |               )}
-104 |             </div>
-105 | 
-106 |             <div>
-107 |               <Button onClick={handlePost}>Test POST</Button>
-108 |               {postResponse && (
-109 |                 <pre className="mt-2 rounded-md bg-muted p-4 text-left text-sm overflow-auto">
-110 |                   {postResponse}
-111 |                 </pre>
-112 |               )}
-113 |             </div>
-114 |           </div>
-115 |         </div>
-116 | 
-117 |         {/* Todo List Section */}
-118 |         <div className="mt-12 w-full max-w-2xl space-y-6 rounded-lg border border-border bg-card p-6">
-119 |           <div className="flex items-center justify-between mb-4">
-120 |             <h2 className="text-2xl font-semibold">Todos (Server Functions + TanStack Query)</h2>
-121 |             <Button onClick={() => refetchTodos()} size="sm">
-122 |               Refresh
-123 |             </Button>
-124 |           </div>
-125 | 
-126 |           <div className="flex gap-2 mb-4">
-127 |             <input
-128 |               type="text"
-129 |               value={newTodoText}
-130 |               onChange={(e) => setNewTodoText(e.target.value)}
-131 |               onKeyDown={(e) => e.key === 'Enter' && handleCreateTodo()}
-132 |               placeholder="Add todo..."
-133 |               className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-134 |               disabled={createTodoMutation.isPending}
-135 |             />
-136 |             <Button
-137 |               onClick={handleCreateTodo}
-138 |               disabled={createTodoMutation.isPending || !newTodoText.trim()}
-139 |             >
-140 |               {createTodoMutation.isPending ? 'Adding...' : 'Add'}
-141 |             </Button>
-142 |           </div>
-143 | 
-144 |           <div className="space-y-2">
-145 |             {todos.length === 0 ? (
-146 |               <p className="text-muted-foreground text-sm">No todos yet. Add one above!</p>
-147 |             ) : (
-148 |               todos.map((todo) => (
-149 |                 <div
-150 |                   key={todo.id}
-151 |                   className="flex items-center gap-2 rounded-md border border-border p-3"
-152 |                 >
-153 |                   <input
-154 |                     type="checkbox"
-155 |                     checked={todo.completed}
-156 |                     onChange={() => handleToggleTodo(todo.id)}
-157 |                     disabled={
-158 |                       toggleTodoMutation.isPending ||
-159 |                       deleteTodoMutation.isPending ||
-160 |                       createTodoMutation.isPending
-161 |                     }
-162 |                     className="rounded"
-163 |                   />
-164 |                   <span
-165 |                     className={`flex-1 text-sm ${
-166 |                       todo.completed ? 'line-through text-muted-foreground' : ''
-167 |                     }`}
-168 |                   >
-169 |                     {todo.text}
-170 |                   </span>
-171 |                   <Button
-172 |                     onClick={() => handleDeleteTodo(todo.id)}
-173 |                     disabled={
-174 |                       toggleTodoMutation.isPending ||
-175 |                       deleteTodoMutation.isPending ||
-176 |                       createTodoMutation.isPending
-177 |                     }
-178 |                     variant="destructive"
-179 |                     size="sm"
-180 |                   >
-181 |                     Delete
-182 |                   </Button>
-183 |                 </div>
-184 |               ))
-185 |             )}
-186 |           </div>
-187 |         </div>
-188 |       </main>
-189 |     </div>
-190 |   );
-191 | }
-```
-
-src/routes/(site)/route.tsx
-```
-1 | import { Outlet, createFileRoute } from '@tanstack/react-router';
-2 | import { Suspense } from 'react';
-3 | import { Header } from '~/components/Header';
-4 | 
-5 | export const Route = createFileRoute('/(site)')({
-6 |   component: RouteComponent,
-7 | });
-8 | 
-9 | function RouteComponent() {
-10 |   return (
-11 |     <div>
-12 |       <Header />
-13 |       <Suspense fallback={<div>Loading...</div>}>
-14 |         <Outlet />
-15 |       </Suspense>
-16 |     </div>
-17 |   );
-18 | }
-```
-
-src/routes/(site)/viewer.tsx
-```
-1 | import { createFileRoute } from "@tanstack/react-router"
-2 | import { useCallback, useMemo } from "react"
-3 | import { DiscoveryPanel } from "~/components/viewer/DiscoveryPanel"
-4 | import { DropZone } from "~/components/viewer/DropZone"
-5 | import { FileInputButton } from "~/components/viewer/FileInputButton"
-6 | import { TimelineList } from "~/components/viewer/TimelineList"
-7 | import { ChatDock } from "~/components/viewer/ChatDock"
-8 | import { useFileLoader } from "~/hooks/useFileLoader"
-9 | import { discoverProjectAssets } from "~/lib/viewerDiscovery"
-10 | import { seo } from "~/utils/seo"
-11 | import { z } from "zod"
-12 | 
-13 | const searchSchema = z.object({
-14 |     query: z.string().optional()
-15 | })
-16 | 
-17 | export const Route = createFileRoute("/(site)/viewer")({
-18 |     validateSearch: (search) => {
-19 |         const result = searchSchema.safeParse(search)
-20 |         if (!result.success) {
-21 |             return { query: "" }
-22 |         }
-23 |         return {
-24 |             query: result.data.query?.trim() ?? ""
-25 |         }
-26 |     },
-27 |     loader: () => discoverProjectAssets(),
-28 |     head: () => ({
-29 |         meta: seo({
-30 |             title: "Codex Session Viewer · Discovery",
-31 |             description: "Explore workspace files and session logs detected at build time."
-32 |         })
-33 |     }),
-34 |     component: ViewerRouteComponent
-35 | })
-36 | 
-37 | function ViewerRouteComponent() {
-38 |     const data = Route.useLoaderData()
-39 |     const search = Route.useSearch()
-40 |     const navigate = Route.useNavigate()
-41 |     const loader = useFileLoader()
-42 | 
-43 |     const handleQueryChange = (next: string) => {
-44 |         navigate({
-45 |             search: (prev) => ({
-46 |                 ...prev,
-47 |                 query: next
-48 |             })
-49 |         })
-50 |     }
-51 | 
-52 |     const handleFile = useCallback(
-53 |         (file: File) => {
-54 |             loader.start(file)
-55 |         },
-56 |         [loader]
-57 |     )
-58 | 
-59 |     const meta = loader.state.meta
-60 |     const hasEvents = loader.state.events.length > 0
-61 |     const progressLabel =
-62 |         loader.state.phase === "parsing"
-63 |             ? `Parsing… (${loader.progress.ok.toLocaleString()} ok / ${loader.progress.fail.toLocaleString()} errors)`
-64 |             : loader.state.phase === "success"
-65 |               ? `Loaded ${loader.state.events.length.toLocaleString()} events`
-66 |               : loader.state.phase === "error" && loader.progress.fail > 0
-67 |                 ? `Finished with ${loader.progress.fail.toLocaleString()} errors`
-68 |                 : "Idle"
-69 | 
-70 |     const timelineContent = useMemo(() => {
-71 |         if (loader.state.phase === "parsing") {
-72 |             return <p className="text-sm text-muted-foreground">Streaming events… large sessions may take a moment.</p>
-73 |         }
-74 |         if (!hasEvents) {
-75 |             return <p className="text-sm text-muted-foreground">Load a session to populate the timeline.</p>
-76 |         }
-77 |         return <TimelineList events={loader.state.events} />
-78 |     }, [loader.state.phase, loader.state.events, hasEvents])
-79 | 
-80 |     return (
-81 |         <main className="container mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10">
-82 |             <section className="space-y-3">
-83 |                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Codex Session Viewer</p>
-84 |                 <h1 className="text-3xl font-bold tracking-tight">Workspace Discovery</h1>
-85 |                 <p className="text-muted-foreground">
-86 |                     Drop in a session to stream its timeline, then iterate with the chat dock.
-87 |                 </p>
-88 |             </section>
-89 | 
-90 |             <DiscoveryPanel
-91 |                 projectFiles={data.projectFiles}
-92 |                 sessionAssets={data.sessionAssets}
-93 |                 query={search.query}
-94 |                 onQueryChange={handleQueryChange}
-95 |             />
-96 | 
-97 |             <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-98 |                 <div className="flex flex-col gap-6">
-99 |                     <div className="grid gap-4 md:grid-cols-[2fr,auto]">
-100 |                         <DropZone onFile={handleFile} className="md:col-span-1" />
-101 |                         <div className="flex flex-col gap-4 rounded-xl border bg-card/70 p-5">
-102 |                             <div className="space-y-2">
-103 |                                 <p className="text-sm font-semibold">Session controls</p>
-104 |                                 <p className="text-xs text-muted-foreground">Upload a .jsonl/.ndjson session log.</p>
-105 |                             </div>
-106 |                             <FileInputButton onFile={handleFile} disabled={loader.state.phase === "parsing"} />
-107 |                             <dl className="space-y-2 text-sm">
-108 |                                 <div className="flex items-center justify-between">
-109 |                                     <dt className="text-muted-foreground">Status</dt>
-110 |                                     <dd>{progressLabel}</dd>
-111 |                                 </div>
-112 |                                 {meta?.timestamp ? (
-113 |                                     <div className="flex items-center justify-between">
-114 |                                         <dt className="text-muted-foreground">Timestamp</dt>
-115 |                                         <dd>{new Date(meta.timestamp).toLocaleString()}</dd>
-116 |                                     </div>
-117 |                                 ) : null}
-118 |                                 {meta?.git?.repo ? (
-119 |                                     <div className="flex items-center justify-between">
-120 |                                         <dt className="text-muted-foreground">Repo</dt>
-121 |                                         <dd>{meta.git.repo}</dd>
-122 |                                     </div>
-123 |                                 ) : null}
-124 |                             </dl>
-125 |                         </div>
-126 |                     </div>
-127 | 
-128 |                     <div className="rounded-2xl border p-4">
-129 |                         <div className="mb-4 flex items-center justify-between">
-130 |                             <div>
-131 |                                 <p className="text-sm font-semibold">Timeline</p>
-132 |                                 <p className="text-xs text-muted-foreground">Virtualized list of parsed events.</p>
-133 |                             </div>
-134 |                         </div>
-135 |                         {timelineContent}
-136 |                     </div>
-137 |                 </div>
-138 | 
-139 |                 <ChatDock />
-140 |             </section>
-141 |         </main>
-142 |     )
-143 | }
-```
-
-src/routes/.ruler/tanstack-server-routes.md
-```
-1 | # Server Routes — TanStack Start
+1 | import type { ResponseItem } from '../types';
 2 | 
-3 | Server HTTP endpoints for requests, forms, auth. Location: ./src/routes. Export Route to create API route. ServerRoute and Route can coexist in same file.
-4 | 
-5 | Routing mirrors TanStack Router: dynamic $id, splat $, escaped [.], nested dirs/dotted filenames map to paths. One handler per resolved path (duplicates error). Examples: users.ts → /users; users/$id.ts → /users/$id; api/file/$.ts → /api/file/$; my-script[.]js.ts → /my-script.js.
-6 | 
-7 | Middleware: pathless layout routes add group middleware; break-out routes skip parents.
-8 | 
-9 | RC1 server entry signature: export default { fetch(req: Request): Promise<Response> { ... } }
-10 | 
-11 | Define handlers: use createFileRoute() from @tanstack/react-router with server: { handlers: { ... } }. Methods per HTTP verb, with optional middleware builder. createServerFileRoute removed in RC1; use createFileRoute with server property.
-12 | 
-13 | Handler receives { request, params, context }; return Response or Promise<Response>. Helpers from @tanstack/react-start allowed.
-14 | 
-15 | Bodies: request.json(), request.text(), request.formData() for POST/PUT/PATCH/DELETE.
-16 | 
-17 | JSON/status/headers: return JSON manually or via json(); set status via Response init or setResponseStatus(); set headers via Response init or setHeaders().
-18 | 
-19 | Params: /users/$id → params.id; /users/$id/posts/$postId → params.id + params.postId; /file/$ → params._splat.
-20 | 
-21 | Unique path rule: one file per resolved path; users.ts vs users.index.ts vs users/index.ts conflicts.
-22 | 
-23 | RC1 structure:
-24 | ```typescript
-25 | import { createFileRoute } from '@tanstack/react-router'
-26 | 
-27 | export const Route = createFileRoute('/api/example')({
-28 |   server: {
-29 |     handlers: {
-30 |       GET: ({ request }) => new Response('Hello'),
-31 |       POST: ({ request }) => new Response('Created', { status: 201 })
-32 |     }
-33 |   }
-34 | })
-35 | ```
+3 | export function eventKey(item: ResponseItem, absoluteIndex: number): string {
+4 |   const anyItem = item as any;
+5 |   if (anyItem?.id) return String(anyItem.id);
+6 |   if (typeof anyItem?.index === 'number') return `idx-${anyItem.index}`;
+7 |   return `idx-${absoluteIndex}`;
+8 | }
 ```
 
-src/routes/api/test.ts
+src/utils/id-generator.ts
 ```
-1 | import { createFileRoute } from '@tanstack/react-router';
-2 | import { json } from '@tanstack/react-start';
-3 | 
-4 | export const Route = createFileRoute('/api/test')({
-5 |   server: {
-6 |     handlers: {
-7 |       GET: async ({ request }) => {
-8 |         return json({
-9 |           message: 'Hello from GET!',
-10 |           method: 'GET',
-11 |           timestamp: new Date().toISOString(),
-12 |           url: request.url,
-13 |         });
-14 |       },
-15 |       POST: async ({ request }) => {
-16 |         const body = await request.json().catch(() => ({}));
-17 | 
-18 |         return json(
-19 |           {
-20 |             message: 'Hello from POST!',
-21 |             method: 'POST',
-22 |             received: body,
-23 |             timestamp: new Date().toISOString(),
-24 |           },
-25 |           {
-26 |             status: 201,
-27 |           }
-28 |         );
-29 |       },
-30 |     },
-31 |   },
-32 | });
+1 | import { randomUUID } from 'node:crypto';
+2 | 
+3 | const prefixes = {
+4 |     files: 'file',
+5 |     user: 'user',
+6 | } as const;
+7 | 
+8 | export const generateId = (prefix: keyof typeof prefixes | string) => {
+9 |     const resolvedPrefix = (prefix in prefixes) ? prefixes[prefix as keyof typeof prefixes] : prefix;
+10 |     return `${resolvedPrefix}_${randomUUID()}`;
+11 | }
+```
+
+src/utils/line-reader.ts
+```
+1 | export function splitLinesTransform(): TransformStream<string, string> {
+2 |   let carry = '';
+3 |   return new TransformStream<string, string>({
+4 |     transform(chunk, controller) {
+5 |       const text = carry + chunk;
+6 |       const parts = text.split(/\n/);
+7 |       carry = parts.pop() ?? '';
+8 |       for (const line of parts) {
+9 |         controller.enqueue(line.endsWith('\r') ? line.slice(0, -1) : line);
+10 |       }
+11 |     },
+12 |     flush(controller) {
+13 |       if (carry.length > 0) {
+14 |         controller.enqueue(carry.endsWith('\r') ? carry.slice(0, -1) : carry);
+15 |       }
+16 |     },
+17 |   });
+18 | }
+19 | 
+20 | async function readBlobAsArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+21 |   if (typeof (blob as any).arrayBuffer === 'function') {
+22 |     return blob.arrayBuffer();
+23 |   }
+24 |   if (typeof FileReader !== 'undefined') {
+25 |     return new Promise<ArrayBuffer>((resolve, reject) => {
+26 |       const reader = new FileReader();
+27 |       reader.onerror = () => reject(reader.error);
+28 |       reader.onload = () => resolve(reader.result as ArrayBuffer);
+29 |       reader.readAsArrayBuffer(blob);
+30 |     });
+31 |   }
+32 |   if (typeof (blob as any).text === 'function') {
+33 |     const text = await blob.text();
+34 |     return new TextEncoder().encode(text).buffer;
+35 |   }
+36 |   return new ArrayBuffer(0);
+37 | }
+38 | 
+39 | function getBlobStream(blob: Blob): ReadableStream<Uint8Array> {
+40 |   if (typeof (blob as any).stream === 'function') {
+41 |     return (blob as any).stream();
+42 |   }
+43 |   return new ReadableStream<Uint8Array>({
+44 |     async start(controller) {
+45 |       try {
+46 |         const buffer = await readBlobAsArrayBuffer(blob);
+47 |         controller.enqueue(new Uint8Array(buffer));
+48 |         controller.close();
+49 |       } catch (error) {
+50 |         controller.error(error);
+51 |       }
+52 |     },
+53 |   });
+54 | }
+55 | 
+56 | export async function* streamTextLines(blob: Blob, encoding = 'utf-8'): AsyncGenerator<string> {
+57 |   const hasDecoderStream = typeof (globalThis as any).TextDecoderStream === 'function';
+58 | 
+59 |   if (hasDecoderStream) {
+60 |     const decoded = getBlobStream(blob)
+61 |       // @ts-ignore TextDecoderStream exists in modern runtimes; fallback below otherwise.
+62 |       .pipeThrough(new TextDecoderStream(encoding))
+63 |       .pipeThrough(splitLinesTransform());
+64 | 
+65 |     for await (const line of decoded as any as AsyncIterable<string>) {
+66 |       yield line;
+67 |     }
+68 |     return;
+69 |   }
+70 | 
+71 |   const reader = getBlobStream(blob).getReader();
+72 |   const decoder = new TextDecoder(encoding);
+73 |   let carry = '';
+74 |   try {
+75 |     for (;;) {
+76 |       const { value, done } = await reader.read();
+77 |       if (done) break;
+78 |       const chunk = decoder.decode(value, { stream: true });
+79 |       const text = carry + chunk;
+80 |       const parts = text.split(/\n/);
+81 |       carry = parts.pop() ?? '';
+82 |       for (const line of parts) {
+83 |         yield line.endsWith('\r') ? line.slice(0, -1) : line;
+84 |       }
+85 |     }
+86 |     const last = decoder.decode();
+87 |     if (last) {
+88 |       const text = carry + last;
+89 |       const parts = text.split(/\n/);
+90 |       carry = parts.pop() ?? '';
+91 |       for (const line of parts) {
+92 |         yield line.endsWith('\r') ? line.slice(0, -1) : line;
+93 |       }
+94 |     }
+95 |     if (carry.length) {
+96 |       yield carry.endsWith('\r') ? carry.slice(0, -1) : carry;
+97 |     }
+98 |   } finally {
+99 |     reader.releaseLock();
+100 |   }
+101 | }
+```
+
+src/utils/seo.ts
+```
+1 | export const seo = ({
+2 |     title,
+3 |     description,
+4 |     keywords,
+5 |     image
+6 | }: {
+7 |     title: string
+8 |     description?: string
+9 |     image?: string
+10 |     keywords?: string
+11 | }) => {
+12 |     const tags = [
+13 |       { title },
+14 |       { name: 'description', content: description },
+15 |       { name: 'keywords', content: keywords },
+16 |       { name: 'twitter:title', content: title },
+17 |       { name: 'twitter:description', content: description },
+18 |       { name: 'twitter:creator', content: '@d1rt7d4t4' },
+19 |       { name: 'twitter:site', content: '@d1rt7d4t4' },
+20 |       { name: 'og:type', content: 'website' },
+21 |       { name: 'og:title', content: title },
+22 |       { name: 'og:description', content: description },
+23 |       ...(image
+24 |         ? [
+25 |             { name: 'twitter:image', content: image },
+26 |             { name: 'twitter:card', content: 'summary_large_image' },
+27 |             { name: 'og:image', content: image },
+28 |           ]
+29 |         : []),
+30 |     ];
+31 | 
+32 |     return tags
+33 | }
 ```
 
 src/lib/session-parser/index.ts
@@ -4160,6 +3401,963 @@ src/lib/session-parser/validators.ts
 295 | }
 ```
 
+src/components/ui/badge.tsx
+```
+1 | import { cva, type VariantProps } from 'class-variance-authority';
+2 | import type { HTMLAttributes } from 'react';
+3 | import { cn } from '~/lib/utils';
+4 | 
+5 | const badgeVariants = cva(
+6 |   'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+7 |   {
+8 |     variants: {
+9 |       variant: {
+10 |         default: 'border-transparent bg-primary text-primary-foreground',
+11 |         secondary: 'border-transparent bg-secondary text-secondary-foreground',
+12 |         outline: 'border-border text-foreground',
+13 |       },
+14 |     },
+15 |     defaultVariants: {
+16 |       variant: 'default',
+17 |     },
+18 |   }
+19 | );
+20 | 
+21 | export interface BadgeProps
+22 |   extends HTMLAttributes<HTMLDivElement>,
+23 |     VariantProps<typeof badgeVariants> {}
+24 | 
+25 | export function Badge({ className, variant, ...props }: BadgeProps) {
+26 |   return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+27 | }
+```
+
+src/components/ui/button.tsx
+```
+1 | import * as React from "react"
+2 | import { Slot } from "@radix-ui/react-slot"
+3 | import { cva, type VariantProps } from "class-variance-authority"
+4 | 
+5 | import { cn } from "~/lib/utils"
+6 | 
+7 | const buttonVariants = cva(
+8 |   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+9 |   {
+10 |     variants: {
+11 |       variant: {
+12 |         default:
+13 |           "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
+14 |         destructive:
+15 |           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+16 |         outline:
+17 |           "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+18 |         secondary:
+19 |           "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
+20 |         ghost:
+21 |           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+22 |         link: "text-primary underline-offset-4 hover:underline",
+23 |       },
+24 |       size: {
+25 |         default: "h-9 px-4 py-2 has-[>svg]:px-3",
+26 |         sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
+27 |         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+28 |         icon: "size-9",
+29 |       },
+30 |     },
+31 |     defaultVariants: {
+32 |       variant: "default",
+33 |       size: "default",
+34 |     },
+35 |   }
+36 | )
+37 | 
+38 | function Button({
+39 |   className,
+40 |   variant,
+41 |   size,
+42 |   asChild = false,
+43 |   ...props
+44 | }: React.ComponentProps<"button"> &
+45 |   VariantProps<typeof buttonVariants> & {
+46 |     asChild?: boolean
+47 |   }) {
+48 |   const Comp = asChild ? Slot : "button"
+49 | 
+50 |   return (
+51 |     <Comp
+52 |       data-slot="button"
+53 |       className={cn(buttonVariants({ variant, size, className }))}
+54 |       {...props}
+55 |     />
+56 |   )
+57 | }
+58 | 
+59 | export { Button, buttonVariants }
+```
+
+src/components/ui/card.tsx
+```
+1 | import * as React from "react"
+2 | 
+3 | import { cn } from "~/lib/utils"
+4 | 
+5 | function Card({ className, ...props }: React.ComponentProps<"div">) {
+6 |   return (
+7 |     <div
+8 |       data-slot="card"
+9 |       className={cn(
+10 |         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+11 |         className
+12 |       )}
+13 |       {...props}
+14 |     />
+15 |   )
+16 | }
+17 | 
+18 | function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
+19 |   return (
+20 |     <div
+21 |       data-slot="card-header"
+22 |       className={cn(
+23 |         "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+24 |         className
+25 |       )}
+26 |       {...props}
+27 |     />
+28 |   )
+29 | }
+30 | 
+31 | function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+32 |   return (
+33 |     <div
+34 |       data-slot="card-title"
+35 |       className={cn("leading-none font-semibold", className)}
+36 |       {...props}
+37 |     />
+38 |   )
+39 | }
+40 | 
+41 | function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
+42 |   return (
+43 |     <div
+44 |       data-slot="card-description"
+45 |       className={cn("text-muted-foreground text-sm", className)}
+46 |       {...props}
+47 |     />
+48 |   )
+49 | }
+50 | 
+51 | function CardAction({ className, ...props }: React.ComponentProps<"div">) {
+52 |   return (
+53 |     <div
+54 |       data-slot="card-action"
+55 |       className={cn(
+56 |         "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
+57 |         className
+58 |       )}
+59 |       {...props}
+60 |     />
+61 |   )
+62 | }
+63 | 
+64 | function CardContent({ className, ...props }: React.ComponentProps<"div">) {
+65 |   return (
+66 |     <div
+67 |       data-slot="card-content"
+68 |       className={cn("px-6", className)}
+69 |       {...props}
+70 |     />
+71 |   )
+72 | }
+73 | 
+74 | function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
+75 |   return (
+76 |     <div
+77 |       data-slot="card-footer"
+78 |       className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
+79 |       {...props}
+80 |     />
+81 |   )
+82 | }
+83 | 
+84 | export {
+85 |   Card,
+86 |   CardHeader,
+87 |   CardFooter,
+88 |   CardTitle,
+89 |   CardAction,
+90 |   CardDescription,
+91 |   CardContent,
+92 | }
+```
+
+src/components/ui/dropdown-menu.tsx
+```
+1 | import * as React from "react"
+2 | import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
+3 | import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
+4 | 
+5 | import { cn } from "~/lib/utils"
+6 | 
+7 | function DropdownMenu({
+8 |   ...props
+9 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
+10 |   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
+11 | }
+12 | 
+13 | function DropdownMenuPortal({
+14 |   ...props
+15 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
+16 |   return (
+17 |     <DropdownMenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />
+18 |   )
+19 | }
+20 | 
+21 | function DropdownMenuTrigger({
+22 |   ...props
+23 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger>) {
+24 |   return (
+25 |     <DropdownMenuPrimitive.Trigger
+26 |       data-slot="dropdown-menu-trigger"
+27 |       {...props}
+28 |     />
+29 |   )
+30 | }
+31 | 
+32 | function DropdownMenuContent({
+33 |   className,
+34 |   sideOffset = 4,
+35 |   ...props
+36 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+37 |   return (
+38 |     <DropdownMenuPrimitive.Portal>
+39 |       <DropdownMenuPrimitive.Content
+40 |         data-slot="dropdown-menu-content"
+41 |         sideOffset={sideOffset}
+42 |         className={cn(
+43 |           "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
+44 |           className
+45 |         )}
+46 |         {...props}
+47 |       />
+48 |     </DropdownMenuPrimitive.Portal>
+49 |   )
+50 | }
+51 | 
+52 | function DropdownMenuGroup({
+53 |   ...props
+54 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Group>) {
+55 |   return (
+56 |     <DropdownMenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
+57 |   )
+58 | }
+59 | 
+60 | function DropdownMenuItem({
+61 |   className,
+62 |   inset,
+63 |   variant = "default",
+64 |   ...props
+65 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
+66 |   inset?: boolean
+67 |   variant?: "default" | "destructive"
+68 | }) {
+69 |   return (
+70 |     <DropdownMenuPrimitive.Item
+71 |       data-slot="dropdown-menu-item"
+72 |       data-inset={inset}
+73 |       data-variant={variant}
+74 |       className={cn(
+75 |         "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+76 |         className
+77 |       )}
+78 |       {...props}
+79 |     />
+80 |   )
+81 | }
+82 | 
+83 | function DropdownMenuCheckboxItem({
+84 |   className,
+85 |   children,
+86 |   checked,
+87 |   ...props
+88 | }: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
+89 |   return (
+90 |     <DropdownMenuPrimitive.CheckboxItem
+91 |       data-slot="dropdown-menu-checkbox-item"
+92 |       className={cn(
+93 |         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+94 |         className
+95 |       )}
+96 |       checked={checked}
+97 |       {...props}
+98 |     >
+99 |       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+100 |         <DropdownMenuPrimitive.ItemIndicator>
+101 |           <CheckIcon className="size-4" />
+102 |         </DropdownMenuPrimitive.ItemIndicator>
+103 |       </span>
+104 |       {children}
+105 |     </DropdownMenuPrimitive.CheckboxItem>
+106 |   )
+107 | }
+108 | 
+109 | function DropdownMenuRadioGroup({
+110 |   ...props
+111 | }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) {
+112 |   return (
+113 |     <DropdownMenuPrimitive.RadioGroup
+114 |       data-slot="dropdown-menu-radio-group"
+115 |       {...props}
+116 |     />
+117 |   )
+118 | }
+119 | 
+120 | function DropdownMenuRadioItem({
+121 |   className,
+122 |   children,
+123 |   ...props
+124 | }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
+125 |   return (
+126 |     <DropdownMenuPrimitive.RadioItem
+127 |       data-slot="dropdown-menu-radio-item"
+128 |       className={cn(
+129 |         "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+130 |         className
+131 |       )}
+132 |       {...props}
+133 |     >
+134 |       <span className="pointer-events-none absolute left-2 flex size-3.5 items-center justify-center">
+135 |         <DropdownMenuPrimitive.ItemIndicator>
+136 |           <CircleIcon className="size-2 fill-current" />
+137 |         </DropdownMenuPrimitive.ItemIndicator>
+138 |       </span>
+139 |       {children}
+140 |     </DropdownMenuPrimitive.RadioItem>
+141 |   )
+142 | }
+143 | 
+144 | function DropdownMenuLabel({
+145 |   className,
+146 |   inset,
+147 |   ...props
+148 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Label> & {
+149 |   inset?: boolean
+150 | }) {
+151 |   return (
+152 |     <DropdownMenuPrimitive.Label
+153 |       data-slot="dropdown-menu-label"
+154 |       data-inset={inset}
+155 |       className={cn(
+156 |         "px-2 py-1.5 text-sm font-medium data-[inset]:pl-8",
+157 |         className
+158 |       )}
+159 |       {...props}
+160 |     />
+161 |   )
+162 | }
+163 | 
+164 | function DropdownMenuSeparator({
+165 |   className,
+166 |   ...props
+167 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
+168 |   return (
+169 |     <DropdownMenuPrimitive.Separator
+170 |       data-slot="dropdown-menu-separator"
+171 |       className={cn("bg-border -mx-1 my-1 h-px", className)}
+172 |       {...props}
+173 |     />
+174 |   )
+175 | }
+176 | 
+177 | function DropdownMenuShortcut({
+178 |   className,
+179 |   ...props
+180 | }: React.ComponentProps<"span">) {
+181 |   return (
+182 |     <span
+183 |       data-slot="dropdown-menu-shortcut"
+184 |       className={cn(
+185 |         "text-muted-foreground ml-auto text-xs tracking-widest",
+186 |         className
+187 |       )}
+188 |       {...props}
+189 |     />
+190 |   )
+191 | }
+192 | 
+193 | function DropdownMenuSub({
+194 |   ...props
+195 | }: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
+196 |   return <DropdownMenuPrimitive.Sub data-slot="dropdown-menu-sub" {...props} />
+197 | }
+198 | 
+199 | function DropdownMenuSubTrigger({
+200 |   className,
+201 |   inset,
+202 |   children,
+203 |   ...props
+204 | }: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {
+205 |   inset?: boolean
+206 | }) {
+207 |   return (
+208 |     <DropdownMenuPrimitive.SubTrigger
+209 |       data-slot="dropdown-menu-sub-trigger"
+210 |       data-inset={inset}
+211 |       className={cn(
+212 |         "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8",
+213 |         className
+214 |       )}
+215 |       {...props}
+216 |     >
+217 |       {children}
+218 |       <ChevronRightIcon className="ml-auto size-4" />
+219 |     </DropdownMenuPrimitive.SubTrigger>
+220 |   )
+221 | }
+222 | 
+223 | function DropdownMenuSubContent({
+224 |   className,
+225 |   ...props
+226 | }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
+227 |   return (
+228 |     <DropdownMenuPrimitive.SubContent
+229 |       data-slot="dropdown-menu-sub-content"
+230 |       className={cn(
+231 |         "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-md border p-1 shadow-lg",
+232 |         className
+233 |       )}
+234 |       {...props}
+235 |     />
+236 |   )
+237 | }
+238 | 
+239 | export {
+240 |   DropdownMenu,
+241 |   DropdownMenuPortal,
+242 |   DropdownMenuTrigger,
+243 |   DropdownMenuContent,
+244 |   DropdownMenuGroup,
+245 |   DropdownMenuLabel,
+246 |   DropdownMenuItem,
+247 |   DropdownMenuCheckboxItem,
+248 |   DropdownMenuRadioGroup,
+249 |   DropdownMenuRadioItem,
+250 |   DropdownMenuSeparator,
+251 |   DropdownMenuShortcut,
+252 |   DropdownMenuSub,
+253 |   DropdownMenuSubTrigger,
+254 |   DropdownMenuSubContent,
+255 | }
+```
+
+src/components/ui/textarea.tsx
+```
+1 | import * as React from 'react';
+2 | import { cn } from '~/lib/utils';
+3 | 
+4 | const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<'textarea'>>(
+5 |   ({ className, ...props }, ref) => {
+6 |     return (
+7 |       <textarea
+8 |         className={cn(
+9 |           'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+10 |           className
+11 |         )}
+12 |         ref={ref}
+13 |         {...props}
+14 |       />
+15 |     );
+16 |   }
+17 | );
+18 | Textarea.displayName = 'Textarea';
+19 | 
+20 | export { Textarea };
+```
+
+src/.cursor/rules/ruler_cursor_instructions.mdc
+```
+1 | ---
+2 | alwaysApply: true
+3 | ---
+4 | <!-- Source: .ruler/tanstack-environment-server-client-only-rules.md -->
+5 | 
+6 | # ClientOnly
+7 | 
+8 | Client-only render to avoid SSR hydration issues. Import from `@tanstack/react-router`:
+9 | 
+10 | ```typescript
+11 | import { ClientOnly } from '@tanstack/react-router';
+12 | 
+13 | <ClientOnly fallback={<span>—</span>}>
+14 |   <ComponentThatUsesClientHooks />
+15 | </ClientOnly>
+16 | ```
+17 | 
+18 | Alternative: Custom implementation using mounted pattern if needed (see hydration errors below).
+19 | 
+20 | # Environment functions
+21 | 
+22 | From `@tanstack/react-start`:
+23 | 
+24 | ## createIsomorphicFn
+25 | 
+26 | Adapts to client/server:
+27 | 
+28 | ```typescript
+29 | import { createIsomorphicFn } from '@tanstack/react-start';
+30 | const getEnv = createIsomorphicFn()
+31 |   .server(() => 'server')
+32 |   .client(() => 'client');
+33 | getEnv(); // 'server' on server, 'client' on client
+34 | ```
+35 | 
+36 | Partial: `.server()` no-op on client, `.client()` no-op on server.
+37 | 
+38 | ## createServerOnlyFn / createClientOnlyFn
+39 | 
+40 | RC1: `serverOnly` → `createServerOnlyFn`, `clientOnly` → `createClientOnlyFn`
+41 | 
+42 | Strict environment execution (throws if called wrong env):
+43 | 
+44 | ```typescript
+45 | import { createServerOnlyFn, createClientOnlyFn } from '@tanstack/react-start';
+46 | const serverFn = createServerOnlyFn(() => 'bar'); // throws on client
+47 | const clientFn = createClientOnlyFn(() => 'bar'); // throws on server
+48 | ```
+49 | 
+50 | Tree-shaken: client code removed from server bundle, server code removed from client bundle.
+51 | 
+52 | # Hydration errors
+53 | 
+54 | Mismatch: Server HTML differs from client render. Common causes: Intl (locale/timezone), Date.now(), random IDs, responsive logic, feature flags, user prefs.
+55 | 
+56 | Strategies:
+57 | 1. Make server and client match: deterministic locale/timezone on server (cookie or Accept-Language header), compute once and hydrate as initial state.
+58 | 2. Let client tell environment: set cookie with client timezone on first visit, SSR uses UTC until then.
+59 | 3. Make it client-only: wrap unstable UI in `<ClientOnly>` to avoid SSR mismatches.
+60 | 4. Disable/limit SSR: use selective SSR (`ssr: 'data-only'` or `false`) when server HTML cannot be stable.
+61 | 5. Last resort: React's `suppressHydrationWarning` for small known-different nodes (use sparingly).
+62 | 
+63 | Checklist: Deterministic inputs (locale, timezone, feature flags). Prefer cookies for client context. Use `<ClientOnly>` for dynamic UI. Use selective SSR when server HTML unstable. Avoid blind suppression.
+64 | 
+65 | # TanStack Start basics
+66 | 
+67 | Depends: @tanstack/react-router, Vite. Router: getRouter() (was createRouter() in beta). routeTree.gen.ts auto-generated on first dev run. Optional: server handler via @tanstack/react-start/server; client hydrate via StartClient from @tanstack/react-start/client. RC1: Import StartClient from @tanstack/react-start/client (not @tanstack/react-start). StartClient no longer requires router prop. Root route head: utf-8, viewport, title; component wraps Outlet in RootDocument. Routes: createFileRoute() code-split + lazy-load; loader runs server/client. Navigation: Link (typed), useNavigate (imperative), useRouter (instance).
+68 | 
+69 | # Server functions
+70 | 
+71 | createServerFn({ method }) + zod .inputValidator + .handler(ctx). After mutations: router.invalidate(); queryClient.invalidateQueries(['entity', id]).
+72 | 
+73 | # Typed Links
+74 | 
+75 | Link to="/posts/$postId" with params; activeProps for styling.
+76 | 
+77 | 
+78 | 
+79 | <!-- Source: .ruler/tanstack-query-rules.md -->
+80 | 
+81 | # TanStack Query Rules
+82 | 
+83 | Server state via TanStack Query + server functions. Type-safe fetching and mutations.
+84 | 
+85 | ## Query Pattern
+86 | 
+87 | Define in `lib/{resource}/queries.ts` using `queryOptions`:
+88 | 
+89 | ```typescript
+90 | export const todosQueryOptions = () =>
+91 |   queryOptions({
+92 |     queryKey: ['todos'],
+93 |     queryFn: async ({ signal }) => await getTodos({ signal }),
+94 |     staleTime: 1000 * 60 * 5,
+95 |     gcTime: 1000 * 60 * 10,
+96 |   });
+97 | ```
+98 | 
+99 | Use: `const { data, isLoading } = useQuery(todosQueryOptions())`. Prefer `useSuspenseQuery` with Suspense.
+100 | 
+101 | ## Server Functions in Queries
+102 | 
+103 | Call server functions directly in `queryFn`. No `useServerFn` hook. TanStack Start proxies. Pass `signal` for cancellation.
+104 | 
+105 | ## Mutation Pattern
+106 | 
+107 | ```typescript
+108 | const mutation = useMutation({
+109 |   mutationFn: async (text: string) => await createTodo({ data: { text } }),
+110 |   onSuccess: () => {
+111 |     queryClient.invalidateQueries({ queryKey: todosQueryOptions().queryKey });
+112 |     toast.success('Success');
+113 |   },
+114 |   onError: (error) => toast.error(error.message || 'Failed'),
+115 | });
+116 | ```
+117 | 
+118 | Call via `mutation.mutate(data)` or `mutateAsync` for promises.
+119 | 
+120 | ## Query Invalidation
+121 | 
+122 | After mutations: `queryClient.invalidateQueries({ queryKey: ... })`. Use specific keys, not broad.
+123 | 
+124 | ## Mutation States
+125 | 
+126 | Access: `isPending`, `isError`, `isSuccess`, `error`, `data`. Disable UI during `isPending`.
+127 | 
+128 | ## Error Handling
+129 | 
+130 | Handle in `onError`. Toast messages. Access: `error.message || 'Default'`.
+131 | 
+132 | ## Query Keys
+133 | 
+134 | Hierarchical: `['todos']`, `['todo', id]`, `['todos', 'completed']`. Include all affecting variables.
+135 | 
+136 | ## Stale Time vs GC Time
+137 | 
+138 | `staleTime`: freshness duration (no refetch). Default 0. Set for stable data.
+139 | `gcTime`: unused cache duration (was `cacheTime`). Default 5min. Memory management.
+140 | 
+141 | ## Infinite Queries
+142 | 
+143 | `useInfiniteQuery` for pagination. Required: `initialPageParam`, `getNextPageParam`, `fetchNextPage`. Access `data.pages`. Check `hasNextPage` before fetching.
+144 | 
+145 | ## Optimistic Updates
+146 | 
+147 | `onMutate` for optimistic updates. Rollback in `onError`. Update cache via `queryClient.setQueryData`.
+148 | 
+149 | ## Best Practices
+150 | 
+151 | 1. Queries in `lib/{resource}/queries.ts` with `queryOptions`
+152 | 2. Call server functions directly (no `useServerFn` in callbacks)
+153 | 3. Invalidate after mutations
+154 | 4. Toast for feedback
+155 | 5. Handle loading/error states
+156 | 6. Use TypeScript types from query options
+157 | 7. Set `staleTime`/`gcTime` appropriately
+158 | 8. Prefer `useSuspenseQuery` with Suspense
+```
+
+src/routes/(site)/docs.tsx
+```
+1 | import { createFileRoute } from '@tanstack/react-router'
+2 | export const Route = createFileRoute('/(site)/docs')({
+3 |     component: DocsPage
+4 | })
+5 | 
+6 | function DocsPage() {
+7 |     return (
+8 |         <div className="container mx-auto px-4 py-8">
+9 |             <h1 className="mb-6 font-bold text-4xl">Documentation</h1>
+10 |             <div className="prose dark:prose-invert max-w-none">
+11 |                 <p className="mb-4 text-lg text-muted-foreground">
+12 |                     Welcome to the documentation for the TanStack Starter project.
+13 |                 </p>
+14 | 
+15 |                 <h2 className="mt-8 mb-4 font-semibold text-2xl">Getting Started</h2>
+16 |                 <p>
+17 |                     This starter template provides a modern foundation for building web applications
+18 |                     with TanStack Router, React Query, and other powerful tools.
+19 |                 </p>
+20 | 
+21 |                 <h2 className="mt-8 mb-4 font-semibold text-2xl">Features</h2>
+22 |                 <ul className="list-inside list-disc space-y-2">
+23 |                     <li>Type-safe routing with TanStack Router</li>
+24 |                     <li>Server-side rendering (SSR) support</li>
+25 |                     <li>Dark mode with theme persistence</li>
+26 |                     <li>Tailwind CSS for styling</li>
+27 |                     <li>TypeScript for type safety</li>
+28 |                 </ul>
+29 | 
+30 |                 <h2 className="mt-8 mb-4 font-semibold text-2xl">Project Structure</h2>
+31 |                 <pre className="overflow-x-auto rounded-lg bg-muted p-4">
+32 |                     {`src/
+33 | ├── components/     # Reusable UI components
+34 | ├── routes/         # Route definitions
+35 | ├── styles/         # Global styles
+36 | ├── lib/           # Utility functions
+37 | └── utils/         # Helper utilities`}
+38 |                 </pre>
+39 |             </div>
+40 |         </div>
+41 |     )
+42 | }
+```
+
+src/routes/(site)/index.tsx
+```
+1 | import { createFileRoute } from '@tanstack/react-router';
+2 | import GradientOrb from '~/components/gradient-orb';
+3 | import { useState } from 'react';
+4 | import { useSuspenseQuery } from '@tanstack/react-query';
+5 | import {
+6 |   todosQueries,
+7 |   useCreateTodoMutation,
+8 |   useToggleTodoMutation,
+9 |   useDeleteTodoMutation,
+10 |   type Todo,
+11 | } from '~/lib/todos/queries';
+12 | import { Button } from '~/components/ui/button';
+13 | import axios from 'redaxios';
+14 | import { toast } from 'sonner';
+15 | 
+16 | export const Route = createFileRoute('/(site)/')({
+17 |   loader: async (opts) => {
+18 |     await opts.context.queryClient.ensureQueryData(todosQueries.list());
+19 |   },
+20 |   component: RouteComponent,
+21 | });
+22 | 
+23 | function RouteComponent() {
+24 |   const [getResponse, setGetResponse] = useState<string | null>(null);
+25 |   const [postResponse, setPostResponse] = useState<string | null>(null);
+26 | 
+27 |   // Query for todos using TanStack Query (suspense)
+28 |   const todosQuery = useSuspenseQuery(todosQueries.list());
+29 |   const { data: todos = [], refetch: refetchTodos } = todosQuery;
+30 | 
+31 |   // Mutations
+32 |   const createTodoMutation = useCreateTodoMutation();
+33 |   const toggleTodoMutation = useToggleTodoMutation();
+34 |   const deleteTodoMutation = useDeleteTodoMutation();
+35 | 
+36 |   // Todo input state
+37 |   const [newTodoText, setNewTodoText] = useState('');
+38 | 
+39 |   const handleGet = async () => {
+40 |     try {
+41 |       const res = await axios.get('/api/test');
+42 |       setGetResponse(JSON.stringify(res.data, null, 2));
+43 |     } catch (error) {
+44 |       setGetResponse(`Error: ${error instanceof Error ? error.message : String(error)}`);
+45 |     }
+46 |   };
+47 | 
+48 |   const handlePost = async () => {
+49 |     try {
+50 |       const res = await axios.post('/api/test', { test: 'data', number: 42 });
+51 |       setPostResponse(JSON.stringify(res.data, null, 2));
+52 |     } catch (error) {
+53 |       setPostResponse(`Error: ${error instanceof Error ? error.message : String(error)}`);
+54 |     }
+55 |   };
+56 | 
+57 |   const handleCreateTodo = () => {
+58 |     if (!newTodoText.trim()) {
+59 |       toast.error('Todo text cannot be empty');
+60 |       return;
+61 |     }
+62 |     createTodoMutation.mutate(newTodoText.trim());
+63 |     setNewTodoText('');
+64 |   };
+65 | 
+66 |   const handleToggleTodo = (id: string) => {
+67 |     toggleTodoMutation.mutate(id);
+68 |   };
+69 | 
+70 |   const handleDeleteTodo = (id: string) => {
+71 |     deleteTodoMutation.mutate(id);
+72 |   };
+73 | 
+74 |   return (
+75 |     <div className="relative min-h-screen overflow-hidden bg-background">
+76 |       {/* Hero Section */}
+77 |       <main className="container relative z-0 mx-auto flex flex-col items-center px-4 pt-20 text-center md:pt-32">
+78 |         <GradientOrb className="-translate-x-1/2 absolute top-0 left-1/2 z-[-1] transform" />
+79 | 
+80 |         <h1 className="max-w-4xl font-medium text-4xl text-foreground md:text-6xl lg:text-7xl">
+81 |           TanStack Start React boilerplate with Tailwind 4 & shadcn
+82 |         </h1>
+83 | 
+84 |         <p className="mt-6 text-lg text-muted-foreground md:text-xl">
+85 |           The perfect starting point for your next web application
+86 |         </p>
+87 | 
+88 |         <p className="mt-4 text-muted-foreground text-xs uppercase tracking-wider">
+89 |           Under heavy development
+90 |         </p>
+91 | 
+92 |         {/* API Test Section */}
+93 |         <div className="mt-12 w-full max-w-2xl space-y-6 rounded-lg border border-border bg-card p-6">
+94 |           <h2 className="text-2xl font-semibold">API Test</h2>
+95 | 
+96 |           <div className="space-y-4">
+97 |             <div>
+98 |               <Button onClick={handleGet}>Test GET</Button>
+99 |               {getResponse && (
+100 |                 <pre className="mt-2 rounded-md bg-muted p-4 text-left text-sm overflow-auto">
+101 |                   {getResponse}
+102 |                 </pre>
+103 |               )}
+104 |             </div>
+105 | 
+106 |             <div>
+107 |               <Button onClick={handlePost}>Test POST</Button>
+108 |               {postResponse && (
+109 |                 <pre className="mt-2 rounded-md bg-muted p-4 text-left text-sm overflow-auto">
+110 |                   {postResponse}
+111 |                 </pre>
+112 |               )}
+113 |             </div>
+114 |           </div>
+115 |         </div>
+116 | 
+117 |         {/* Todo List Section */}
+118 |         <div className="mt-12 w-full max-w-2xl space-y-6 rounded-lg border border-border bg-card p-6">
+119 |           <div className="flex items-center justify-between mb-4">
+120 |             <h2 className="text-2xl font-semibold">Todos (Server Functions + TanStack Query)</h2>
+121 |             <Button onClick={() => refetchTodos()} size="sm">
+122 |               Refresh
+123 |             </Button>
+124 |           </div>
+125 | 
+126 |           <div className="flex gap-2 mb-4">
+127 |             <input
+128 |               type="text"
+129 |               value={newTodoText}
+130 |               onChange={(e) => setNewTodoText(e.target.value)}
+131 |               onKeyDown={(e) => e.key === 'Enter' && handleCreateTodo()}
+132 |               placeholder="Add todo..."
+133 |               className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+134 |               disabled={createTodoMutation.isPending}
+135 |             />
+136 |             <Button
+137 |               onClick={handleCreateTodo}
+138 |               disabled={createTodoMutation.isPending || !newTodoText.trim()}
+139 |             >
+140 |               {createTodoMutation.isPending ? 'Adding...' : 'Add'}
+141 |             </Button>
+142 |           </div>
+143 | 
+144 |           <div className="space-y-2">
+145 |             {todos.length === 0 ? (
+146 |               <p className="text-muted-foreground text-sm">No todos yet. Add one above!</p>
+147 |             ) : (
+148 |               todos.map((todo) => (
+149 |                 <div
+150 |                   key={todo.id}
+151 |                   className="flex items-center gap-2 rounded-md border border-border p-3"
+152 |                 >
+153 |                   <input
+154 |                     type="checkbox"
+155 |                     checked={todo.completed}
+156 |                     onChange={() => handleToggleTodo(todo.id)}
+157 |                     disabled={
+158 |                       toggleTodoMutation.isPending ||
+159 |                       deleteTodoMutation.isPending ||
+160 |                       createTodoMutation.isPending
+161 |                     }
+162 |                     className="rounded"
+163 |                   />
+164 |                   <span
+165 |                     className={`flex-1 text-sm ${
+166 |                       todo.completed ? 'line-through text-muted-foreground' : ''
+167 |                     }`}
+168 |                   >
+169 |                     {todo.text}
+170 |                   </span>
+171 |                   <Button
+172 |                     onClick={() => handleDeleteTodo(todo.id)}
+173 |                     disabled={
+174 |                       toggleTodoMutation.isPending ||
+175 |                       deleteTodoMutation.isPending ||
+176 |                       createTodoMutation.isPending
+177 |                     }
+178 |                     variant="destructive"
+179 |                     size="sm"
+180 |                   >
+181 |                     Delete
+182 |                   </Button>
+183 |                 </div>
+184 |               ))
+185 |             )}
+186 |           </div>
+187 |         </div>
+188 |       </main>
+189 |     </div>
+190 |   );
+191 | }
+```
+
+src/routes/(site)/route.tsx
+```
+1 | import { Outlet, createFileRoute } from '@tanstack/react-router';
+2 | import { Suspense } from 'react';
+3 | import { Header } from '~/components/Header';
+4 | 
+5 | export const Route = createFileRoute('/(site)')({
+6 |   component: RouteComponent,
+7 | });
+8 | 
+9 | function RouteComponent() {
+10 |   return (
+11 |     <div>
+12 |       <Header />
+13 |       <Suspense fallback={<div>Loading...</div>}>
+14 |         <Outlet />
+15 |       </Suspense>
+16 |     </div>
+17 |   );
+18 | }
+```
+
+src/lib/todos/queries.ts
+```
+1 | import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+2 | import { getTodos, createTodo, toggleTodo, deleteTodo } from '~/server/function/todos';
+3 | import { toast } from 'sonner';
+4 | 
+5 | export type Todo = { id: string; text: string; completed: boolean };
+6 | 
+7 | export const todosQueries = {
+8 |   list: () =>
+9 |     queryOptions({
+10 |       queryKey: ['todos'],
+11 |       queryFn: async ({ signal }) => await getTodos({ signal }),
+12 |       staleTime: 1000 * 60 * 5,
+13 |     }),
+14 | };
+15 | 
+16 | export function useCreateTodoMutation() {
+17 |   const queryClient = useQueryClient();
+18 |   return useMutation({
+19 |     mutationFn: async (text: string) => await createTodo({ data: { text } }),
+20 |     onSuccess: () => {
+21 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
+22 |       toast.success('Todo created successfully!');
+23 |     },
+24 |     onError: (error) => {
+25 |       toast.error(error.message || 'Failed to create todo');
+26 |     },
+27 |   });
+28 | }
+29 | 
+30 | export function useToggleTodoMutation() {
+31 |   const queryClient = useQueryClient();
+32 |   return useMutation({
+33 |     mutationFn: async (id: string) => await toggleTodo({ data: { id } }),
+34 |     onSuccess: () => {
+35 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
+36 |     },
+37 |     onError: (error) => {
+38 |       toast.error(error.message || 'Failed to toggle todo');
+39 |     },
+40 |   });
+41 | }
+42 | 
+43 | export function useDeleteTodoMutation() {
+44 |   const queryClient = useQueryClient();
+45 |   return useMutation({
+46 |     mutationFn: async (id: string) => await deleteTodo({ data: { id } }),
+47 |     onSuccess: () => {
+48 |       queryClient.invalidateQueries({ queryKey: todosQueries.list().queryKey });
+49 |       toast.success('Todo deleted successfully!');
+50 |     },
+51 |     onError: (error) => {
+52 |       toast.error(error.message || 'Failed to delete todo');
+53 |     },
+54 |   });
+55 | }
+```
+
 src/lib/viewer-types/events.ts
 ```
 1 | import type { FilePath, ISO8601String, Id } from "./primitives"
@@ -4345,6 +4543,298 @@ src/lib/viewer-types/session.ts
 50 | 
 ```
 
+src/routes/api/test.ts
+```
+1 | import { createFileRoute } from '@tanstack/react-router';
+2 | import { json } from '@tanstack/react-start';
+3 | 
+4 | export const Route = createFileRoute('/api/test')({
+5 |   server: {
+6 |     handlers: {
+7 |       GET: async ({ request }) => {
+8 |         return json({
+9 |           message: 'Hello from GET!',
+10 |           method: 'GET',
+11 |           timestamp: new Date().toISOString(),
+12 |           url: request.url,
+13 |         });
+14 |       },
+15 |       POST: async ({ request }) => {
+16 |         const body = await request.json().catch(() => ({}));
+17 | 
+18 |         return json(
+19 |           {
+20 |             message: 'Hello from POST!',
+21 |             method: 'POST',
+22 |             received: body,
+23 |             timestamp: new Date().toISOString(),
+24 |           },
+25 |           {
+26 |             status: 201,
+27 |           }
+28 |         );
+29 |       },
+30 |     },
+31 |   },
+32 | });
+```
+
+src/db/schema/CLAUDE.md
+```
+1 | 
+2 | 
+3 | <!-- Source: .ruler/db.schema.md -->
+4 | 
+5 | - Schema files have always this naming pattern `<name>.schema.ts`
+```
+
+src/routes/.ruler/tanstack-server-routes.md
+```
+1 | # Server Routes — TanStack Start
+2 | 
+3 | Server HTTP endpoints for requests, forms, auth. Location: ./src/routes. Export Route to create API route. ServerRoute and Route can coexist in same file.
+4 | 
+5 | Routing mirrors TanStack Router: dynamic $id, splat $, escaped [.], nested dirs/dotted filenames map to paths. One handler per resolved path (duplicates error). Examples: users.ts → /users; users/$id.ts → /users/$id; api/file/$.ts → /api/file/$; my-script[.]js.ts → /my-script.js.
+6 | 
+7 | Middleware: pathless layout routes add group middleware; break-out routes skip parents.
+8 | 
+9 | RC1 server entry signature: export default { fetch(req: Request): Promise<Response> { ... } }
+10 | 
+11 | Define handlers: use createFileRoute() from @tanstack/react-router with server: { handlers: { ... } }. Methods per HTTP verb, with optional middleware builder. createServerFileRoute removed in RC1; use createFileRoute with server property.
+12 | 
+13 | Handler receives { request, params, context }; return Response or Promise<Response>. Helpers from @tanstack/react-start allowed.
+14 | 
+15 | Bodies: request.json(), request.text(), request.formData() for POST/PUT/PATCH/DELETE.
+16 | 
+17 | JSON/status/headers: return JSON manually or via json(); set status via Response init or setResponseStatus(); set headers via Response init or setHeaders().
+18 | 
+19 | Params: /users/$id → params.id; /users/$id/posts/$postId → params.id + params.postId; /file/$ → params._splat.
+20 | 
+21 | Unique path rule: one file per resolved path; users.ts vs users.index.ts vs users/index.ts conflicts.
+22 | 
+23 | RC1 structure:
+24 | ```typescript
+25 | import { createFileRoute } from '@tanstack/react-router'
+26 | 
+27 | export const Route = createFileRoute('/api/example')({
+28 |   server: {
+29 |     handlers: {
+30 |       GET: ({ request }) => new Response('Hello'),
+31 |       POST: ({ request }) => new Response('Created', { status: 201 })
+32 |     }
+33 |   }
+34 | })
+35 | ```
+```
+
+src/routes/(site)/viewer/index.tsx
+```
+1 | // path: src/routes/(site)/viewer/index.tsx
+2 | import { createFileRoute } from '@tanstack/react-router';
+3 | import { useCallback, useMemo, useState } from 'react';
+4 | import { DiscoveryPanel } from '~/components/viewer/DiscoveryPanel';
+5 | import { DropZone } from '~/components/viewer/DropZone';
+6 | import { FileInputButton } from '~/components/viewer/FileInputButton';
+7 | import { AnimatedTimelineList } from '~/components/viewer/AnimatedTimelineList';
+8 | import { ChatDock } from '~/components/viewer/ChatDock';
+9 | import { useFileLoader } from '~/hooks/useFileLoader';
+10 | import { discoverProjectAssets } from '~/lib/viewerDiscovery';
+11 | import { seo } from '~/utils/seo';
+12 | import { z } from 'zod';
+13 | 
+14 | const searchSchema = z.object({
+15 |   query: z.string().optional(),
+16 | });
+17 | 
+18 | export const Route = createFileRoute('/(site)/viewer/')({
+19 |   validateSearch: (search) => {
+20 |     const result = searchSchema.safeParse(search);
+21 |     if (!result.success) {
+22 |       return { query: '' };
+23 |     }
+24 |     return {
+25 |       query: result.data.query?.trim() ?? '',
+26 |     };
+27 |   },
+28 |   loader: () => discoverProjectAssets(),
+29 |   head: () => ({
+30 |     meta: seo({
+31 |       title: 'Codex Session Viewer · Discovery',
+32 |       description: 'Explore workspace files and session logs detected at build time.',
+33 |     }),
+34 |   }),
+35 |   component: ViewerRouteComponent,
+36 | });
+37 | 
+38 | function ViewerRouteComponent() {
+39 |   const data = Route.useLoaderData();
+40 |   const search = Route.useSearch();
+41 |   const navigate = Route.useNavigate();
+42 |   const loader = useFileLoader();
+43 |   const [timelineQuery, setTimelineQuery] = useState('');
+44 | 
+45 |   const handleQueryChange = (next: string) => {
+46 |     navigate({
+47 |       search: (prev) => ({
+48 |         ...prev,
+49 |         query: next,
+50 |       }),
+51 |     });
+52 |   };
+53 | 
+54 |   const handleFile = useCallback(
+55 |     (file: File) => {
+56 |       loader.start(file);
+57 |     },
+58 |     [loader]
+59 |   );
+60 | 
+61 |   const meta = loader.state.meta;
+62 |   const progressLabel =
+63 |     loader.state.phase === 'parsing'
+64 |       ? `Parsing… (${loader.progress.ok.toLocaleString()} ok / ${loader.progress.fail.toLocaleString()} errors)`
+65 |       : loader.state.phase === 'success'
+66 |         ? `Loaded ${loader.state.events.length.toLocaleString()} events`
+67 |         : loader.state.phase === 'error' && loader.progress.fail > 0
+68 |           ? `Finished with ${loader.progress.fail.toLocaleString()} errors`
+69 |           : 'Idle';
+70 | 
+71 |   const filteredEvents = useMemo(() => {
+72 |     const events = loader.state.events;
+73 |     const q = timelineQuery.trim().toLowerCase();
+74 |     if (!q) return events;
+75 | 
+76 |     return events.filter((event) => {
+77 |       const anyEvent = event as any;
+78 |       const parts: string[] = [];
+79 | 
+80 |       if (typeof anyEvent.type === 'string') parts.push(anyEvent.type);
+81 |       if (typeof anyEvent.role === 'string') parts.push(anyEvent.role);
+82 |       if (typeof anyEvent.name === 'string') parts.push(anyEvent.name);
+83 |       if (typeof anyEvent.command === 'string') parts.push(anyEvent.command);
+84 |       if (typeof anyEvent.path === 'string') parts.push(anyEvent.path);
+85 |       if (typeof anyEvent.query === 'string') parts.push(anyEvent.query);
+86 | 
+87 |       const content = anyEvent.content;
+88 |       if (typeof content === 'string') {
+89 |         parts.push(content);
+90 |       } else if (Array.isArray(content)) {
+91 |         parts.push(
+92 |           content
+93 |             .map((part: unknown) =>
+94 |               typeof part === 'string'
+95 |                 ? part
+96 |                 : typeof (part as any).text === 'string'
+97 |                   ? (part as any).text
+98 |                   : ''
+99 |             )
+100 |             .join(' ')
+101 |         );
+102 |       }
+103 | 
+104 |       const haystack = parts.join(' ').toLowerCase();
+105 |       if (!haystack) return false;
+106 |       return haystack.includes(q);
+107 |     });
+108 |   }, [loader.state.events, timelineQuery]);
+109 | 
+110 |   const timelineContent = useMemo(() => {
+111 |     if (loader.state.phase === 'parsing') {
+112 |       return (
+113 |         <p className="text-sm text-muted-foreground">
+114 |           Streaming events… large sessions may take a moment.
+115 |         </p>
+116 |       );
+117 |     }
+118 |     return <AnimatedTimelineList events={filteredEvents} />;
+119 |   }, [loader.state.phase, filteredEvents]);
+120 | 
+121 |   return (
+122 |     <main className="container mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10">
+123 |       <section className="space-y-3">
+124 |         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+125 |           Codex Session Viewer
+126 |         </p>
+127 |         <h1 className="text-3xl font-bold tracking-tight">Workspace Discovery</h1>
+128 |         <p className="text-muted-foreground">
+129 |           Drop in a session to stream its timeline, then iterate with the chat dock.
+130 |         </p>
+131 |       </section>
+132 | 
+133 |       <DiscoveryPanel
+134 |         projectFiles={data.projectFiles}
+135 |         sessionAssets={data.sessionAssets}
+136 |         query={search.query}
+137 |         onQueryChange={handleQueryChange}
+138 |       />
+139 | 
+140 |       <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+141 |         <div className="flex flex-col gap-6">
+142 |           <div className="grid gap-4 md:grid-cols-[2fr,auto]">
+143 |             <DropZone onFile={handleFile} className="md:col-span-1" />
+144 |             <div className="flex flex-col gap-4 rounded-xl border bg-card/70 p-5">
+145 |               <div className="space-y-2">
+146 |                 <p className="text-sm font-semibold">Session controls</p>
+147 |                 <p className="text-xs text-muted-foreground">
+148 |                   Upload a .jsonl/.ndjson session log.
+149 |                 </p>
+150 |               </div>
+151 |               <FileInputButton onFile={handleFile} disabled={loader.state.phase === 'parsing'} />
+152 |               <dl className="space-y-2 text-sm">
+153 |                 <div className="flex items-center justify-between">
+154 |                   <dt className="text-muted-foreground">Status</dt>
+155 |                   <dd>{progressLabel}</dd>
+156 |                 </div>
+157 |                 {meta?.timestamp ? (
+158 |                   <div className="flex items-center justify-between">
+159 |                     <dt className="text-muted-foreground">Timestamp</dt>
+160 |                     <dd>{new Date(meta.timestamp).toLocaleString()}</dd>
+161 |                   </div>
+162 |                 ) : null}
+163 |                 {meta?.git?.repo ? (
+164 |                   <div className="flex items-center justify-between">
+165 |                     <dt className="text-muted-foreground">Repo</dt>
+166 |                     <dd>{meta.git.repo}</dd>
+167 |                   </div>
+168 |                 ) : null}
+169 |               </dl>
+170 |             </div>
+171 |           </div>
+172 | 
+173 |           <div className="rounded-2xl border p-4">
+174 |             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+175 |               <div>
+176 |                 <p className="text-sm font-semibold">Timeline</p>
+177 |                 <p className="text-xs text-muted-foreground">Animated list of parsed events.</p>
+178 |               </div>
+179 |               <div className="flex flex-col gap-1 text-xs">
+180 |                 <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+181 |                   Timeline search
+182 |                   <input
+183 |                     type="search"
+184 |                     value={timelineQuery}
+185 |                     onChange={(event) => setTimelineQuery(event.target.value)}
+186 |                     placeholder="Filter by content, path, or type…"
+187 |                     className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:w-64"
+188 |                   />
+189 |                 </label>
+190 |                 <p className="text-[11px] text-muted-foreground">
+191 |                   Showing {filteredEvents.length.toLocaleString()} of{' '}
+192 |                   {loader.state.events.length.toLocaleString()} events
+193 |                 </p>
+194 |               </div>
+195 |             </div>
+196 |             {timelineContent}
+197 |           </div>
+198 |         </div>
+199 | 
+200 |         <ChatDock />
+201 |       </section>
+202 |     </main>
+203 |   );
+204 | }
+```
+
 src/server/function/CLAUDE.md
 ```
 1 | 
@@ -4457,14 +4947,54 @@ src/server/function/todos.ts
 53 |   });
 ```
 
+src/routes/.cursor/rules/ruler_cursor_instructions.mdc
+```
+1 | ---
+2 | alwaysApply: true
+3 | ---
+4 | <!-- Source: .ruler/tanstack-server-routes.md -->
+5 | 
+6 | # Server Routes — TanStack Start
+7 | 
+8 | Server HTTP endpoints for requests, forms, auth. Location: ./src/routes. Export Route to create API route. ServerRoute and Route can coexist in same file.
+9 | 
+10 | Routing mirrors TanStack Router: dynamic $id, splat $, escaped [.], nested dirs/dotted filenames map to paths. One handler per resolved path (duplicates error). Examples: users.ts → /users; users/$id.ts → /users/$id; api/file/$.ts → /api/file/$; my-script[.]js.ts → /my-script.js.
+11 | 
+12 | Middleware: pathless layout routes add group middleware; break-out routes skip parents.
+13 | 
+14 | RC1 server entry signature: export default { fetch(req: Request): Promise<Response> { ... } }
+15 | 
+16 | Define handlers: use createFileRoute() from @tanstack/react-router with server: { handlers: { ... } }. Methods per HTTP verb, with optional middleware builder. createServerFileRoute removed in RC1; use createFileRoute with server property.
+17 | 
+18 | Handler receives { request, params, context }; return Response or Promise<Response>. Helpers from @tanstack/react-start allowed.
+19 | 
+20 | Bodies: request.json(), request.text(), request.formData() for POST/PUT/PATCH/DELETE.
+21 | 
+22 | JSON/status/headers: return JSON manually or via json(); set status via Response init or setResponseStatus(); set headers via Response init or setHeaders().
+23 | 
+24 | Params: /users/$id → params.id; /users/$id/posts/$postId → params.id + params.postId; /file/$ → params._splat.
+25 | 
+26 | Unique path rule: one file per resolved path; users.ts vs users.index.ts vs users/index.ts conflicts.
+27 | 
+28 | RC1 structure:
+29 | ```typescript
+30 | import { createFileRoute } from '@tanstack/react-router'
+31 | 
+32 | export const Route = createFileRoute('/api/example')({
+33 |   server: {
+34 |     handlers: {
+35 |       GET: ({ request }) => new Response('Hello'),
+36 |       POST: ({ request }) => new Response('Created', { status: 201 })
+37 |     }
+38 |   }
+39 | })
+40 | ```
+```
+
 src/db/schema/.ruler/db.schema.md
 ```
 1 | - Schema files have always this naming pattern `<name>.schema.ts`
 2 | 
-```
-
-src/routes/(site)/viewer/index.tsx
-```
 ```
 
 src/server/function/.ruler/tanstack-server-fn.md
@@ -4516,50 +5046,6 @@ src/server/function/.ruler/tanstack-server-fn.md
 45 | Compilation: injects use server if missing. Client extracts to server bundle, proxies. Server runs as-is. Dead-code elimination.
 46 | 
 47 | Notes: inspired by tRPC. Always invoke normalizeInput(schema, preprocess?) inside handler. Don't rely on .validator(). When writing preprocess, unwrap wrappers ({ data: ... }, SuperJSON $values, stringified arrays) so validation runs on real payload.
-```
-
-src/routes/.cursor/rules/ruler_cursor_instructions.mdc
-```
-1 | ---
-2 | alwaysApply: true
-3 | ---
-4 | <!-- Source: .ruler/tanstack-server-routes.md -->
-5 | 
-6 | # Server Routes — TanStack Start
-7 | 
-8 | Server HTTP endpoints for requests, forms, auth. Location: ./src/routes. Export Route to create API route. ServerRoute and Route can coexist in same file.
-9 | 
-10 | Routing mirrors TanStack Router: dynamic $id, splat $, escaped [.], nested dirs/dotted filenames map to paths. One handler per resolved path (duplicates error). Examples: users.ts → /users; users/$id.ts → /users/$id; api/file/$.ts → /api/file/$; my-script[.]js.ts → /my-script.js.
-11 | 
-12 | Middleware: pathless layout routes add group middleware; break-out routes skip parents.
-13 | 
-14 | RC1 server entry signature: export default { fetch(req: Request): Promise<Response> { ... } }
-15 | 
-16 | Define handlers: use createFileRoute() from @tanstack/react-router with server: { handlers: { ... } }. Methods per HTTP verb, with optional middleware builder. createServerFileRoute removed in RC1; use createFileRoute with server property.
-17 | 
-18 | Handler receives { request, params, context }; return Response or Promise<Response>. Helpers from @tanstack/react-start allowed.
-19 | 
-20 | Bodies: request.json(), request.text(), request.formData() for POST/PUT/PATCH/DELETE.
-21 | 
-22 | JSON/status/headers: return JSON manually or via json(); set status via Response init or setResponseStatus(); set headers via Response init or setHeaders().
-23 | 
-24 | Params: /users/$id → params.id; /users/$id/posts/$postId → params.id + params.postId; /file/$ → params._splat.
-25 | 
-26 | Unique path rule: one file per resolved path; users.ts vs users.index.ts vs users/index.ts conflicts.
-27 | 
-28 | RC1 structure:
-29 | ```typescript
-30 | import { createFileRoute } from '@tanstack/react-router'
-31 | 
-32 | export const Route = createFileRoute('/api/example')({
-33 |   server: {
-34 |     handlers: {
-35 |       GET: ({ request }) => new Response('Hello'),
-36 |       POST: ({ request }) => new Response('Created', { status: 201 })
-37 |     }
-38 |   }
-39 | })
-40 | ```
 ```
 
 src/db/schema/.cursor/rules/ruler_cursor_instructions.mdc
