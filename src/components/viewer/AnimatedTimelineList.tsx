@@ -11,7 +11,7 @@ interface AnimatedTimelineListProps {
   onSelect?: (event: TimelineEvent, index: number) => void
 }
 
-const SNIPPET_LENGTH = 80
+const SNIPPET_LENGTH = 100
 
 export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
