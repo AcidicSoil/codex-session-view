@@ -1,7 +1,28 @@
-import { useMemo, useState } from 'react'
-import AnimatedList from '~/components/AnimatedList'
+import { useEffect, useMemo, useState } from 'react'
+import { BorderBeam } from '~/components/ui/border-beam'
+import {
+  Snippet,
+  SnippetCopyButton,
+  SnippetHeader,
+  SnippetTabsContent,
+  SnippetTabsList,
+  SnippetTabsTrigger,
+} from '~/components/kibo-ui/snippet'
+import {
+  CodeBlock,
+  CodeBlockBody,
+  CodeBlockCopyButton,
+  CodeBlockFiles,
+  CodeBlockFilename,
+  CodeBlockHeader,
+  CodeBlockItem,
+  CodeBlockContent,
+} from '~/components/kibo-ui/code-block'
+import type { BundledLanguage } from '~/components/kibo-ui/code-block'
 import type { ResponseItem, MessageEvent, MessagePart } from '~/lib/viewer-types'
 import type { ResponseItemParsed } from '~/lib/session-parser'
+import { TimelineView } from '~/components/viewer/TimelineView'
+import { eventKey } from '~/utils/event-key'
 
 type TimelineEvent = ResponseItem | ResponseItemParsed
 
@@ -15,53 +36,85 @@ const SNIPPET_LENGTH = 100
 
 export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
-  const items = useMemo(
-    () => events.map((event, index) => renderTimelineItem(event, index, expandedIndex === index)),
-    [events, expandedIndex]
+  const [scrollTarget, setScrollTarget] = useState<number | null>(null)
+  const items = useMemo<{ event: TimelineEvent; index: number; key: string }[]>(
+    () =>
+      events.map((event, index) => ({
+        event,
+        index,
+        key: eventKey(event as ResponseItem, index),
+      })),
+    [events],
   )
 
   if (!events.length) {
     return <p className="text-sm text-muted-foreground">Load or drop a session to populate the timeline.</p>
   }
 
-  const initialIndex = -1
+  useEffect(() => {
+    if (scrollTarget === null) return
+    const id = requestAnimationFrame(() => setScrollTarget(null))
+    return () => cancelAnimationFrame(id)
+  }, [scrollTarget])
 
   return (
-    <AnimatedList
-      className={`w-full ${className ?? ''}`}
-      itemClassName="text-left"
-      items={items}
-      onItemSelect={(_, index) => {
-        const event = events[index]
-        if (event) {
-          setExpandedIndex((prev) => (prev === index ? null : index))
-          onSelect?.(event, index)
-        }
-      }}
-      displayScrollbar={false}
-      showGradients={events.length > 6}
-      initialSelectedIndex={initialIndex}
-    />
+    <div className={className}>
+      <TimelineView
+        items={items}
+        height={840}
+        estimateItemHeight={160}
+        keyForIndex={(item) => item.key}
+        renderItem={(item) => (
+          <div className="px-1 pb-4">
+            {renderTimelineItem(item.event, item.index, expandedIndex === item.index, () => {
+              setExpandedIndex((prev) => {
+                const next = prev === item.index ? null : item.index
+                if (next !== null) {
+                  setScrollTarget(next)
+                }
+                return next
+              })
+              onSelect?.(item.event, item.index)
+            })}
+          </div>
+        )}
+        scrollToIndex={scrollTarget}
+      />
+    </div>
   )
 }
 
-function renderTimelineItem(event: TimelineEvent, index: number, expanded: boolean) {
+function renderTimelineItem(event: TimelineEvent, index: number, expanded: boolean, toggle: () => void) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-white">{buildLabel(event, index)}</p>
-          <p className="text-xs text-muted-foreground">{buildMetaLine(event)}</p>
+    <div
+      className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30 p-4 cursor-pointer"
+      onClick={toggle}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          toggle()
+        }
+      }}
+    >
+      <BorderBeam className="opacity-70" size={120} duration={8} borderWidth={1} />
+      <div className="relative z-10 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-white">{buildLabel(event, index)}</p>
+            <p className="text-xs text-muted-foreground">{buildMetaLine(event)}</p>
+          </div>
+          <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {event.type}
+          </span>
         </div>
-        <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {event.type}
-        </span>
+        {expanded ? (
+          <div className="rounded-lg border border-white/5 bg-black/60 p-3 text-sm text-slate-100">
+            {renderEventDetail(event)}
+          </div>
+        ) : null}
       </div>
-      {expanded ? (
-        <div className="rounded-lg border border-white/5 bg-black/40 p-3 text-sm text-slate-100">
-          {renderEventDetail(event)}
-        </div>
-      ) : null}
     </div>
   )
 }
@@ -136,57 +189,113 @@ function renderEventDetail(event: TimelineEvent) {
       const text = extractMessageText(event.content)
       return text ? <DetailText value={text} label="Content" /> : <EmptyDetail message="No message content." />
     }
-    case 'Reasoning':
-      return event.content ? <DetailText value={event.content} label="Trace" /> : <EmptyDetail message="No reasoning trace." />
-    case 'FunctionCall': {
-      const args = safeStringify(event.args)
-      const result = safeStringify(event.result)
-      if (!args && !result) {
-        return <EmptyDetail message="No arguments or result recorded." />
+        case 'Reasoning':
+          return event.content ? <DetailText value={event.content} label="Trace" /> : <EmptyDetail message="No reasoning trace." />
+        case 'FunctionCall': {
+          const args = safeStringify(event.args)
+          const result = safeStringify(event.result)
+          if (!args && !result) {
+            return <EmptyDetail message="No arguments or result recorded." />
+          }
+          return (
+            <div className="space-y-3">
+              <DetailText value={args} label="Args" format="code" language="json" />
+              <DetailText value={result} label="Result" format="code" language="json" />
+            </div>
+          )
+        }
+        case 'LocalShellCall': {
+          const stdout = event.stdout ?? ''
+          const stderr = event.stderr ?? ''
+          if (!stdout && !stderr) {
+            return <EmptyDetail message="No output captured." />
+          }
+          return (
+            <div className="space-y-3">
+              <DetailText value={stdout} label="stdout" format="code" language="bash" />
+              <DetailText value={stderr} label="stderr" format="code" language="bash" />
+            </div>
+          )
+        }
+        case 'WebSearchCall':
+          return event.query ? <DetailText value={event.query} label="Query" /> : <EmptyDetail message="No query string." />
+        case 'CustomToolCall': {
+          const payload = safeStringify(event.output ?? event.input)
+          return payload ? <DetailText value={payload} label="Payload" format="code" language="json" /> : <EmptyDetail message="No payload." />
+        }
+        case 'FileChange':
+          return event.diff ? <DetailText value={event.diff} label="Diff" format="code" language="diff" /> : <EmptyDetail message="No diff provided." />
+        default: {
+          const payload = safeStringify(event)
+          return payload ? <DetailText value={payload} label="Event" format="code" language="json" /> : <EmptyDetail message="No additional data." />
+        }
       }
-      return (
-        <div className="space-y-3">
-          <DetailText value={args} label="Args" />
-          <DetailText value={result} label="Result" />
-        </div>
-      )
     }
-    case 'LocalShellCall': {
-      const stdout = event.stdout ?? ''
-      const stderr = event.stderr ?? ''
-      if (!stdout && !stderr) {
-        return <EmptyDetail message="No output captured." />
-      }
-      return (
-        <div className="space-y-3">
-          <DetailText value={stdout} label="stdout" />
-          <DetailText value={stderr} label="stderr" />
-        </div>
-      )
-    }
-    case 'WebSearchCall':
-      return event.query ? <DetailText value={event.query} label="Query" /> : <EmptyDetail message="No query string." />
-    case 'CustomToolCall': {
-      const payload = safeStringify(event.output ?? event.input)
-      return payload ? <DetailText value={payload} label="Payload" /> : <EmptyDetail message="No payload." />
-    }
-    case 'FileChange':
-      return event.diff ? <DetailText value={event.diff} label="Diff" /> : <EmptyDetail message="No diff provided." />
-    default: {
-      const payload = safeStringify(event)
-      return payload ? <DetailText value={payload} label="Event" /> : <EmptyDetail message="No additional data." />
-    }
-  }
-}
 
-function DetailText({ value, label }: { value: string; label: string }) {
+function DetailText({
+  value,
+  label,
+  format = "text",
+  language,
+}: {
+  value: string
+  label: string
+  format?: "text" | "code"
+  language?: BundledLanguage
+}) {
   if (!value) return null
+
+  if (format === "code") {
+    const codeLanguage = (language ?? "json") as BundledLanguage
+    const data = [{ language: codeLanguage, filename: label, code: value }]
+    return (
+      <div
+        className="space-y-1"
+        onClick={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <CodeBlock data={data} defaultValue={codeLanguage} className="bg-background/80">
+          <CodeBlockHeader className="items-center justify-between">
+            <CodeBlockFiles>
+              {(item) => (
+                <CodeBlockFilename key={item.filename} value={item.language}>
+                  {item.filename}
+                </CodeBlockFilename>
+              )}
+            </CodeBlockFiles>
+            <CodeBlockCopyButton aria-label={`Copy ${label.toLowerCase()}`} />
+          </CodeBlockHeader>
+          <CodeBlockBody>
+            {(item) => (
+              <CodeBlockItem key={item.language} value={item.language} className="bg-background/95">
+                <CodeBlockContent language={codeLanguage}>{item.code}</CodeBlockContent>
+              </CodeBlockItem>
+            )}
+          </CodeBlockBody>
+        </CodeBlock>
+      </div>
+    )
+  }
+
+  const tabValue = "value"
+
   return (
-    <div className="space-y-1">
+    <div
+      className="space-y-1"
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+    >
       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <pre className="whitespace-pre-wrap break-words rounded-md bg-white/5 p-2 font-mono text-xs text-white/90">
-        {value}
-      </pre>
+      <Snippet defaultValue={tabValue}>
+        <SnippetHeader>
+          <SnippetTabsList>
+            <SnippetTabsTrigger value={tabValue}>{label}</SnippetTabsTrigger>
+          </SnippetTabsList>
+          <SnippetCopyButton value={value} aria-label={`Copy ${label.toLowerCase()}`} />
+        </SnippetHeader>
+        <SnippetTabsContent value={tabValue}>{value}</SnippetTabsContent>
+      </Snippet>
     </div>
   )
 }

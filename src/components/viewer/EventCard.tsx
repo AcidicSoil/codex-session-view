@@ -1,6 +1,7 @@
 import { Card } from "~/components/ui/card"
 import { Badge } from "~/components/ui/badge"
-import type { ResponseItem } from "~/types"
+import { BorderBeam } from "~/components/ui/border-beam"
+import type { MessagePart, ResponseItem } from "~/lib/viewer-types"
 import { cn } from "~/lib/utils"
 
 function formatTimestamp(value?: string | number) {
@@ -13,7 +14,13 @@ function formatTimestamp(value?: string | number) {
 function renderSummary(event: ResponseItem) {
     switch (event.type) {
         case "Message": {
-            const text = Array.isArray(event.content) ? event.content.map((part) => part.text).join("\n") : event.content
+            const text = typeof event.content === "string"
+                ? event.content
+                : Array.isArray(event.content)
+                    ? event.content
+                          .map((part: string | MessagePart) => (typeof part === "string" ? part : part.text ?? ""))
+                          .join("\n")
+                    : ""
             return text
         }
         case "Reasoning":
@@ -55,28 +62,31 @@ export function EventCard({ item, index }: EventCardProps) {
     const summary = renderSummary(item)
     const at = formatTimestamp(item.at)
     return (
-        <Card className="gap-3 rounded-lg border px-4 py-3">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <Badge variant="outline" className={cn("px-2 py-0.5 text-[11px] uppercase tracking-wide", typeAccent(item.type))}>
-                    {item.type}
-                </Badge>
-                <span>#{index + 1}</span>
-                {item.type === "Message" && typeof (item as any).role === "string" ? <span>{(item as any).role}</span> : null}
-                {at ? <span>{at}</span> : null}
-            </div>
-            <div className="space-y-2">
-                {item.type === "Message" ? (
-                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 p-3 text-sm leading-relaxed">
-                        {summary}
-                    </pre>
-                ) : (
-                    summary && (
-                        <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">
+        <Card className="relative overflow-hidden rounded-lg border bg-card/70 px-4 py-3">
+            <BorderBeam className="opacity-80" size={120} duration={8} borderWidth={1.5} />
+            <div className="relative z-10 space-y-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant="outline" className={cn("px-2 py-0.5 text-[11px] uppercase tracking-wide", typeAccent(item.type))}>
+                        {item.type}
+                    </Badge>
+                    <span>#{index + 1}</span>
+                    {item.type === "Message" && typeof (item as any).role === "string" ? <span>{(item as any).role}</span> : null}
+                    {at ? <span>{at}</span> : null}
+                </div>
+                <div className="space-y-2">
+                    {item.type === "Message" ? (
+                        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/60 p-3 text-sm leading-relaxed">
                             {summary}
                         </pre>
-                    )
-                )}
-                {!summary && <p className="text-sm text-muted-foreground">No additional details</p>}
+                    ) : (
+                        summary && (
+                            <pre className="max-h-64 overflow-auto rounded-md bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">
+                                {summary}
+                            </pre>
+                        )
+                    )}
+                    {!summary && <p className="text-sm text-muted-foreground">No additional details</p>}
+                </div>
             </div>
         </Card>
     )

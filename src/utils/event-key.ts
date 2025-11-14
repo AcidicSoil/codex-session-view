@@ -1,4 +1,4 @@
-import type { ResponseItem } from '../types';
+import type { ResponseItem } from '~/lib/viewer-types';
 
 export function eventKey(item: ResponseItem, absoluteIndex: number): string {
   const anyItem = item as any;

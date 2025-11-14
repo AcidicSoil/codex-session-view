@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { parseSessionToArrays } from "../streaming"
+import { parseSessionToArrays } from "~/lib/session-parser/streaming"
 
 describe("streamParseSession", () => {
     it("parses meta and events from ndjson", async () => {
@@ -21,4 +21,3 @@ describe("streamParseSession", () => {
         expect(stats?.parsedEvents).toBe(2)
     })
 })
-

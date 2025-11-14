@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { render, screen } from "@testing-library/react"
+import { describe, expect, it } from "vitest"
 import type { DiscoveredSessionAsset } from "~/lib/viewerDiscovery"
-import { DiscoveryPanel } from "./DiscoveryPanel"
+import { DiscoveryPanel } from "~/components/viewer/DiscoveryPanel"
 
 const sampleSessions: DiscoveredSessionAsset[] = [
     { path: "sessions/alpha.jsonl", url: "/sessions/alpha.jsonl", sortKey: Date.UTC(2024, 0, 2) },
@@ -10,9 +10,7 @@ const sampleSessions: DiscoveredSessionAsset[] = [
 
 describe("DiscoveryPanel", () => {
     it("renders counts and session rows", () => {
-        render(
-            <DiscoveryPanel projectFiles={["src/App.tsx", "README.md"]} sessionAssets={sampleSessions} query="" onQueryChange={() => {}} />
-        )
+        render(<DiscoveryPanel projectFiles={["src/App.tsx", "README.md"]} sessionAssets={sampleSessions} />)
 
         expect(screen.getByText(/project files/i)).toHaveTextContent("2 project files")
         expect(screen.getByText(/session assets/i)).toHaveTextContent("2 session assets")
@@ -20,26 +18,9 @@ describe("DiscoveryPanel", () => {
         expect(screen.getByText("sessions/beta.jsonl")).toBeInTheDocument()
     })
 
-    it("invokes search handler when typing", () => {
-        const onQueryChange = vi.fn()
-        render(<DiscoveryPanel projectFiles={[]} sessionAssets={sampleSessions} query="" onQueryChange={onQueryChange} />)
-
-        const input = screen.getByPlaceholderText("Filter by file name…")
-        fireEvent.change(input, { target: { value: "beta" } })
-
-        expect(onQueryChange).toHaveBeenCalledWith("beta")
-    })
-
     it("shows empty state when no results match", () => {
-        render(
-            <DiscoveryPanel
-                projectFiles={[]}
-                sessionAssets={sampleSessions}
-                query="zzz"
-                onQueryChange={() => {}}
-            />
-        )
+        render(<DiscoveryPanel projectFiles={[]} sessionAssets={[]} />)
 
-        expect(screen.getByText("No session logs match that filter.")).toBeInTheDocument()
+        expect(screen.getByText("No session logs discovered yet.")).toBeInTheDocument()
     })
 })
