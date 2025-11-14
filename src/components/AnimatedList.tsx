@@ -29,8 +29,8 @@ const AnimatedItem: React.FC<AnimatedItemProps> = ({ children, delay = 0, index,
 };
 
 interface AnimatedListProps {
-  items?: string[];
-  onItemSelect?: (item: string, index: number) => void;
+  items?: ReadonlyArray<ReactNode>;
+  onItemSelect?: (item: ReactNode, index: number) => void;
   showGradients?: boolean;
   enableArrowNavigation?: boolean;
   className?: string;
@@ -154,7 +154,11 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
             }}
           >
             <div className={`p-4 bg-[#111] rounded-lg ${selectedIndex === index ? 'bg-[#222]' : ''} ${itemClassName}`}>
-              <p className="text-white m-0">{item}</p>
+              {typeof item === 'string' || typeof item === 'number' ? (
+                <p className="text-white m-0">{item}</p>
+              ) : (
+                item
+              )}
             </div>
           </AnimatedItem>
         ))}
