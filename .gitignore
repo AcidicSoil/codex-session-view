@@ -34,12 +34,15 @@ src/routeTree.gen.ts
 .ck
 .spezi
 
+# personal ignores
+.codex/
+oplink.config.mjs
 **/artifacts/**
 **/scripts/**
 **/codefetch/**
 codefetch/
-TODO/
 session-id.md
+TODO/
 # START Ruler Generated Files
 /.codex/config.toml
 /.codex/config.toml.bak

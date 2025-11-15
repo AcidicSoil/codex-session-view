@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, ReactNode, MouseEventHandler, UIEvent } from 'react';
+import React, { useRef, useState, useEffect, ReactNode, MouseEventHandler, UIEvent, useCallback } from 'react';
 import { motion, useInView } from 'motion/react';
 
 interface AnimatedItemProps {
@@ -71,6 +71,28 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
   const [topGradientOpacity, setTopGradientOpacity] = useState<number>(0);
   const [bottomGradientOpacity, setBottomGradientOpacity] = useState<number>(1);
 
+  const ensureVisible = useCallback(
+    (index: number) => {
+      if (!listRef.current || index < 0) return;
+      const container = listRef.current;
+      const element = container.querySelector(`[data-index="${index}"]`) as HTMLElement | null;
+      if (!element) return;
+
+      const margin = 32;
+      const containerTop = container.scrollTop;
+      const containerBottom = containerTop + container.clientHeight;
+      const itemTop = element.offsetTop;
+      const itemBottom = itemTop + element.offsetHeight;
+
+      if (itemTop < containerTop + margin) {
+        container.scrollTo({ top: Math.max(itemTop - margin, 0), behavior: 'smooth' });
+      } else if (itemBottom > containerBottom - margin) {
+        container.scrollTo({ top: itemBottom - container.clientHeight + margin, behavior: 'smooth' });
+      }
+    },
+    [],
+  );
+
   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.target as HTMLDivElement;
     setTopGradientOpacity(Math.min(scrollTop / 50, 1));
@@ -84,11 +106,19 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
       if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
         e.preventDefault();
         setKeyboardNav(true);
-        setSelectedIndex((prev) => Math.min(prev + 1, items.length - 1));
+        setSelectedIndex((prev) => {
+          const next = Math.min(prev + 1, items.length - 1);
+          ensureVisible(next);
+          return next;
+        });
       } else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
         e.preventDefault();
         setKeyboardNav(true);
-        setSelectedIndex((prev) => Math.max(prev - 1, 0));
+        setSelectedIndex((prev) => {
+          const next = Math.max(prev - 1, 0);
+          ensureVisible(next);
+          return next;
+        });
       } else if (e.key === 'Enter') {
         if (selectedIndex >= 0 && selectedIndex < items.length) {
           e.preventDefault();
@@ -104,34 +134,16 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
   }, [items, selectedIndex, onItemSelect, enableArrowNavigation]);
 
   useEffect(() => {
-    if (!keyboardNav || selectedIndex < 0 || !listRef.current) return;
-    const container = listRef.current;
-    const selectedItem = container.querySelector(
-      `[data-index="${selectedIndex}"]`
-    ) as HTMLElement | null;
-    if (selectedItem) {
-      const extraMargin = 50;
-      const containerScrollTop = container.scrollTop;
-      const containerHeight = container.clientHeight;
-      const itemTop = selectedItem.offsetTop;
-      const itemBottom = itemTop + selectedItem.offsetHeight;
-      if (itemTop < containerScrollTop + extraMargin) {
-        container.scrollTo({ top: itemTop - extraMargin, behavior: 'smooth' });
-      } else if (itemBottom > containerScrollTop + containerHeight - extraMargin) {
-        container.scrollTo({
-          top: itemBottom - containerHeight + extraMargin,
-          behavior: 'smooth',
-        });
-      }
-    }
+    if (!keyboardNav) return;
+    ensureVisible(selectedIndex);
     setKeyboardNav(false);
-  }, [selectedIndex, keyboardNav]);
+  }, [keyboardNav, selectedIndex, ensureVisible]);
 
   return (
-    <div className={`relative max-w-[400]px ${className}`}>
+    <div className={`relative w-full ${className}`}>
       <div
         ref={listRef}
-        className={`max-h-[400]px overflow-y-auto p-4 ${
+        className={`max-h-[840px] overflow-y-auto p-4 ${
           displayScrollbar
             ? '[&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-[#060010] [&::-webkit-scrollbar-thumb]:bg-[#222] [&::-webkit-scrollbar-thumb]:rounded-[4px]'
             : 'scrollbar-hide'
@@ -150,6 +162,7 @@ const AnimatedList: React.FC<AnimatedListProps> = ({
             onMouseEnter={() => setSelectedIndex(index)}
             onClick={() => {
               setSelectedIndex(index);
+              ensureVisible(index);
               if (onItemSelect) {
                 onItemSelect(item, index);
               }
