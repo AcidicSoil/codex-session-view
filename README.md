@@ -90,24 +90,6 @@ src/
 | **Browser Echo** | Client-side logging | [Docs](https://github.com/browser-echo/browser-echo) |
 | **Unplugin Icons** | Icon optimization | [Docs](https://github.com/antfu/unplugin-icons) |
 
-## 🗂 Session Viewer Highlights
-
-- **Drag-and-drop loader** with Intent UI’s FileTrigger + DropZone hybrid so you can click or drop `.jsonl/.ndjson` logs.
-- **Timeline filters** powered by Kibo Snippets, CodeBlocks, and quick-type toggles so parsing hundreds of events stays manageable.
-- **Persistence controls** directly in the viewer (“Persist session” switch + “Eject session” button). The switch stores the parsed session locally, and the eject button clears it instantly while firing a toast confirmation.
-
-### Session Components and Their Roles
-
-| Component | Purpose |
-|-----------|---------|
-| `DropZone` (`src/components/viewer/DropZone.tsx`) | Handles both drag+drop and click uploads via Intent UI’s FileTrigger. Shows status/meta for the current session so the loader UI explains what’s happening. |
-| `useFileLoader` (`src/hooks/useFileLoader.ts`) | Streams `.jsonl/.ndjson` files, tracks parsing progress, and optionally persists the parsed events/meta in `localStorage`. Also powers the eject/persist controls. |
-| `TimelineFilters` + `TimelineWithFilters` | Combines quick-filter toggles, ReUI Filters, and the timeline search box. Everything funnels into `AnimatedTimelineList` so all transformations happen in one place. |
-| `AnimatedTimelineList` | Renders the animated timeline cards (border beam, snippet/code blocks, collapsible details). Tied to `AnimatedList` so cards animate in/out smoothly even with thousands of events. |
-| `AnimatedList` | Generic animated scroller used anywhere we want the “persistent hover + gradient” effect. The timeline uses it to match the rest of the site’s UX. |
-| `Session Controls` (persist + eject) | Lives in `/(site)/viewer/index.tsx`. Toggles the `useFileLoader` persistence flag and ejects the current snapshot with a Sonner toast so the UX is explicit. |
-| Tests (`src/components/viewer/TimelineWithFilters.test.tsx`) | Validates every event type filter + quick filter so regressions (like the “Rendered fewer hooks” crash from zero matches) are caught via CI. |
-
 ## 🔧 Configuration
 
 ### Adding shadcn/ui Components
