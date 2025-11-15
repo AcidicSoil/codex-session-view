@@ -2,11 +2,17 @@
 <div align="center">
   <h1>Constructa Starter Min</h1>
   <p><strong>A modern Web App Starter Kit based on Tanstack Starter using React, shadcn/ui and Tailwind CSS 4</strong></p>
-  
+
   [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org/)
   [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
   [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 </div>
+
+---
+
+<p>
+<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/demo.gif" alt="demo" />
+</p>
 
 ## ✨ Features
 
@@ -22,7 +28,7 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Node.js** 18+ 
+- **Node.js** 18+
 - **pnpm** (recommended package manager)
 
 ### Download
