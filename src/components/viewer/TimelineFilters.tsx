@@ -39,6 +39,10 @@ const quickFilterOptions: { label: string; value: QuickFilter; description: stri
   { value: 'files', label: 'Files', description: 'File change diff events' },
 ]
 
+/**
+ * Presentational filter header for the timeline. Owns no state – callers manage
+ * filter/search values and pass them in.
+ */
 export function TimelineFilters({
   events,
   filters,

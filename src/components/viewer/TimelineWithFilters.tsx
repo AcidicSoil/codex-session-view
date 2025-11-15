@@ -10,6 +10,10 @@ import {
 } from '~/components/viewer/TimelineFilters'
 
 interface TimelineWithFiltersProps {
+  /**
+   * Raw timeline events. This component owns all filtering/search logic so
+   * callers don't need to manage derived state themselves.
+   */
   events: readonly ResponseItem[]
 }
 
@@ -18,11 +22,18 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
-  const searchMatches = useMemo(() => applyTimelineSearch(events, searchQuery), [events, searchQuery])
+  const searchMatches = useMemo(
+    () => applyTimelineSearch(events, searchQuery),
+    [events, searchQuery],
+  )
   const filteredEvents = useMemo(
     () => applyTimelineFilters(searchMatches, { filters, quickFilter }),
     [searchMatches, filters, quickFilter],
   )
+
+  const hasSourceEvents = events.length > 0
+  const hasFilteredEvents = filteredEvents.length > 0
+  const noMatches = hasSourceEvents && !hasFilteredEvents
 
   return (
     <div className="space-y-4">
@@ -38,12 +49,18 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />
-      <AnimatedTimelineList events={filteredEvents} />
+      {!hasSourceEvents ? (
+        <p className="text-sm text-muted-foreground">Load or drop a session to populate the timeline.</p>
+      ) : noMatches ? (
+        <p className="text-sm text-muted-foreground">No events match your current filters.</p>
+      ) : (
+        <AnimatedTimelineList events={filteredEvents} />
+      )}
     </div>
   )
 }
 
-function applyTimelineSearch(events: readonly ResponseItem[], query: string) {
+export function applyTimelineSearch(events: readonly ResponseItem[], query: string) {
   const normalized = query.trim().toLowerCase()
   if (!normalized) return events
 

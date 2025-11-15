@@ -35,6 +35,10 @@ interface AnimatedTimelineListProps {
 
 const SNIPPET_LENGTH = 100
 
+/**
+ * Virtualized, animated timeline list used by the viewer. Rendering an empty
+ * list is safe – callers should decide when to show empty-state messaging.
+ */
 export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [scrollTarget, setScrollTarget] = useState<number | null>(null)
@@ -48,10 +52,6 @@ export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTi
       })),
     [events],
   )
-
-  if (!events.length) {
-    return <p className="text-sm text-muted-foreground">Load or drop a session to populate the timeline.</p>
-  }
 
   useEffect(() => {
     if (scrollTarget === null) return
