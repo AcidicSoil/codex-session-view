@@ -1,5 +1,7 @@
 # Thin component contract - Components
 
+
+
 You own preventing component bloat. Enforce the following contract on every React/TSX file in this codebase.
 
 ---
