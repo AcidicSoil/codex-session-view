@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react';
 import type { SessionMetaParsed } from '~/lib/session-parser';
 import { FileTrigger } from '~/components/ui/file-trigger';
 import { cn } from '~/lib/utils';
+import { formatDateTime } from '~/utils/intl';
 
 export interface DropZoneProps {
   onFile: (file: File) => void;
+  onFilesSelected?: (files: File[]) => void;
   acceptExtensions?: string[];
   className?: string;
   isPending?: boolean;
@@ -16,6 +18,7 @@ const MIME_FALLBACK = 'application/x-ndjson';
 
 export function DropZone({
   onFile,
+  onFilesSelected,
   className,
   acceptExtensions = ['.jsonl', '.ndjson', '.txt'],
   isPending = false,
@@ -31,7 +34,11 @@ export function DropZone({
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsHovering(false);
-    const file = pickFirst(Array.from(event.dataTransfer.files ?? []), acceptExtensions);
+    const files = filterAcceptedFiles(Array.from(event.dataTransfer.files ?? []), acceptExtensions);
+    if (files.length > 1 && onFilesSelected) {
+      onFilesSelected(files);
+    }
+    const file = files[0];
     if (file) onFile(file);
   };
 
@@ -60,7 +67,15 @@ export function DropZone({
         <FileTrigger
           acceptExtensions={acceptExtensions}
           acceptedFileTypes={acceptedFileTypes}
+          allowMultiple
+          acceptDirectory
           onFile={onFile}
+          onSelect={(list) => {
+            const files = filterAcceptedFiles(Array.from(list ?? []), acceptExtensions);
+            if (files.length > 1 && onFilesSelected) {
+              onFilesSelected(files);
+            }
+          }}
           size="sm"
           variant="default"
           isPending={isPending}
@@ -79,7 +94,7 @@ export function DropZone({
           {meta?.timestamp ? (
             <div className="flex items-center justify-between">
               <dt className="text-muted-foreground">Timestamp</dt>
-              <dd>{new Date(meta.timestamp).toLocaleString()}</dd>
+              <dd>{formatDateTime(meta.timestamp, 'Unknown timestamp')}</dd>
             </div>
           ) : null}
           {meta?.git?.repo ? (
@@ -95,13 +110,16 @@ export function DropZone({
 }
 
 function pickFirst(files: File[], acceptExts: string[]) {
-  if (!files.length) return null;
+  const filtered = filterAcceptedFiles(files, acceptExts);
+  return filtered[0] ?? null;
+}
+
+function filterAcceptedFiles(files: File[], acceptExts: string[]) {
+  if (!files.length) return [];
+  if (!acceptExts.length) return files;
   const lowerExts = acceptExts.map((ext) => ext.toLowerCase());
-  for (const file of files) {
+  return files.filter((file) => {
     const name = file.name.toLowerCase();
-    if (lowerExts.length === 0 || lowerExts.some((ext) => name.endsWith(ext))) {
-      return file;
-    }
-  }
-  return null;
+    return lowerExts.some((ext) => name.endsWith(ext));
+  });
 }

@@ -32,7 +32,7 @@ export default ({ mode }: ConfigEnv) => {
         tag: 'tanstack-start',
         showSource: true,
         fileLog: {
-          enabled: false,
+          enabled: true,
         },
       }),
       tailwindcss(),

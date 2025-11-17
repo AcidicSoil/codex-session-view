@@ -24,6 +24,7 @@ import type { ResponseItem, MessageEvent, MessagePart } from '~/lib/viewer-types
 import type { ResponseItemParsed } from '~/lib/session-parser'
 import { TimelineView } from '~/components/viewer/TimelineView'
 import { eventKey } from '~/utils/event-key'
+import { formatClockTime } from '~/utils/intl'
 
 type TimelineEvent = ResponseItem | ResponseItemParsed
 
@@ -346,8 +347,7 @@ function truncate(value: string, limit = SNIPPET_LENGTH) {
 }
 
 function formatTimestamp(date: string | number | Date) {
-  const value = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date
-  return Number.isNaN(value.getTime()) ? '' : value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return formatClockTime(date)
 }
 
 function capitalize(value: string) {

@@ -15,63 +15,63 @@ import appCss from "../styles/app.css?url"
 import customCss from "../styles/custom.css?url"
 
 export const Route = createRootRouteWithContext<{
-    queryClient: QueryClient
+  queryClient: QueryClient;
 }>()({
-    loader: () => getTheme(),
-    head: () => ({
-        meta: [
-            {
-                charSet: "utf-8"
-            },
-            {
-                name: "viewport",
-                content: "width=device-width, initial-scale=1"
-            },
-            ...seo({
-                title: "Instructa Start",
-                description: "Instructa App Starter"
-            })
-        ],
-        links: [
-            {
-                rel: "stylesheet",
-                href: appCss
-            },
-            {
-                rel: "stylesheet",
-                href: customCss
-            },
-            {
-                rel: "apple-touch-icon",
-                sizes: "180x180",
-                href: "/apple-touch-icon.png"
-            },
-            {
-                rel: "icon",
-                type: "image/png",
-                sizes: "32x32",
-                href: "/favicon-32x32.png"
-            },
-            {
-                rel: "icon",
-                type: "image/png",
-                sizes: "16x16",
-                href: "/favicon-16x16.png"
-            },
-            { rel: "manifest", href: "/site.webmanifest", color: "#fffff" },
-            { rel: "icon", href: "/favicon.ico" }
-        ]
-    }),
-    errorComponent: (props) => {
-        return (
-            <RootDocument>
-                <DefaultCatchBoundary {...props} />
-            </RootDocument>
-        )
-    },
-    notFoundComponent: () => <NotFound />,
-    component: RootComponent
-})
+  loader: () => getTheme(),
+  head: () => ({
+    meta: [
+      {
+        charSet: 'utf-8',
+      },
+      {
+        name: 'viewport',
+        content: 'width=device-width, initial-scale=1',
+      },
+      ...seo({
+        title: 'codex session view',
+        description: 'codex session view',
+      }),
+    ],
+    links: [
+      {
+        rel: 'stylesheet',
+        href: appCss,
+      },
+      {
+        rel: 'stylesheet',
+        href: customCss,
+      },
+      {
+        rel: 'apple-touch-icon',
+        sizes: '180x180',
+        href: '/apple-touch-icon.png',
+      },
+      {
+        rel: 'icon',
+        type: 'image/png',
+        sizes: '32x32',
+        href: '/favicon-32x32.png',
+      },
+      {
+        rel: 'icon',
+        type: 'image/png',
+        sizes: '16x16',
+        href: '/favicon-16x16.png',
+      },
+      { rel: 'manifest', href: '/site.webmanifest', color: '#fffff' },
+      { rel: 'icon', href: '/favicon.ico' },
+    ],
+  }),
+  errorComponent: (props) => {
+    return (
+      <RootDocument>
+        <DefaultCatchBoundary {...props} />
+      </RootDocument>
+    );
+  },
+  notFoundComponent: () => <NotFound />,
+  component: RootComponent,
+});
 
 function RootComponent() {
     return (

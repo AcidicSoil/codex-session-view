@@ -42,10 +42,9 @@ oplink.config.mjs
 **/codefetch/**
 codefetch/
 session-id.md
-TODO/
 **/.mcp-workflows/**
 .browser-echo-mcp.json
-
+.TODO/
 
 
 # START Ruler Generated Files

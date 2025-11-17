@@ -26,6 +26,8 @@
     "@assistant-ui": "https://r.assistant-ui.com/{name}.json",
     "@reui": "https://reui.io/r/{name}.json",
     "@intentui": "https://intentui.com/r/{name}",
-    "@kibo": "https://www.kibo-ui.com/r/{name}.json"
+    "@kibo": "https://www.kibo-ui.com/r/{name}.json",
+    "@prompt-kit": "https://www.prompt-kit.com/c/{name}.json",
+    "@prosekit": "https://prosekit.dev/r/{name}.json"
   }
 }

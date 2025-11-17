@@ -3,6 +3,7 @@ import { Filters } from '~/components/ui/filters'
 import type { Filter, FilterFieldsConfig } from '~/components/ui/filters'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import type { ResponseItem } from '~/lib/viewer-types'
+import { formatCount } from '~/utils/intl'
 
 export type TimelineFilterFieldKey = 'type'
 export type TimelineFilterValue = string
@@ -63,8 +64,8 @@ export function TimelineFilters({
         <div className="space-y-0.5">
           <p className="text-sm font-semibold">Filters</p>
           <p className="text-xs text-muted-foreground">
-            Showing {filteredCount.toLocaleString()} of {searchMatchCount.toLocaleString()} matches
-            {searchMatchCount !== totalCount ? ` (from ${totalCount.toLocaleString()} events)` : null}
+            Showing {formatCount(filteredCount)} of {formatCount(searchMatchCount)} matches
+            {searchMatchCount !== totalCount ? ` (from ${formatCount(totalCount)} events)` : null}
           </p>
         </div>
         <ToggleGroup
