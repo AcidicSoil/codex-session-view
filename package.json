@@ -15,7 +15,8 @@
     "code:src": "codefetch --include-dir src -o src.md",
     "code:comp": "codefetch --include-dir src/components -o components.md",
     "code:routes": "codefetch --include-dir src/routes -o routes.md",
-    "code:hooks": "codefetch --include-dir src/hooks -o hooks.md"
+    "code:hooks": "codefetch --include-dir src/hooks -o hooks.md",
+    "code:serve": "codefetch --include-dir src/server -o server.md"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^1.0.27",

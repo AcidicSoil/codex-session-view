@@ -1,0 +1,42 @@
+[2025-11-17T06:09:01.678Z] tanstack-start [65747cf0] ERROR: A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <CatchBoundary getResetKey={function getResetKey} errorComponent={function ErrorComponent} onCatch={function onCatch}>
+      <CatchBoundaryImpl getResetKey={function getResetKey} onCatch={function onCatch}>
+        <MatchImpl matchId="__root__">
+          <SafeFragment>
+            <SafeFragment fallback={null}>
+              <CatchBoundary getResetKey={function getResetKey} errorComponent={function errorComponent} ...>
+                <CatchBoundaryImpl getResetKey={function getResetKey} onCatch={function onCatch}>
+                  <CatchNotFound fallback={function fallback}>
+                    <CatchBoundary getResetKey={function getResetKey} onCatch={function onCatch} ...>
+                      <CatchBoundaryImpl getResetKey={function getResetKey} onCatch={function onCatch}>
+                        <MatchInnerImpl matchId="__root__">
+                          <RootComponent>
+                            <RootDocument>
+                              <html
+                                lang="en"
+                                className="dark"
+-                               data-redeviation-bs-uid="cd3hcqt9hwl"
+                              >
+ (http://localhost:3001/node_modules/.vite/deps/react-dom_client.js?v=5235eacf:4073:21)
+    at http://localhost:3001/node_modules/.vite/deps/react-dom_client.js?v=5235eacf:4073:21
+[2025-11-17T06:09:24.903Z] [network] [65747cf0] INFO: [NETWORK] [GET] [/_serverFn/eyJmaWxlIjoiL0BpZC9zcmMvbGliL3RoZW1lLnRzP3Rzci1kaXJlY3RpdmUtdXNlLXNlcnZlcj0iLCJleHBvcnQiOiJnZXRUaGVtZV9jcmVhdGVTZXJ2ZXJGbl9oYW5kbGVyIn0?createServerFn] [200] [344ms]
+[2025-11-17T06:09:24.903Z] [network] [65747cf0] INFO: [NETWORK] [GET] [/_serverFn/eyJmaWxlIjoiL0BpZC9zcmMvc2VydmVyL2Z1bmN0aW9uL2Jyb3dzZXJMb2dzLnRzP3Rzci1kaXJlY3RpdmUtdXNlLXNlcnZlcj0iLCJleHBvcnQiOiJnZXRCcm93c2VyTG9nc19jcmVhdGVTZXJ2ZXJGbl9oYW5kbGVyIn0?createServerFn] [200] [352ms]
+[2025-11-17T06:55:00.338Z] [network] [65747cf0] INFO: [NETWORK] [GET] [/_serverFn/eyJmaWxlIjoiL0BpZC9zcmMvbGliL3RoZW1lLnRzP3Rzci1kaXJlY3RpdmUtdXNlLXNlcnZlcj0iLCJleHBvcnQiOiJnZXRUaGVtZV9jcmVhdGVTZXJ2ZXJGbl9oYW5kbGVyIn0?createServerFn] [200] [942ms]
+[2025-11-17T06:55:18.068Z] [network] [65747cf0] INFO: [NETWORK] [GET] [/_serverFn/eyJmaWxlIjoiL0BpZC9zcmMvbGliL3RoZW1lLnRzP3Rzci1kaXJlY3RpdmUtdXNlLXNlcnZlcj0iLCJleHBvcnQiOiJnZXRUaGVtZV9jcmVhdGVTZXJ2ZXJGbl9oYW5kbGVyIn0?createServerFn] [200] [393ms]
+[2025-11-17T06:55:18.068Z] [network] [65747cf0] INFO: [NETWORK] [GET] [/_serverFn/eyJmaWxlIjoiL0BpZC9zcmMvc2VydmVyL2Z1bmN0aW9uL3RvZG9zLnRzP3Rzci1kaXJlY3RpdmUtdXNlLXNlcnZlcj0iLCJleHBvcnQiOiJnZXRUb2Rvc19jcmVhdGVTZXJ2ZXJGbl9oYW5kbGVyIn0?createServerFn] [200] [442ms]
+[2025-11-17T06:55:18.068Z] [network] [65747cf0] INFO: [NETWORK] [GET] [/_serverFn/eyJmaWxlIjoiL0BpZC9zcmMvbGliL3RoZW1lLnRzP3Rzci1kaXJlY3RpdmUtdXNlLXNlcnZlcj0iLCJleHBvcnQiOiJnZXRUaGVtZV9jcmVhdGVTZXJ2ZXJGbl9oYW5kbGVyIn0?createServerFn] [200] [47ms]
+[2025-11-17T06:55:30.064Z] [network] [65747cf0] INFO: [NETWORK] [GET] [/_serverFn/eyJmaWxlIjoiL0BpZC9zcmMvbGliL3RoZW1lLnRzP3Rzci1kaXJlY3RpdmUtdXNlLXNlcnZlcj0iLCJleHBvcnQiOiJnZXRUaGVtZV9jcmVhdGVTZXJ2ZXJGbl9oYW5kbGVyIn0?createServerFn] [200] [15ms]
+[2025-11-17T06:55:30.938Z] [network] [65747cf0] INFO: [NETWORK] [GET] [/_serverFn/eyJmaWxlIjoiL0BpZC9zcmMvbGliL3RoZW1lLnRzP3Rzci1kaXJlY3RpdmUtdXNlLXNlcnZlcj0iLCJleHBvcnQiOiJnZXRUaGVtZV9jcmVhdGVTZXJ2ZXJGbl9oYW5kbGVyIn0?createServerFn] [200] [16ms]
+[2025-11-17T06:55:33.773Z] [network] [65747cf0] INFO: [NETWORK] [GET] [/_serverFn/eyJmaWxlIjoiL0BpZC9zcmMvbGliL3RoZW1lLnRzP3Rzci1kaXJlY3RpdmUtdXNlLXNlcnZlcj0iLCJleHBvcnQiOiJnZXRUaGVtZV9jcmVhdGVTZXJ2ZXJGbl9oYW5kbGVyIn0?createServerFn] [200] [14ms]
