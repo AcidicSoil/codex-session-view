@@ -27,3 +27,4 @@
 - (extra) dedicated section for the commands ran for the session
 - global search filter
 - clickthrough to jump to point in timeline when command was ran
+- 
