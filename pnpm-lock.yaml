@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@ai-sdk/openai-compatible':
+        specifier: ^1.0.27
+        version: 1.0.27(zod@4.1.12)
       '@radix-ui/react-avatar':
         specifier: ^1.1.10
         version: 1.1.10(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -53,6 +56,12 @@ importers:
       '@shikijs/transformers':
         specifier: ^3.15.0
         version: 3.15.0
+      '@tanstack/query-db-collection':
+        specifier: ^1.0.0
+        version: 1.0.0(@tanstack/db@0.5.0(typescript@5.9.3))(@tanstack/query-core@5.90.5)(typescript@5.9.3)
+      '@tanstack/react-db':
+        specifier: ^0.1.44
+        version: 0.1.44(react@19.2.0)(typescript@5.9.3)
       '@tanstack/react-query':
         specifier: ^5.90.5
         version: 5.90.5(react@19.2.0)
@@ -86,6 +95,9 @@ importers:
       cmdk:
         specifier: 1.1.1
         version: 1.1.1(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      fast-glob:
+        specifier: ^3.3.3
+        version: 3.3.3
       framer-motion:
         specifier: ^12.23.24
         version: 12.23.24(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -180,6 +192,9 @@ importers:
       '@testing-library/react':
         specifier: ^16.3.0
         version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@testing-library/user-event':
+        specifier: ^14.6.1
+        version: 14.6.1(@testing-library/dom@10.4.1)
       '@types/node':
         specifier: ^24.9.2
         version: 24.9.2
@@ -242,6 +257,12 @@ packages:
 
   '@ai-sdk/gateway@2.0.9':
     resolution: {integrity: sha512-E6x4h5CPPPJ0za1r5HsLtHbeI+Tp3H+YFtcH8G3dSSPFE6w+PZINzB4NxLZmg1QqSeA5HTP3ZEzzsohp0o2GEw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/openai-compatible@1.0.27':
+    resolution: {integrity: sha512-bpYruxVLhrTbVH6CCq48zMJNeHu6FmHtEedl9FXckEgcIEAi036idFhJlcRwC1jNCwlacbzb8dPD7OAH1EKJaQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -3171,6 +3192,16 @@ packages:
     resolution: {integrity: sha512-7Wwfw6wBv2Kc+OBNIJQzBSJ6q7GABtwVT+VOQ/7/Gl7z8z1rtEYUZrxUrNvbbrHY+J5/WNZNZjJjTWDf8nTUBw==}
     engines: {node: '>=18'}
 
+  '@tanstack/db-ivm@0.1.13':
+    resolution: {integrity: sha512-sBOWGY4tqMEym2ewjdWrDb5c5c8akvgnEbGVPAtkfFS3QVV0zfVb5RJAkAc8GSxb3ByVfYjyaShVr0kMJhMuow==}
+    peerDependencies:
+      typescript: '>=4.7'
+
+  '@tanstack/db@0.5.0':
+    resolution: {integrity: sha512-3AA8xiNhezH18TZ0Dq8FrakAVsRnidTVIRus2vGjFiiVLOmJFiogIVRB16xChAcF4hws12juRl5om8YKK042Hg==}
+    peerDependencies:
+      typescript: '>=4.7'
+
   '@tanstack/directive-functions-plugin@1.134.5':
     resolution: {integrity: sha512-J3oawV8uBRBbPoLgMdyHt+LxzTNuWRKNJJuCLWsm/yq6v0IQSvIVCgfD2+liIiSnDPxGZ8ExduPXy8IzS70eXw==}
     engines: {node: '>=12'}
@@ -3185,6 +3216,10 @@ packages:
     resolution: {integrity: sha512-B7+x7eP2FFvi3fgd3rNH9o/Eixt+pp0zCIdGhnQbAJjFrlwIKGjGnwyJjhWJ5fMQlGks/E2LdDTqEV4W9Plx7g==}
     engines: {node: '>=12'}
 
+  '@tanstack/pacer@0.1.0':
+    resolution: {integrity: sha512-QVzkGO5clvGj/qdX8H2wUj0QCXCLZ/pwPMnfSqhoYfpzDRkRHDj+3D+VzdcehBIVnE+GCd1D/P1tGMzfjmfrzQ==}
+    engines: {node: '>=18'}
+
   '@tanstack/publish-config@0.2.1':
     resolution: {integrity: sha512-URVXmXwlZXL75AFyvyOORef1tv2f16dEaFntwLYnBHoKLQMxyWYRzQrnXooxO1xf+GidJuDSZSC6Rc9UX1aK7g==}
     engines: {node: '>=18'}
@@ -3192,8 +3227,20 @@ packages:
   '@tanstack/query-core@5.90.5':
     resolution: {integrity: sha512-wLamYp7FaDq6ZnNehypKI5fNvxHPfTYylE0m/ZpuuzJfJqhR5Pxg9gvGBHZx4n7J+V5Rg5mZxHHTlv25Zt5u+w==}
 
+  '@tanstack/query-db-collection@1.0.0':
+    resolution: {integrity: sha512-BO5m9C73kFwuymB1XblVInyE1rNNaNlIDe7W26xSdecSCSm4AH1OyTxmgoUn0IbfMCUg6i3m7ww45cniy33ukg==}
+    peerDependencies:
+      '@tanstack/db': '*'
+      '@tanstack/query-core': ^5.0.0
+      typescript: '>=4.7'
+
   '@tanstack/query-devtools@5.90.1':
     resolution: {integrity: sha512-GtINOPjPUH0OegJExZ70UahT9ykmAhmtNVcmtdnOZbxLwT7R5OmRztR5Ahe3/Cu7LArEmR6/588tAycuaWb1xQ==}
+
+  '@tanstack/react-db@0.1.44':
+    resolution: {integrity: sha512-O1jYNhCWhrGvJYP2QBmG4HMPcUEbJoX78WYHAwjNl1slGqm7KuGKQtkOZovFNuioLiLaJmkU+77X5k+MBo2wfw==}
+    peerDependencies:
+      react: '>=16.8.0'
 
   '@tanstack/react-query-devtools@5.90.2':
     resolution: {integrity: sha512-vAXJzZuBXtCQtrY3F/yUNJCV4obT/A/n81kb3+YqLbro5Z2+phdAbceO+deU3ywPw8B42oyJlp4FhO0SoivDFQ==}
@@ -3411,6 +3458,12 @@ packages:
         optional: true
       '@types/react-dom':
         optional: true
+
+  '@testing-library/user-event@14.6.1':
+    resolution: {integrity: sha512-vq7fv0rnt+QTXgPxr5Hjc210p6YKq2kmdziLgnsZGgLJ9e6VAShx1pACLuRjd/AS/sr7phAR58OIIpf0LlmQNw==}
+    engines: {node: '>=12', npm: '>=6'}
+    peerDependencies:
+      '@testing-library/dom': '>=7.21.4'
 
   '@tootallnate/once@2.0.0':
     resolution: {integrity: sha512-XCuKFP5PS55gnMVu3dty8KPatLqUoy/ZYzDzAGCQ8JNFCkLXzmI7vNHCR+XpbZaMWQK/vQubr7PkYq8g470J/A==}
@@ -4725,6 +4778,10 @@ packages:
 
   fraction.js@4.3.7:
     resolution: {integrity: sha512-ZsDfxO51wGAXREY55a7la9LScWpwv9RxIrYABrlvOFBlH/ShPnrtsXeuUIfXKKOVicNxQ+o8JTbJvjS4M89yew==}
+
+  fractional-indexing@3.2.0:
+    resolution: {integrity: sha512-PcOxmqwYCW7O2ovKRU8OoQQj2yqTfEB/yeTYk4gPid6dN5ODRfU1hXd9tTVZzax/0NkO7AxpHykvZnT1aYp/BQ==}
+    engines: {node: ^14.13.1 || >=16.0.0}
 
   framer-motion@12.23.24:
     resolution: {integrity: sha512-HMi5HRoRCTou+3fb3h9oTLyJGBxHfW+HnNE25tAXOvVx/IvwMHK0cx7IR4a2ZU6sh3IX1Z+4ts32PcYBOqka8w==}
@@ -6342,6 +6399,9 @@ packages:
       react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
       react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
 
+  sorted-btree@1.8.1:
+    resolution: {integrity: sha512-395+XIP+wqNn3USkFSrNz7G3Ss/MXlZEqesxvzCRFwL14h6e8LukDHdLBePn5pwbm5OQ9vGu8mDyz2lLDIqamQ==}
+
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
@@ -7158,6 +7218,12 @@ snapshots:
       '@ai-sdk/provider': 2.0.0
       '@ai-sdk/provider-utils': 3.0.17(zod@4.1.12)
       '@vercel/oidc': 3.0.3
+      zod: 4.1.12
+
+  '@ai-sdk/openai-compatible@1.0.27(zod@4.1.12)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.17(zod@4.1.12)
       zod: 4.1.12
 
   '@ai-sdk/provider-utils@3.0.17(zod@4.1.12)':
@@ -10789,6 +10855,19 @@ snapshots:
       - typescript
       - vite
 
+  '@tanstack/db-ivm@0.1.13(typescript@5.9.3)':
+    dependencies:
+      fractional-indexing: 3.2.0
+      sorted-btree: 1.8.1
+      typescript: 5.9.3
+
+  '@tanstack/db@0.5.0(typescript@5.9.3)':
+    dependencies:
+      '@standard-schema/spec': 1.0.0
+      '@tanstack/db-ivm': 0.1.13(typescript@5.9.3)
+      '@tanstack/pacer': 0.1.0
+      typescript: 5.9.3
+
   '@tanstack/directive-functions-plugin@1.134.5(vite@7.1.12(@types/node@24.9.2)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1))':
     dependencies:
       '@babel/code-frame': 7.27.1
@@ -10821,6 +10900,8 @@ snapshots:
 
   '@tanstack/history@1.133.28': {}
 
+  '@tanstack/pacer@0.1.0': {}
+
   '@tanstack/publish-config@0.2.1':
     dependencies:
       '@commitlint/parse': 19.8.1
@@ -10832,7 +10913,22 @@ snapshots:
 
   '@tanstack/query-core@5.90.5': {}
 
+  '@tanstack/query-db-collection@1.0.0(@tanstack/db@0.5.0(typescript@5.9.3))(@tanstack/query-core@5.90.5)(typescript@5.9.3)':
+    dependencies:
+      '@standard-schema/spec': 1.0.0
+      '@tanstack/db': 0.5.0(typescript@5.9.3)
+      '@tanstack/query-core': 5.90.5
+      typescript: 5.9.3
+
   '@tanstack/query-devtools@5.90.1': {}
+
+  '@tanstack/react-db@0.1.44(react@19.2.0)(typescript@5.9.3)':
+    dependencies:
+      '@tanstack/db': 0.5.0(typescript@5.9.3)
+      react: 19.2.0
+      use-sync-external-store: 1.6.0(react@19.2.0)
+    transitivePeerDependencies:
+      - typescript
 
   '@tanstack/react-query-devtools@5.90.2(@tanstack/react-query@5.90.5(react@19.2.0))(react@19.2.0)':
     dependencies:
@@ -11197,6 +11293,10 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.2
       '@types/react-dom': 19.2.2(@types/react@19.2.2)
+
+  '@testing-library/user-event@14.6.1(@testing-library/dom@10.4.1)':
+    dependencies:
+      '@testing-library/dom': 10.4.1
 
   '@tootallnate/once@2.0.0': {}
 
@@ -12664,6 +12764,8 @@ snapshots:
   forwarded@0.2.0: {}
 
   fraction.js@4.3.7: {}
+
+  fractional-indexing@3.2.0: {}
 
   framer-motion@12.23.24(react-dom@19.2.0(react@19.2.0))(react@19.2.0):
     dependencies:
@@ -14570,6 +14672,8 @@ snapshots:
     dependencies:
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
+
+  sorted-btree@1.8.1: {}
 
   source-map-js@1.2.1: {}
 

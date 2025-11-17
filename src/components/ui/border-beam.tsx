@@ -37,7 +37,7 @@ export const BorderBeam = ({
     <div
       className="pointer-events-none absolute inset-0 rounded-[inherit] border-[length:var(--border-beam-width)] border-transparent [mask-image:linear-gradient(transparent,transparent),linear-gradient(#000,#000)] [mask-composite:intersect] [mask-clip:padding-box,border-box]"
       style={{
-        ...(style ?? {}),
+        ...style,
         ['--border-beam-width']: `${borderWidth}px`,
       } as React.CSSProperties & Record<'--border-beam-width', string>}
     >

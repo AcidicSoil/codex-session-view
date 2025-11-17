@@ -66,14 +66,14 @@ export async function* streamParseSession(
       if (mres.success) {
         meta = mres.data;
         version = pickVersion(meta);
-        yield { kind: 'meta', line: 1 as 1, meta, version };
+        yield { kind: 'meta', line: 1 as const, meta, version };
         continue;
       }
       const evTry = parseResponseItemLine(line);
       if (evTry.success) {
         meta = { timestamp: new Date().toISOString() } as SessionMetaParsed;
         version = pickVersion(meta);
-        yield { kind: 'meta', line: 1 as 1, meta, version };
+        yield { kind: 'meta', line: 1 as const, meta, version };
         parsed++;
         yield { kind: 'event', line: lineNo, event: evTry.data };
         continue;

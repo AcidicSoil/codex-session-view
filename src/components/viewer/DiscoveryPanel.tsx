@@ -1,11 +1,26 @@
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
+import { SessionList } from '~/components/viewer/SessionList';
+import { formatCount } from '~/utils/intl';
 
 interface DiscoveryPanelProps {
   projectFiles: string[];
   sessionAssets: DiscoveredSessionAsset[];
+  generatedAtMs: number;
+  selectedFilterIds?: string[];
+  onSelectedFilterIdsChange?: (next: string[]) => void;
+  expandedRepoIds?: string[];
+  onExpandedRepoIdsChange?: (next: string[]) => void;
 }
 
-export function DiscoveryPanel({ projectFiles, sessionAssets }: DiscoveryPanelProps) {
+export function DiscoveryPanel({
+  projectFiles,
+  sessionAssets,
+  generatedAtMs,
+  selectedFilterIds,
+  onSelectedFilterIdsChange,
+  expandedRepoIds,
+  onExpandedRepoIdsChange,
+}: DiscoveryPanelProps) {
   return (
     <div className="space-y-6">
       <header className="space-y-2">
@@ -14,33 +29,24 @@ export function DiscoveryPanel({ projectFiles, sessionAssets }: DiscoveryPanelPr
         </p>
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <span>
-            <strong>{projectFiles.length.toLocaleString()}</strong> project files
+            <strong>{formatCount(projectFiles.length)}</strong> project files
           </span>
           <span>
-            <strong>{sessionAssets.length.toLocaleString()}</strong> session assets
+            <strong>{formatCount(sessionAssets.length)}</strong> session assets
           </span>
         </div>
       </header>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold">Session files</h2>
-        {sessionAssets.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No session logs discovered yet.</p>
-        ) : (
-          <ul className="divide-y divide-border rounded-md border border-border">
-            {sessionAssets.map((asset) => (
-              <li key={asset.path} className="flex items-center justify-between gap-4 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{asset.path}</p>
-                  <p className="truncate text-xs text-muted-foreground">{asset.url}</p>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {asset.sortKey ? new Date(asset.sortKey).toLocaleString() : '—'}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <h2 className="text-base font-semibold">Session explorer</h2>
+        <SessionList
+          sessionAssets={sessionAssets}
+          snapshotTimestamp={generatedAtMs}
+          selectedFilterIds={selectedFilterIds}
+          onSelectedFilterIdsChange={onSelectedFilterIdsChange}
+          expandedRepoIds={expandedRepoIds}
+          onExpandedRepoIdsChange={onExpandedRepoIdsChange}
+        />
       </section>
     </div>
   );

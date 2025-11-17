@@ -1,5 +1,5 @@
 // path: src/routes/(site)/viewer/index.tsx
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { DiscoveryPanel } from '~/components/viewer/DiscoveryPanel';
 import { DropZone } from '~/components/viewer/DropZone';
@@ -7,12 +7,46 @@ import { TimelineWithFilters } from '~/components/viewer/TimelineWithFilters';
 import { ChatDock } from '~/components/viewer/ChatDock';
 import { Button } from '~/components/ui/button';
 import { Switch } from '~/components/ui/switch';
+import { sanitizeSessionFilterIds } from '~/components/viewer/SessionList';
 import { useFileLoader } from '~/hooks/useFileLoader';
-import { discoverProjectAssets } from '~/lib/viewerDiscovery';
+import { discoverProjectAssets } from '~/lib/viewer-types/viewerDiscovery';
 import { seo } from '~/utils/seo';
 import { toast } from 'sonner';
+import { z } from 'zod';
+import { persistSessionFile } from '~/server/function/sessionStore';
+import { formatCount } from '~/utils/intl';
+
+const searchSchema = z
+  .object({
+    filters: z.array(z.string()).catch([]),
+    expanded: z.array(z.string()).catch([]),
+  })
+  .transform(({ filters, expanded }) => ({
+    filters: sanitizeSessionFilterIds(filters),
+    expanded: dedupeRepoSearchIds(expanded),
+  }));
+
+function dedupeRepoSearchIds(ids: string[]) {
+  const seen = new Set<string>();
+  const cleaned: string[] = [];
+  for (const id of ids) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    cleaned.push(id);
+  }
+  return cleaned;
+}
+
+function arraysEqual(a: string[], b: string[]) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
 
 export const Route = createFileRoute('/(site)/viewer/')({
+  validateSearch: searchSchema,
   loader: () => discoverProjectAssets(),
   head: () => ({
     meta: seo({
@@ -25,25 +59,90 @@ export const Route = createFileRoute('/(site)/viewer/')({
 
 function ViewerRouteComponent() {
   const data = Route.useLoaderData();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const router = useRouter();
   const loader = useFileLoader();
   const [isEjecting, setIsEjecting] = useState(false);
+  const [isPersistingUpload, setIsPersistingUpload] = useState(false);
+
+  const persistUploads = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      setIsPersistingUpload(true);
+      try {
+        for (const file of files) {
+          const content = await file.text();
+          await persistSessionFile({ data: { filename: file.name, content } });
+        }
+        await router.invalidate();
+        toast.success(
+          files.length > 1
+            ? `${formatCount(files.length)} sessions cached to ~/.codex/sessions`
+            : 'Session cached to ~/.codex/sessions'
+        );
+      } catch (error) {
+        toast.error('Failed to cache session', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        });
+      } finally {
+        setIsPersistingUpload(false);
+      }
+    },
+    [router]
+  );
 
   const handleFile = useCallback(
     (file: File) => {
       loader.start(file);
+      void persistUploads([file]);
     },
-    [loader]
+    [loader, persistUploads]
+  );
+
+  const handleFolderSelection = useCallback(
+    (files: File[]) => {
+      if (!files.length) return;
+      void persistUploads(files);
+    },
+    [persistUploads]
+  );
+
+  const handleFilterSearchChange = useCallback(
+    (next: string[]) => {
+      const sanitized = sanitizeSessionFilterIds(next);
+      if (arraysEqual(sanitized, search.filters)) return;
+      navigate({
+        search: (prev) => ({ ...prev, filters: sanitized }),
+        replace: true,
+      });
+    },
+    [navigate, search.filters]
+  );
+
+  const handleExpandedSearchChange = useCallback(
+    (next: string[]) => {
+      const deduped = dedupeRepoSearchIds(next);
+      if (arraysEqual(deduped, search.expanded)) return;
+      navigate({
+        search: (prev) => ({ ...prev, expanded: deduped }),
+        replace: true,
+      });
+    },
+    [navigate, search.expanded]
   );
 
   const meta = loader.state.meta;
   const progressLabel =
     loader.state.phase === 'parsing'
-      ? `Parsing… (${loader.progress.ok.toLocaleString()} ok / ${loader.progress.fail.toLocaleString()} errors)`
+      ? `Parsing… (${formatCount(loader.progress.ok)} ok / ${formatCount(loader.progress.fail)} errors)`
       : loader.state.phase === 'success'
-        ? `Loaded ${loader.state.events.length.toLocaleString()} events`
+        ? `Loaded ${formatCount(loader.state.events.length)} events`
         : loader.state.phase === 'error' && loader.progress.fail > 0
-          ? `Finished with ${loader.progress.fail.toLocaleString()} errors`
+          ? `Finished with ${formatCount(loader.progress.fail)} errors`
           : 'Idle';
+  const dropZonePending = loader.state.phase === 'parsing' || isPersistingUpload;
+  const dropZoneStatus = isPersistingUpload ? 'Caching session to ~/.codex/sessions…' : progressLabel;
 
   const hasEvents = loader.state.events.length > 0
   const timelineContent = loader.state.phase === 'parsing'
@@ -73,7 +172,15 @@ function ViewerRouteComponent() {
       </section>
 
       {data ? (
-        <DiscoveryPanel projectFiles={data.projectFiles} sessionAssets={data.sessionAssets} />
+        <DiscoveryPanel
+          projectFiles={data.projectFiles}
+          sessionAssets={data.sessionAssets}
+          generatedAtMs={data.generatedAt}
+          selectedFilterIds={search.filters}
+          onSelectedFilterIdsChange={handleFilterSearchChange}
+          expandedRepoIds={search.expanded}
+          onExpandedRepoIdsChange={handleExpandedSearchChange}
+        />
       ) : null}
 
       <section className="grid gap-6 lg:grid-cols-[2fr,1fr]" key={data ? 'ready' : 'loading'}>
@@ -106,9 +213,10 @@ function ViewerRouteComponent() {
           <div className="flex justify-start">
             <DropZone
               onFile={handleFile}
+              onFilesSelected={handleFolderSelection}
               acceptExtensions={['.jsonl', '.ndjson', '.txt']}
-              isPending={loader.state.phase === 'parsing'}
-              statusLabel={progressLabel}
+              isPending={dropZonePending}
+              statusLabel={dropZoneStatus}
               meta={meta}
             />
           </div>

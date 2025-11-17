@@ -23,6 +23,7 @@ export function FileTrigger({
   acceptExtensions,
   acceptedFileTypes,
   allowMultiple,
+  acceptDirectory,
   onFile,
   onSelect,
   isPending = false,
@@ -77,9 +78,16 @@ export function FileTrigger({
         ref={inputRef}
         type="file"
         accept={acceptAttr}
-        multiple={allowMultiple}
+        multiple={allowMultiple || acceptDirectory}
         onChange={handleChange}
         className="hidden"
+        {...(acceptDirectory
+          ? {
+              webkitdirectory: '' as any,
+              directory: '' as any,
+              mozdirectory: '' as any,
+            }
+          : {})}
       />
       <Button
         type="button"

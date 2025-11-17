@@ -3,12 +3,12 @@ import { Badge } from "~/components/ui/badge"
 import { BorderBeam } from "~/components/ui/border-beam"
 import type { MessagePart, ResponseItem } from "~/lib/viewer-types"
 import { cn } from "~/lib/utils"
+import { formatDateTime } from "~/utils/intl"
 
 function formatTimestamp(value?: string | number) {
     if (!value) return null
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return String(value)
-    return date.toLocaleString()
+    const formatted = formatDateTime(value, "")
+    return formatted || String(value)
 }
 
 function renderSummary(event: ResponseItem) {

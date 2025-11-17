@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { act, fireEvent, render, screen, within } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
 import type { DiscoveredSessionAsset } from "~/lib/viewerDiscovery"
 import { DiscoveryPanel } from "~/components/viewer/DiscoveryPanel"
 
@@ -9,17 +9,44 @@ const sampleSessions: DiscoveredSessionAsset[] = [
 ]
 
 describe("DiscoveryPanel", () => {
-    it("renders counts and session rows", () => {
-        render(<DiscoveryPanel projectFiles={["src/App.tsx", "README.md"]} sessionAssets={sampleSessions} />)
+    it("renders counts, filters, and grouped session lists", () => {
+        vi.useFakeTimers()
 
-        expect(screen.getByText(/project files/i)).toHaveTextContent("2 project files")
-        expect(screen.getByText(/session assets/i)).toHaveTextContent("2 session assets")
-        expect(screen.getByText("sessions/alpha.jsonl")).toBeInTheDocument()
-        expect(screen.getByText("sessions/beta.jsonl")).toBeInTheDocument()
+        try {
+            render(
+                <DiscoveryPanel
+                    projectFiles={["src/App.tsx", "README.md"]}
+                    sessionAssets={sampleSessions}
+                    generatedAtMs={Date.UTC(2024, 0, 4)}
+                />,
+            )
+
+            expect(screen.getByText(/project files/i)).toHaveTextContent("2 project files")
+            expect(screen.getByText(/session assets/i)).toHaveTextContent("2 session assets")
+            expect(screen.getByText(/repository filters/i)).toBeInTheDocument()
+            expect(screen.getByText("Size > 1 MB")).toBeInTheDocument()
+            expect(screen.getByText("Alpha")).toBeInTheDocument()
+
+            const alphaCard = screen.getByText("Alpha").closest("article")
+            expect(alphaCard).not.toBeNull()
+            const expandButton = within(alphaCard as HTMLElement).getByRole("button", { name: /session/i })
+
+            act(() => {
+                fireEvent.click(expandButton)
+            })
+
+            act(() => {
+                vi.runAllTimers()
+            })
+
+            expect(screen.getByText("sessions/alpha.jsonl")).toBeInTheDocument()
+        } finally {
+            vi.useRealTimers()
+        }
     })
 
     it("shows empty state when no results match", () => {
-        render(<DiscoveryPanel projectFiles={[]} sessionAssets={[]} />)
+        render(<DiscoveryPanel projectFiles={[]} sessionAssets={[]} generatedAtMs={Date.UTC(2024, 0, 4)} />)
 
         expect(screen.getByText("No session logs discovered yet.")).toBeInTheDocument()
     })
