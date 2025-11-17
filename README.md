@@ -1,7 +1,7 @@
 
 <div align="center">
   <h1>Codex Session Viewer</h1>
-  <p><strong>A modern Web App Starter Kit based on Tanstack Starter using React, shadcn/ui and Tailwind CSS 4</strong></p>
+  <p><strong>Using a modern Web App Starter Kit based on Tanstack Starter using React, shadcn/ui and Tailwind CSS 4</strong></p>
 
   [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org/)
   [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
@@ -28,6 +28,7 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - **Node.js** 18+
 - **pnpm** (recommended package manager)
 
@@ -93,6 +94,7 @@ src/
 ## 🔧 Configuration
 
 ### Adding shadcn/ui Components
+
 ```bash
 # Add new components
 npx shadcn@latest add button
@@ -101,22 +103,26 @@ npx shadcn@latest add input
 ```
 
 ### Tailwind CSS
+
 - Uses Tailwind CSS v4 with modern CSS-first configuration
 - Configured in `app.config.ts`
 - Global styles in `src/app/styles/`
 
 ### TypeScript
+
 - **Path aliases**: `@` resolves to the root `./` directory
 - **Route files**: Must use `.tsx` extension
 
 ## 🚀 Deployment
 
 ### Build for Production
+
 ```bash
 pnpm build
 ```
 
 ### Start Production Server
+
 ```bash
 pnpm start
 ```

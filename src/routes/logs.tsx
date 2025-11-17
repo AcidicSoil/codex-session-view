@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { Button } from '~/components/ui/button';
 import { formatDateTime } from '~/utils/intl';
-import { getBrowserLogs, type BrowserLogSnapshot } from './__server';
+import { getBrowserLogs, type BrowserLogSnapshot } from '~/server/function/browserLogs';
 import 'virtual:browser-echo'; // Ensure browser-echo patches the runtime when route is bundled
 
 interface LogsLoaderData {
