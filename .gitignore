@@ -36,7 +36,7 @@ src/routeTree.gen.ts
 .spezi
 
 # personal ignores
-.sample_session/
+
 playwright-report/
 .codex/
 oplink.config.mjs
@@ -49,7 +49,7 @@ session-id.md
 .browser-echo-mcp.json
 .TODO/
 .gemini/
-
+*.jsonl
 pnpm-lock.yaml
 # START Ruler Generated Files
 /.codex/config.toml
