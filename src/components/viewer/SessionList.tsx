@@ -284,12 +284,24 @@ export function SessionList({
             const isExpanded = resolvedExpandedRepoIds.includes(repo.id);
             const intentClass = getSessionChipIntent(repo.sessions.length);
             const sessionLabel = repo.sessions.length === 1 ? 'session' : 'sessions';
+            const sectionId = `repo-${repo.id}`;
             return (
               <article
                 key={repo.id}
                 className="rounded-2xl border border-border/80 bg-muted/5 p-4 transition hover:border-foreground/40"
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  aria-expanded={isExpanded}
+                  aria-controls={`${sectionId}-sessions`}
+                  aria-label={`Toggle ${repo.label} repository`}
+                  onClick={() => toggleRepo(repo.id, repo.sessions.length)}
+                  className={cn(
+                    'flex w-full flex-col gap-3 rounded-xl border border-transparent px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center sm:justify-between',
+                    intentClass,
+                    isExpanded && 'ring-2 ring-offset-1 ring-offset-background'
+                  )}
+                >
                   <div className="flex flex-wrap items-center gap-3">
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -306,32 +318,21 @@ export function SessionList({
                         <p className="text-xs opacity-80">Last updated: {formatDate(repo.lastUpdated)}</p>
                       </TooltipContent>
                     </Tooltip>
-
-                    <button
-                      type="button"
-                      onClick={() => toggleRepo(repo.id, repo.sessions.length)}
-                      className={cn(
-                        'flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        intentClass,
-                        isExpanded && 'ring-2 ring-offset-1 ring-offset-background'
-                      )}
-                    >
-                      <span>
-                        {formatCount(repo.sessions.length)} {sessionLabel}
-                      </span>
-                      <span className="text-[10px] uppercase tracking-wide">
-                        {isExpanded ? 'Hide' : 'Expand'}
-                      </span>
-                    </button>
+                    <span className="text-xs font-semibold">
+                      {formatCount(repo.sessions.length)} {sessionLabel}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wide">
+                      {isExpanded ? 'Hide' : 'Expand'}
+                    </span>
                   </div>
                   <div className="text-right text-xs text-muted-foreground">
                     <p>{formatBytes(repo.totalSize)}</p>
                     <p>Updated {formatRelativeTime(repo.lastUpdated, snapshotTimestamp)}</p>
                   </div>
-                </div>
+                </button>
 
                 {isExpanded ? (
-                  <div className="mt-3">
+                  <div className="mt-3" id={`${sectionId}-sessions`}>
                     {loadingRepoId === repo.id ? (
                       <div className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-4 text-xs text-muted-foreground">
                         <Loader className="size-4" aria-label="Loading sessions" />
@@ -341,9 +342,28 @@ export function SessionList({
                       <ul className="divide-y divide-border rounded-xl border border-border/80 bg-background/70">
                         {repo.sessions.map((session) => (
                           <li key={session.path} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="min-w-0">
+                            <div className="min-w-0 space-y-1">
                               <p className="truncate text-sm font-medium">{session.path}</p>
-                              <p className="truncate text-xs text-muted-foreground">{session.url}</p>
+                              <a
+                                className="truncate text-xs text-primary underline-offset-2 hover:underline"
+                                href={session.url}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {session.url}
+                              </a>
+                              {session.tags && session.tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 text-[11px] text-muted-foreground">
+                                  {session.tags.map((tag) => (
+                                    <span
+                                      key={`${session.path}-${tag}`}
+                                      className="rounded-full border border-border/70 px-2 py-0.5"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
                             </div>
                             <div className="text-right text-xs text-muted-foreground">
                               <p>{formatBytes(session.size)}</p>

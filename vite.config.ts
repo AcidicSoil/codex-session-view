@@ -27,6 +27,7 @@ export default ({ mode }: ConfigEnv) => {
         jsx: 'react',
       }),
       browserEcho({
+        injectHtml: false,
         include: ['error', 'warn', 'info'],
         stackMode: 'condensed',
         tag: 'tanstack-start',

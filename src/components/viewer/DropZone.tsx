@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { SessionMetaParsed } from '~/lib/session-parser';
 import { FileTrigger } from '~/components/ui/file-trigger';
 import { cn } from '~/lib/utils';
 import { formatDateTime } from '~/utils/intl';
+import { logInfo } from '~/lib/logger';
 
 export interface DropZoneProps {
   onFile: (file: File) => void;
@@ -30,16 +31,28 @@ export function DropZone({
     () => Array.from(new Set([...acceptExtensions, MIME_FALLBACK])),
     [acceptExtensions]
   );
+  const handleSingleFileSelection = useCallback(
+    (file?: File) => {
+      if (!file) return;
+      logInfo('dropzone', 'Single file selected', { name: file.name });
+      onFile(file);
+    },
+    [onFile]
+  );
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsHovering(false);
     const files = filterAcceptedFiles(Array.from(event.dataTransfer.files ?? []), acceptExtensions);
     if (files.length > 1 && onFilesSelected) {
+      logInfo('dropzone', 'Multiple files dropped', { count: files.length });
       onFilesSelected(files);
     }
     const file = files[0];
-    if (file) onFile(file);
+    if (file) {
+      logInfo('dropzone', 'Drop accepted', { name: file.name });
+      onFile(file);
+    }
   };
 
   return (
@@ -64,24 +77,47 @@ export function DropZone({
           <p className="text-sm font-semibold">Upload session log</p>
           <p className="text-xs text-muted-foreground">Select or drop a .jsonl/.ndjson transcript.</p>
         </div>
-        <FileTrigger
-          acceptExtensions={acceptExtensions}
-          acceptedFileTypes={acceptedFileTypes}
-          allowMultiple
-          acceptDirectory
-          onFile={onFile}
-          onSelect={(list) => {
-            const files = filterAcceptedFiles(Array.from(list ?? []), acceptExtensions);
-            if (files.length > 1 && onFilesSelected) {
-              onFilesSelected(files);
-            }
-          }}
-          size="sm"
-          variant="default"
-          isPending={isPending}
-        >
-          {isPending ? 'Uploading…' : 'Upload session'}
-        </FileTrigger>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <FileTrigger
+            acceptExtensions={acceptExtensions}
+            acceptedFileTypes={acceptedFileTypes}
+            allowMultiple
+            onSelect={(list) => {
+              if (!list) return;
+              const files = filterAcceptedFiles(Array.from(list), acceptExtensions);
+              if (!files.length) return;
+              if (files.length === 1) {
+                handleSingleFileSelection(files[0]);
+              } else {
+                logInfo('dropzone', 'Multiple files selected via picker', { count: files.length });
+                onFilesSelected?.(files);
+              }
+            }}
+            size="sm"
+            variant="default"
+            isPending={isPending}
+          >
+            {isPending ? 'Uploading…' : 'Upload files'}
+          </FileTrigger>
+          <FileTrigger
+            acceptExtensions={acceptExtensions}
+            acceptedFileTypes={acceptedFileTypes}
+            allowMultiple
+            acceptDirectory
+            onSelect={(list) => {
+              const files = filterAcceptedFiles(Array.from(list ?? []), acceptExtensions);
+              if (files.length) {
+                logInfo('dropzone', 'Folder upload selected', { count: files.length });
+                onFilesSelected?.(files);
+              }
+            }}
+            size="sm"
+            variant="outline"
+            isPending={isPending}
+          >
+            {isPending ? 'Scanning…' : 'Upload folder'}
+          </FileTrigger>
+        </div>
         <p className="text-xs text-muted-foreground">Supports .jsonl, .ndjson, or .txt exports.</p>
       </div>
 
@@ -107,11 +143,6 @@ export function DropZone({
       ) : null}
     </div>
   );
-}
-
-function pickFirst(files: File[], acceptExts: string[]) {
-  const filtered = filterAcceptedFiles(files, acceptExts);
-  return filtered[0] ?? null;
 }
 
 function filterAcceptedFiles(files: File[], acceptExts: string[]) {

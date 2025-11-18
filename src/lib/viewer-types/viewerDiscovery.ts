@@ -122,7 +122,8 @@ export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot>
     size: getFileSizeFromGlobPath(path, nodeDeps),
   }));
   const externalSessions = await discoverExternalSessionAssets(nodeDeps);
-  const sessionAssets = sortSessionAssets(mergeSessionAssets(bundledSessions, externalSessions));
+  const storedUploads = await discoverStoredSessionAssets();
+  const sessionAssets = sortSessionAssets(mergeSessionAssets(bundledSessions, externalSessions, storedUploads));
   return { projectFiles, sessionAssets, generatedAt: Date.now() };
 }
 
@@ -215,4 +216,17 @@ function joinDisplayPath(prefix: string, relativePath: string) {
 
 function normalizeSlashes(value: string) {
   return value.replace(/\\/g, '/').replace(/\/+$/, '');
+}
+
+async function discoverStoredSessionAssets(): Promise<DiscoveredSessionAsset[]> {
+  if (!isServerRuntime) return [];
+  const { listSessionUploadRecords } = await import('~/server/persistence/sessionUploads');
+  const records = await listSessionUploadRecords();
+  return records.map((record) => ({
+    path: `uploads/${record.originalName}`,
+    url: record.fileUrl,
+    sortKey: Date.parse(record.storedAt),
+    size: record.size,
+    tags: ['upload'],
+  }));
 }

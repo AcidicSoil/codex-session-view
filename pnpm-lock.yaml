@@ -56,9 +56,12 @@ importers:
       '@shikijs/transformers':
         specifier: ^3.15.0
         version: 3.15.0
+      '@tanstack/db':
+        specifier: ^0.5.1
+        version: 0.5.1(typescript@5.9.3)
       '@tanstack/query-db-collection':
         specifier: ^1.0.0
-        version: 1.0.0(@tanstack/db@0.5.0(typescript@5.9.3))(@tanstack/query-core@5.90.5)(typescript@5.9.3)
+        version: 1.0.0(@tanstack/db@0.5.1(typescript@5.9.3))(@tanstack/query-core@5.90.5)(typescript@5.9.3)
       '@tanstack/react-db':
         specifier: ^0.1.44
         version: 0.1.44(react@19.2.0)(typescript@5.9.3)
@@ -168,6 +171,9 @@ importers:
       '@intellectronica/ruler':
         specifier: ^0.3.11
         version: 0.3.11
+      '@playwright/test':
+        specifier: ^1.56.1
+        version: 1.56.1
       '@t3-oss/env-core':
         specifier: ^0.13.8
         version: 0.13.8(typescript@5.9.3)(zod@4.1.12)
@@ -1562,6 +1568,11 @@ packages:
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
+
+  '@playwright/test@1.56.1':
+    resolution: {integrity: sha512-vSMYtL/zOcFpvJCW71Q/OEGQb7KYBPAdKh35WNSkaZA75JlAO8ED8UN6GUNTm3drWomcbcqRPFqQbLae8yBTdg==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -3202,6 +3213,15 @@ packages:
     peerDependencies:
       typescript: '>=4.7'
 
+  '@tanstack/db@0.5.1':
+    resolution: {integrity: sha512-u87JYlnwe2SWE1mKyS302DJ1vUhZ3KbImLjlKZyiEXNrgBl0yESEJSkWPk9N7HDNnjn8XcvS1kxR3fso22oe1Q==}
+    peerDependencies:
+      typescript: '>=4.7'
+
+  '@tanstack/devtools-event-client@0.3.5':
+    resolution: {integrity: sha512-RL1f5ZlfZMpghrCIdzl6mLOFLTuhqmPNblZgBaeKfdtk5rfbjykurv+VfYydOFXj0vxVIoA2d/zT7xfD7Ph8fw==}
+    engines: {node: '>=18'}
+
   '@tanstack/directive-functions-plugin@1.134.5':
     resolution: {integrity: sha512-J3oawV8uBRBbPoLgMdyHt+LxzTNuWRKNJJuCLWsm/yq6v0IQSvIVCgfD2+liIiSnDPxGZ8ExduPXy8IzS70eXw==}
     engines: {node: '>=12'}
@@ -3218,6 +3238,10 @@ packages:
 
   '@tanstack/pacer@0.1.0':
     resolution: {integrity: sha512-QVzkGO5clvGj/qdX8H2wUj0QCXCLZ/pwPMnfSqhoYfpzDRkRHDj+3D+VzdcehBIVnE+GCd1D/P1tGMzfjmfrzQ==}
+    engines: {node: '>=18'}
+
+  '@tanstack/pacer@0.16.3':
+    resolution: {integrity: sha512-hJGPODkjuUEncwHsFacLY6W5E7lmEU2FMf4Mh0kuxqUx3UsuneQX6ctRpoHBLlgdb7sqDieIaslQnivG3OAZ+A==}
     engines: {node: '>=18'}
 
   '@tanstack/publish-config@0.2.1':
@@ -4813,6 +4837,11 @@ packages:
     resolution: {integrity: sha512-V/JgOLFCS+R6Vcq0slCuaeWEdNC3ouDlJMNIsacH2VtALiu9mV4LPrHc5cDl8k5aw6J8jwgWWpiTo5RYhmIzvg==}
     engines: {node: '>= 8'}
 
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -5973,6 +6002,16 @@ packages:
 
   pkg-types@2.3.0:
     resolution: {integrity: sha512-SIqCzDRg0s9npO5XQ3tNZioRY1uK06lA41ynBC1YmFTmnY6FjUjVt6s4LoADmwoig1qqD0oK8h1p/8mlMx8Oig==}
+
+  playwright-core@1.56.1:
+    resolution: {integrity: sha512-hutraynyn31F+Bifme+Ps9Vq59hKuUCz7H1kDOcBs+2oGguKkWTU50bBWrtz34OUWmIwpBTWDxaRPXrIXkgvmQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.56.1:
+    resolution: {integrity: sha512-aFi5B0WovBHTEvpM3DzXTUaeN6eN0qWnTkKx4NQaH4Wvcmc153PdaY2UBdSYKaGYw+UyWXSVyxDUg5DoPEttjw==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   postcss-value-parser@4.2.0:
     resolution: {integrity: sha512-1NNCs6uurfkVbeXG4S8JFT9t19m45ICnif8zWLd5oPSZ50QnwMfK+H3jv408d4jw/7Bttv5axS5IiHoLaVNHeQ==}
@@ -8752,6 +8791,10 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
+  '@playwright/test@1.56.1':
+    dependencies:
+      playwright: 1.56.1
+
   '@protobufjs/aspromise@1.1.2': {}
 
   '@protobufjs/base64@1.1.2': {}
@@ -10868,6 +10911,15 @@ snapshots:
       '@tanstack/pacer': 0.1.0
       typescript: 5.9.3
 
+  '@tanstack/db@0.5.1(typescript@5.9.3)':
+    dependencies:
+      '@standard-schema/spec': 1.0.0
+      '@tanstack/db-ivm': 0.1.13(typescript@5.9.3)
+      '@tanstack/pacer': 0.16.3
+      typescript: 5.9.3
+
+  '@tanstack/devtools-event-client@0.3.5': {}
+
   '@tanstack/directive-functions-plugin@1.134.5(vite@7.1.12(@types/node@24.9.2)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1))':
     dependencies:
       '@babel/code-frame': 7.27.1
@@ -10902,6 +10954,11 @@ snapshots:
 
   '@tanstack/pacer@0.1.0': {}
 
+  '@tanstack/pacer@0.16.3':
+    dependencies:
+      '@tanstack/devtools-event-client': 0.3.5
+      '@tanstack/store': 0.8.0
+
   '@tanstack/publish-config@0.2.1':
     dependencies:
       '@commitlint/parse': 19.8.1
@@ -10913,10 +10970,10 @@ snapshots:
 
   '@tanstack/query-core@5.90.5': {}
 
-  '@tanstack/query-db-collection@1.0.0(@tanstack/db@0.5.0(typescript@5.9.3))(@tanstack/query-core@5.90.5)(typescript@5.9.3)':
+  '@tanstack/query-db-collection@1.0.0(@tanstack/db@0.5.1(typescript@5.9.3))(@tanstack/query-core@5.90.5)(typescript@5.9.3)':
     dependencies:
       '@standard-schema/spec': 1.0.0
-      '@tanstack/db': 0.5.0(typescript@5.9.3)
+      '@tanstack/db': 0.5.1(typescript@5.9.3)
       '@tanstack/query-core': 5.90.5
       typescript: 5.9.3
 
@@ -12794,6 +12851,9 @@ snapshots:
     dependencies:
       minipass: 3.3.6
 
+  fsevents@2.3.2:
+    optional: true
+
   fsevents@2.3.3:
     optional: true
 
@@ -14010,6 +14070,14 @@ snapshots:
       confbox: 0.2.2
       exsolve: 1.0.7
       pathe: 2.0.3
+
+  playwright-core@1.56.1: {}
+
+  playwright@1.56.1:
+    dependencies:
+      playwright-core: 1.56.1
+    optionalDependencies:
+      fsevents: 2.3.2
 
   postcss-value-parser@4.2.0: {}
 

@@ -27,6 +27,7 @@
 dist
 dist-ssr
 node_modules
+var/
 output.txt
 package-lock.json
 yarn.lock
@@ -35,6 +36,8 @@ src/routeTree.gen.ts
 .spezi
 
 # personal ignores
+.sample_session/
+playwright-report/
 .codex/
 oplink.config.mjs
 **/artifacts/**
@@ -45,8 +48,9 @@ session-id.md
 **/.mcp-workflows/**
 .browser-echo-mcp.json
 .TODO/
+.gemini/
 
-
+pnpm-lock.yaml
 # START Ruler Generated Files
 /.codex/config.toml
 /.codex/config.toml.bak
@@ -73,3 +77,6 @@ session-id.md
 /src/server/function/AGENTS.md
 /src/server/function/AGENTS.md.bak
 # END Ruler Generated Files
+
+# Playwright
+/playwright/.auth/
