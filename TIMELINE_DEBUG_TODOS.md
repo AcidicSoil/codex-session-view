@@ -3,6 +3,7 @@
 // TODO (fix)timeline_search_filter
 
 - unable to filter for content within the timelineView rows
+- Timeline search unable to search by files touched using a path i.e., src/api/route.ts should show all the events where this file was mentioned.
 
 ## timeline row cards
 
@@ -27,4 +28,14 @@
 - (extra) dedicated section for the commands ran for the session
 - global search filter
 - clickthrough to jump to point in timeline when command was ran
-- 
+
+## sort filters
+
+- sort list asc/dsc order toggle
+- jump to latest button
+- export single or selected filters applied
+- user messages added to header
+- dual pane view side by side viewing of user/assistant
+- card flipping to reveal user/assistant info or metadata attached
+
+---

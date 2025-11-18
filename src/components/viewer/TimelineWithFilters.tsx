@@ -67,6 +67,26 @@ export function applyTimelineSearch(events: readonly ResponseItem[], query: stri
   return events.filter((event) => {
     const anyEvent = event as any
     const parts: string[] = []
+    const pushValue = (value: unknown) => {
+      if (value == null) return
+      if (typeof value === 'string') {
+        parts.push(value)
+        return
+      }
+      if (typeof value === 'number' || typeof value === 'boolean') {
+        parts.push(String(value))
+        return
+      }
+      if (Array.isArray(value)) {
+        value.forEach((entry) => pushValue(entry))
+        return
+      }
+      if (typeof value === 'object') {
+        try {
+          parts.push(JSON.stringify(value))
+        } catch {}
+      }
+    }
 
     if (typeof anyEvent.type === 'string') parts.push(anyEvent.type)
     if (typeof anyEvent.role === 'string') parts.push(anyEvent.role)
@@ -91,6 +111,20 @@ export function applyTimelineSearch(events: readonly ResponseItem[], query: stri
           .join(' ')
       )
     }
+
+    pushValue(anyEvent.stdout)
+    pushValue(anyEvent.stderr)
+    pushValue(anyEvent.result)
+    pushValue(anyEvent.args)
+    pushValue(anyEvent.output)
+    pushValue(anyEvent.data)
+    pushValue(anyEvent.meta)
+    pushValue(anyEvent.git)
+    pushValue(anyEvent.payload)
+
+    try {
+      parts.push(JSON.stringify(anyEvent))
+    } catch {}
 
     const haystack = parts.join(' ').toLowerCase()
     if (!haystack) return false

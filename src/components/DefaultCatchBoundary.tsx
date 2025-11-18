@@ -1,14 +1,22 @@
-import { ErrorComponent, Link, rootRouteId, useMatch, useRouter } from '@tanstack/react-router';
+import { ErrorComponent, Link, rootRouteId, useRouter, useRouterState } from '@tanstack/react-router';
 import type { ErrorComponentProps } from '@tanstack/react-router';
+import { useEffect } from 'react';
+import { logError } from '~/lib/logger';
 
 export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
   const router = useRouter();
-  const isRoot = useMatch({
-    strict: false,
-    select: (state) => state.id === rootRouteId,
+  const isRoot = useRouterState({
+    select: (state) => {
+      const lastMatch = state.matches[state.matches.length - 1];
+      return lastMatch?.routeId === rootRouteId;
+    },
   });
 
-  console.error(error);
+  useEffect(() => {
+    if (error) {
+      logError('catch-boundary', 'Route error captured', error);
+    }
+  }, [error]);
 
   return (
     <div className="min-w-0 flex-1 p-4 flex flex-col items-center justify-center gap-6">

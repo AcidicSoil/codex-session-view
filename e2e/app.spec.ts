@@ -1,0 +1,62 @@
+import { test, expect } from '@playwright/test';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const sessionFixture = path.resolve(
+  __dirname,
+  '../sample_session/rollout-2025-11-17T15-30-28-019a93b9-f380-7600-98ff-940e6b99603c.jsonl',
+);
+
+test.describe('codex session viewer', () => {
+  test('home page renders hero and API controls', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: /TanStack Start React boilerplate/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Test GET/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Todos/i })).toBeVisible();
+  });
+
+  test('viewer route loads discovery data and handles uploads', async ({ page }) => {
+    await page.goto('/viewer');
+    await expect(page.getByRole('heading', { name: /Workspace Discovery/i })).toBeVisible();
+    await expect(page.getByText(/Upload session log/i)).toBeVisible();
+    const fileInputs = page.locator('input[type="file"]');
+    await fileInputs.first().setInputFiles(sessionFixture);
+    await expect(page.getByText(/Loaded/, { exact: false })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/finish up the users work/i)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('viewer discovery filters respond to interaction', async ({ page }) => {
+    await page.goto('/viewer');
+    await expect(page.getByRole('heading', { name: /Workspace Discovery/i })).toBeVisible();
+    const repoButton = page.getByRole('button', { name: /sessions/i }).first();
+    await repoButton.click();
+    await expect(page.getByText(/sessions shown/i)).toBeVisible();
+    await page.getByRole('button', { name: /Size > 1 MB/i }).click();
+    await expect(page.getByText(/filters/i)).toBeVisible();
+    // Validate uploads repository becomes available without manual refresh
+    const fileInputs = page.locator('input[type="file"]');
+    await fileInputs.first().setInputFiles(sessionFixture);
+    await expect(page.getByText(/uploads\//i)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('logs route records client-side runtime errors', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new ErrorEvent('error', {
+          message: 'Playwright synthetic error',
+          filename: 'e2e',
+          lineno: 1,
+          colno: 1,
+        }),
+      );
+    });
+    await page.waitForTimeout(500);
+    await page.goto('/logs');
+    await expect(page.getByRole('heading', { name: /Client Logs/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Refresh logs/i })).toBeVisible();
+    await expect(page.locator('pre')).toContainText(/Playwright synthetic error/, { timeout: 10_000 });
+  });
+});

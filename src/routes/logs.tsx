@@ -2,24 +2,36 @@ import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { Button } from '~/components/ui/button';
 import { formatDateTime } from '~/utils/intl';
 import { getBrowserLogs, type BrowserLogSnapshot } from '~/server/function/browserLogs';
-import 'virtual:browser-echo'; // Ensure browser-echo patches the runtime when route is bundled
+import { logError, logInfo } from '~/lib/logger';
 
 interface LogsLoaderData {
   snapshot: BrowserLogSnapshot;
 }
 
 export const Route = createFileRoute('/logs')({
-  loader: async (): Promise<LogsLoaderData> => ({
-    snapshot: await getBrowserLogs(),
-  }),
+  loader: async (): Promise<LogsLoaderData> => {
+    logInfo('logs.loader', 'Fetching browser log snapshot');
+    try {
+      const snapshot = await getBrowserLogs();
+      logInfo('logs.loader', 'Fetched browser log snapshot', {
+        source: snapshot.source ?? 'none',
+        truncated: snapshot.truncated,
+      });
+      return { snapshot };
+    } catch (error) {
+      logError('logs.loader', 'Failed to fetch browser log snapshot', error as Error);
+      throw error;
+    }
+  },
   component: LogsPage,
 });
 
-function LogsPage() {
+export function LogsPage() {
   const router = useRouter();
   const { snapshot } = Route.useLoaderData() as LogsLoaderData;
 
   const handleRefresh = () => {
+    logInfo('logs.page', 'User requested log refresh');
     router.invalidate();
   };
 

@@ -1,14 +1,29 @@
 import * as React from 'react';
 
+/**
+ * SSR-safe sessionStorage hook. Reads after hydration and persists on value changes
+ * without touching browser APIs during render.
+ */
 export function useSessionStorage<T>(key: string, initialValue: T) {
-  const state = React.useState<T>(() => {
-    const stored = sessionStorage.getItem(key);
-    return stored ? JSON.parse(stored) : initialValue;
-  });
+  const isBrowser = typeof window !== 'undefined';
+  const [value, setValue] = React.useState<T>(initialValue);
 
   React.useEffect(() => {
-    sessionStorage.setItem(key, JSON.stringify(state[0]));
-  }, [state[0]]);
+    if (!isBrowser) return;
+    try {
+      const stored = window.sessionStorage.getItem(key);
+      if (stored != null) {
+        setValue(JSON.parse(stored));
+      }
+    } catch {}
+  }, [isBrowser, key]);
 
-  return state;
+  React.useEffect(() => {
+    if (!isBrowser) return;
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify(value));
+    } catch {}
+  }, [isBrowser, key, value]);
+
+  return [value, setValue] as const;
 }

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { SessionList } from "~/components/viewer/SessionList"
@@ -10,6 +10,7 @@ const sampleSessions: DiscoveredSessionAsset[] = [
     url: "/sessions/alpha/run-a.jsonl",
     sortKey: Date.UTC(2024, 0, 20),
     size: 2_400_000,
+    tags: ["alpha"],
   },
   {
     path: "sessions/beta/run-a.jsonl",
@@ -22,6 +23,7 @@ const sampleSessions: DiscoveredSessionAsset[] = [
     url: "/sessions/beta/run-b.jsonl",
     sortKey: Date.UTC(2023, 11, 10),
     size: 70_000,
+    tags: ["upload"],
   },
 ]
 
@@ -60,11 +62,18 @@ describe("SessionList", () => {
     const handleExpand = vi.fn()
     render(<SessionList sessionAssets={sampleSessions} expandedRepoIds={[]} onExpandedRepoIdsChange={handleExpand} />)
 
-    const betaCard = screen.getByText(/Beta/i).closest("article") as HTMLElement
-    const toggleButton = within(betaCard).getByRole("button", { name: /sessions/i })
-
-    await user.click(toggleButton)
+    await user.click(screen.getByRole("button", { name: /Toggle Beta repository/i }))
 
     expect(handleExpand).toHaveBeenCalledWith(["beta"])
+  })
+
+  it("renders session metadata inside expanded panels", async () => {
+    const user = userEvent.setup()
+    render(<SessionList sessionAssets={sampleSessions} />)
+
+    await user.click(screen.getByRole("button", { name: /Toggle Alpha repository/i }))
+    const listItem = await screen.findByText(/run-a\.jsonl/i)
+    expect(listItem).toBeInTheDocument()
+    expect(screen.getByText(/alpha/i)).toBeInTheDocument()
   })
 })

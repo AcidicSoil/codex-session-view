@@ -1,6 +1,16 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useLiveQuery } from '@tanstack/react-db';
 import { streamParseSession, type ParserError } from '~/lib/session-parser';
 import type { ResponseItemParsed, SessionMetaParsed } from '~/lib/session-parser';
+import {
+  ACTIVE_SNAPSHOT_ID,
+  clearSessionSnapshot,
+  sessionSnapshotCollection,
+  upsertSessionSnapshot,
+  type SessionSnapshotRecord,
+} from '~/db/sessionSnapshots';
+import { useSessionStorage } from './useSessionStorage';
+import { logDebug, logError, logInfo } from '~/lib/logger';
 
 export type LoadPhase = 'idle' | 'parsing' | 'error' | 'success';
 
@@ -21,9 +31,6 @@ type Action =
   | { type: 'fail'; error: ParserError }
   | { type: 'done' }
   | { type: 'hydrate'; snapshot: Snapshot };
-
-const STORAGE_KEY = 'codex-viewer:session';
-const STORAGE_PREF_KEY = 'codex-viewer:persist';
 
 interface Snapshot {
   meta?: SessionMetaParsed;
@@ -80,27 +87,43 @@ function reducer(state: State, action: Action): State {
 
 export function useFileLoader() {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const [persist, setPersist] = useState<boolean>(true);
+  const [persist, setPersist] = useSessionStorage<boolean>('codex-viewer:persist', true);
   const [hydrated, setHydrated] = useState(false);
+  const lastSnapshotVersionRef = useRef<number | null>(null);
+  const { data: snapshotRows } = useLiveQuery(sessionSnapshotCollection);
+  const persistedSnapshot = snapshotRows?.find((row) => row.id === ACTIVE_SNAPSHOT_ID);
 
   const start = useCallback(
     async (file: File) => {
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(STORAGE_KEY);
+      if (persist) {
+        try {
+          await clearSessionSnapshot();
+        } catch (error) {
+          logError('file-loader', 'Failed to clear snapshot before parse', error as Error);
+        }
       }
+      logInfo('file-loader', 'Starting parse', { name: file.name, size: file.size });
       dispatch({ type: 'start' });
       try {
+        let parsedEvents = 0;
+        let encounteredErrors = 0;
         for await (const item of streamParseSession(file)) {
           if (item.kind === 'meta') {
+            logDebug('file-loader', 'Parsed session metadata', item.meta);
             dispatch({ type: 'meta', meta: item.meta });
           } else if (item.kind === 'event') {
+            parsedEvents += 1;
             dispatch({ type: 'event', event: item.event });
           } else if (item.kind === 'error') {
+            encounteredErrors += 1;
+            logError('file-loader', 'Parser emitted error', item.error);
             dispatch({ type: 'fail', error: item.error });
           }
         }
         dispatch({ type: 'done' });
+        logInfo('file-loader', 'Parse completed', { events: parsedEvents, errors: encounteredErrors });
       } catch (error) {
+        logError('file-loader', 'Parser crashed', error as Error);
         dispatch({
           type: 'fail',
           error: {
@@ -113,15 +136,18 @@ export function useFileLoader() {
         dispatch({ type: 'done' });
       }
     },
-    [dispatch]
+    [dispatch, persist]
   );
 
   const reset = useCallback(() => {
+    logInfo('file-loader', 'Resetting loader state');
     dispatch({ type: 'reset' });
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(STORAGE_KEY);
+    if (persist) {
+      void clearSessionSnapshot().catch((error) => {
+        logError('file-loader', 'Failed to clear snapshot during reset', error as Error);
+      });
     }
-  }, []);
+  }, [persist]);
 
   const progress = useMemo(() => {
     const total = state.ok + state.fail;
@@ -129,60 +155,55 @@ export function useFileLoader() {
   }, [state.ok, state.fail]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const pref = window.localStorage.getItem(STORAGE_PREF_KEY);
-    if (pref === 'false') {
-      setPersist(false);
-    }
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    try {
-      const snapshot = JSON.parse(raw) as Snapshot;
-      if (snapshot.events?.length) {
-        dispatch({ type: 'hydrate', snapshot });
-      }
-    } catch {}
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handler = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY) return;
-      if (!event.newValue) {
-        dispatch({ type: 'reset' });
-        return;
-      }
-      try {
-        const snapshot = JSON.parse(event.newValue) as Snapshot;
-        dispatch({ type: 'hydrate', snapshot });
-      } catch {}
-    };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(STORAGE_PREF_KEY, persist ? 'true' : 'false');
-  }, [persist]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
     if (!persist) {
-      window.localStorage.removeItem(STORAGE_KEY);
+      lastSnapshotVersionRef.current = null;
+      void clearSessionSnapshot().catch((error) => {
+        logError('file-loader', 'Failed to clear persisted snapshot', error as Error);
+      });
       return;
     }
     if (state.phase === 'parsing') return;
     if (state.events.length === 0) {
-      window.localStorage.removeItem(STORAGE_KEY);
+      lastSnapshotVersionRef.current = null;
+      void clearSessionSnapshot().catch((error) => {
+        logError('file-loader', 'Failed to clear empty snapshot', error as Error);
+      });
       return;
     }
-    const snapshot: Snapshot = { meta: state.meta, events: state.events };
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-    } catch {}
-  }, [state.meta, state.events, state.phase, persist]);
+    const snapshot: SessionSnapshotRecord = {
+      id: ACTIVE_SNAPSHOT_ID,
+      meta: state.meta,
+      events: state.events,
+      persistedAt: Date.now(),
+    };
+    lastSnapshotVersionRef.current = snapshot.persistedAt;
+    void upsertSessionSnapshot(snapshot).catch((error) => {
+      logError('file-loader', 'Failed to persist snapshot', error as Error);
+    });
+  }, [persist, state.meta, state.events, state.phase]);
+
+  useEffect(() => {
+    if (!persist) {
+      setHydrated(true);
+      return;
+    }
+    if (!persistedSnapshot) {
+      setHydrated(true);
+      return;
+    }
+    if (state.phase === 'parsing') return;
+    if (lastSnapshotVersionRef.current === persistedSnapshot.persistedAt) {
+      setHydrated(true);
+      return;
+    }
+    const snapshot: Snapshot = { meta: persistedSnapshot.meta, events: persistedSnapshot.events };
+    dispatch({ type: 'hydrate', snapshot });
+    logInfo('file-loader', 'Hydrated snapshot from storage', {
+      events: snapshot.events?.length ?? 0,
+    });
+    lastSnapshotVersionRef.current = persistedSnapshot.persistedAt;
+    setHydrated(true);
+  }, [persistedSnapshot, persist, state.phase]);
 
   return { state, progress, start, reset, persist, setPersist, hydrated };
 }
