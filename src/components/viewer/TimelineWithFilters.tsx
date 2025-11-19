@@ -7,8 +7,10 @@ import {
   applyTimelineFilters,
   type QuickFilter,
   type RoleQuickFilter,
+  type SortOrder,
   type TimelineFilterValue,
 } from '~/components/viewer/TimelineFilters'
+import { dedupeTimelineEvents } from '~/components/viewer/AnimatedTimelineList'
 
 interface TimelineWithFiltersProps {
   /**
@@ -22,6 +24,7 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
   const [filters, setFilters] = useState<Filter<TimelineFilterValue>[]>([])
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
   const [roleFilter, setRoleFilter] = useState<RoleQuickFilter>('all')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [searchQuery, setSearchQuery] = useState('')
 
   const searchMatches = useMemo(
@@ -31,6 +34,11 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
   const filteredEvents = useMemo(
     () => applyTimelineFilters(searchMatches, { filters, quickFilter, roleFilter }),
     [searchMatches, filters, quickFilter, roleFilter],
+  )
+  const dedupedEvents = useMemo(() => dedupeTimelineEvents(filteredEvents), [filteredEvents])
+  const orderedEvents = useMemo(
+    () => (sortOrder === 'asc' ? dedupedEvents : [...dedupedEvents].reverse()),
+    [dedupedEvents, sortOrder],
   )
 
   const hasSourceEvents = events.length > 0
@@ -52,13 +60,15 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
         searchMatchCount={searchMatches.length}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        sortOrder={sortOrder}
+        onSortOrderChange={setSortOrder}
       />
       {!hasSourceEvents ? (
         <p className="text-sm text-muted-foreground">Load or drop a session to populate the timeline.</p>
       ) : noMatches ? (
         <p className="text-sm text-muted-foreground">No events match your current filters.</p>
       ) : (
-        <AnimatedTimelineList events={filteredEvents} />
+        <AnimatedTimelineList events={orderedEvents} />
       )}
     </div>
   )
