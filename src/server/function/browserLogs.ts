@@ -97,7 +97,7 @@ export const getBrowserLogs = createServerFn({ method: 'GET' }).handler(async ()
 export const captureBrowserLog = createServerFn({ method: 'POST' })
   .inputValidator((payload: unknown) => logEntrySchema.parse(payload))
   .handler(async ({ data }) => {
-    await appendBrowserLogEntry({
+    await recordBrowserLogEntry({
       level: data.level,
       scope: data.scope,
       message: data.message,
@@ -107,7 +107,7 @@ export const captureBrowserLog = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
-async function appendBrowserLogEntry(entry: {
+export async function recordBrowserLogEntry(entry: {
   level: BrowserLogLevel
   scope: string
   message: string

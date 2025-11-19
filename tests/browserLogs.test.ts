@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readBrowserLogSnapshot } from '~/server/function/__server'
+import { readBrowserLogSnapshot } from '~/server/function/browserLogs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 

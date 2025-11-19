@@ -224,7 +224,7 @@ async function discoverStoredSessionAssets(): Promise<DiscoveredSessionAsset[]> 
   const records = await listSessionUploadRecords();
   return records.map((record) => ({
     path: `uploads/${record.originalName}`,
-    url: record.fileUrl,
+    url: record.url,
     sortKey: Date.parse(record.storedAt),
     size: record.size,
     tags: ['upload'],

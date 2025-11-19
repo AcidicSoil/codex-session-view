@@ -8,7 +8,7 @@ interface LogsLoaderData {
   snapshot: BrowserLogSnapshot;
 }
 
-export const Route = createFileRoute('/logs')({
+export const Route = createFileRoute(	"/(site)/logs")({
   loader: async (): Promise<LogsLoaderData> => {
     logInfo('logs.loader', 'Fetching browser log snapshot');
     try {

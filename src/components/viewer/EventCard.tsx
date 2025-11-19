@@ -11,6 +11,17 @@ function formatTimestamp(value?: string | number) {
     return formatted || String(value)
 }
 
+function summarizeShellSnippet(event: Extract<ResponseItem, { type: "LocalShellCall" }>) {
+    const preferred = event.stdout?.trim() || event.stderr?.trim() || event.command || ""
+    const firstLine = preferred.split("\n").find((line) => line.trim().length > 0) ?? preferred
+    return truncateSnippet(firstLine.trim(), 140)
+}
+
+function truncateSnippet(value: string, limit = 140) {
+    if (!value) return ""
+    return value.length > limit ? `${value.slice(0, limit - 1)}…` : value
+}
+
 function renderSummary(event: ResponseItem) {
     switch (event.type) {
         case "Message": {
@@ -28,7 +39,7 @@ function renderSummary(event: ResponseItem) {
         case "FunctionCall":
             return JSON.stringify({ name: event.name, args: event.args }, null, 2)
         case "LocalShellCall":
-            return event.stdout || event.stderr || event.command
+            return summarizeShellSnippet(event)
         case "FileChange":
             return event.path
         case "WebSearchCall":

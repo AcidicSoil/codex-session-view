@@ -7,7 +7,7 @@ export const GitInfoSchema = z
     remote: z.string().optional(),
     dirty: z.boolean().optional(),
   })
-  .passthrough();
+  .loose();
 export const SessionMetaSchema = z
   .object({
     id: z.string().min(1).optional(),
@@ -16,20 +16,20 @@ export const SessionMetaSchema = z
     git: GitInfoSchema.optional(),
     version: z.union([z.number(), z.string()]).optional(),
   })
-  .passthrough();
+  .loose();
 const BaseEvent = z
   .object({
     id: z.string().optional(),
     at: z.string().optional(),
     index: z.number().int().optional(),
   })
-  .passthrough();
+  .loose();
 const MessagePartSchema = z
   .object({
     type: z.literal('text'),
     text: z.string(),
   })
-  .passthrough();
+  .loose();
 const MessageEventSchema = BaseEvent.extend({
   type: z.literal('Message'),
   role: z.string(),
@@ -55,6 +55,8 @@ const LocalShellCallEventSchema = BaseEvent.extend({
   stdout: z.string().optional(),
   stderr: z.string().optional(),
   durationMs: z.number().optional(),
+  stdoutFormat: z.enum(['text', 'code']).optional(),
+  stderrFormat: z.enum(['text', 'code']).optional(),
 });
 const WebSearchCallEventSchema = BaseEvent.extend({
   type: z.literal('WebSearchCall'),
@@ -68,7 +70,7 @@ const WebSearchCallEventSchema = BaseEvent.extend({
           url: z.string().optional(),
           snippet: z.string().optional(),
         })
-        .passthrough()
+        .loose()
     )
     .optional(),
 });
