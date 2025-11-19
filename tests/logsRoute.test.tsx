@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BrowserLogSnapshot } from '~/server/function/browserLogs'
-import { LogsPage, Route } from '~/routes/logs'
+import { LogsPage, Route } from 	"~/routes/(site)/logs"
 
 const mockRouter = {
   invalidate: vi.fn(),

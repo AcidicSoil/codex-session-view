@@ -26,7 +26,7 @@ import { TimelineView } from '~/components/viewer/TimelineView'
 import { eventKey } from '~/utils/event-key'
 import { formatClockTime } from '~/utils/intl'
 
-type TimelineEvent = ResponseItem | ResponseItemParsed
+export type TimelineEvent = ResponseItem | ResponseItemParsed
 
 interface AnimatedTimelineListProps {
   events: readonly TimelineEvent[]
@@ -44,14 +44,15 @@ export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTi
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [scrollTarget, setScrollTarget] = useState<number | null>(null)
   const [gradients, setGradients] = useState({ top: 0, bottom: 0 })
+  const dedupedEvents = useMemo(() => dedupeTimelineEvents(events), [events])
   const items = useMemo<{ event: TimelineEvent; index: number; key: string }[]>(
     () =>
-      events.map((event, index) => ({
+      dedupedEvents.map((event, index) => ({
         event,
         index,
         key: eventKey(event as ResponseItem, index),
       })),
-    [events],
+    [dedupedEvents],
   )
 
   useEffect(() => {
@@ -109,6 +110,59 @@ export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTi
   )
 }
 
+export function dedupeTimelineEvents(events: readonly TimelineEvent[]) {
+  const seen = new Set<string>()
+  return events.filter((event) => {
+    const signature = createEventSignature(event)
+    if (seen.has(signature)) return false
+    seen.add(signature)
+    return true
+  })
+}
+
+function createEventSignature(event: TimelineEvent) {
+  const base: Record<string, unknown> = {
+    type: event.type,
+    id: event.id ?? null,
+    index: event.index ?? null,
+    at: event.at ?? null,
+  }
+  switch (event.type) {
+    case 'Message':
+      base.role = event.role
+      base.content = event.content
+      break
+    case 'Reasoning':
+      base.content = event.content
+      break
+    case 'FunctionCall':
+      base.name = event.name
+      base.args = event.args
+      base.result = event.result
+      break
+    case 'LocalShellCall':
+      base.command = event.command
+      base.stdout = event.stdout
+      base.stderr = event.stderr
+      break
+    case 'WebSearchCall':
+      base.query = event.query
+      break
+    case 'CustomToolCall':
+      base.toolName = event.toolName
+      base.input = event.input
+      base.output = event.output
+      break
+    case 'FileChange':
+      base.path = event.path
+      base.diff = event.diff
+      break
+    default:
+      base.payload = (event as any).data ?? event
+  }
+  return safeStringify(base)
+}
+
 function renderTimelineItem(event: TimelineEvent, index: number, expanded: boolean, toggle: () => void) {
   return (
     <div
@@ -164,8 +218,10 @@ function summarizeEvent(event: TimelineEvent) {
       const name = event.name ?? 'function'
       return `Function ${name}(${event.durationMs ? `${event.durationMs}ms` : 'call'})`
     }
-    case 'LocalShellCall':
-      return `Shell ${event.command ?? ''}`.trim()
+    case 'LocalShellCall': {
+      const snippet = summarizeCommand(event.command ?? event.stdout ?? event.stderr)
+      return snippet ? `Shell ${snippet}` : 'Shell call'
+    }
     case 'WebSearchCall':
       return `Web search: ${truncate(event.query ?? '')}`
     case 'CustomToolCall':
@@ -190,7 +246,8 @@ function buildMetaLine(event: TimelineEvent) {
     }
     case 'LocalShellCall': {
       const exit = typeof event.exitCode === 'number' ? `exit ${event.exitCode}` : null
-      value = [event.command, exit].filter(Boolean).join(' · ')
+      const command = summarizeCommand(event.command)
+      value = [command, exit].filter(Boolean).join(' · ')
       break
     }
     case 'WebSearchCall':
@@ -237,8 +294,18 @@ function renderEventDetail(event: TimelineEvent) {
           }
           return (
             <div className="space-y-3">
-              <DetailText value={stdout} label="stdout" format="code" language="bash" />
-              <DetailText value={stderr} label="stderr" format="code" language="bash" />
+              <DetailText
+                value={stdout}
+                label="stdout"
+                format={event.stdoutFormat === 'code' ? 'code' : 'text'}
+                language={event.stdoutFormat === 'code' ? 'diff' : undefined}
+              />
+              <DetailText
+                value={stderr}
+                label="stderr"
+                format={event.stderrFormat === 'code' ? 'code' : 'text'}
+                language={event.stderrFormat === 'code' ? 'diff' : undefined}
+              />
             </div>
           )
         }
@@ -339,6 +406,13 @@ function extractMessageText(content: MessageEvent['content'] | undefined) {
       .join(' ')
   }
   return ''
+}
+
+function summarizeCommand(value?: string | null, limit = 72) {
+  if (!value) return ''
+  const firstLine = value.split('\n').find((line) => line.trim().length > 0)
+  const trimmed = (firstLine ?? value).trim()
+  return truncate(trimmed, limit)
 }
 
 function truncate(value: string, limit = SNIPPET_LENGTH) {

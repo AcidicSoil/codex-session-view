@@ -2,6 +2,7 @@
 import { Link } from '@tanstack/react-router';
 import { ModeToggle } from './mode-toggle';
 
+
 export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/60 px-4 py-3 backdrop-blur">
@@ -12,10 +13,22 @@ export function Header() {
 
         <nav className="flex items-center gap-6">
           <Link
+            to="/todo"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Todo
+          </Link>
+          <Link
             to="/viewer"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             Viewer
+          </Link>
+          <Link
+            to="/logs"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Logger
           </Link>
           <Link
             to="/docs"

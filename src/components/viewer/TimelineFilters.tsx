@@ -5,9 +5,10 @@ import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import type { ResponseItem } from '~/lib/viewer-types'
 import { formatCount } from '~/utils/intl'
 
-export type TimelineFilterFieldKey = 'type'
+export type TimelineFilterFieldKey = 'type' | 'role'
 export type TimelineFilterValue = string
 export type QuickFilter = 'all' | 'messages' | 'tools' | 'files'
+export type RoleQuickFilter = 'all' | 'user' | 'assistant'
 
 interface TimelineFiltersProps {
   events: readonly ResponseItem[]
@@ -15,6 +16,8 @@ interface TimelineFiltersProps {
   onFiltersChange: (next: Filter<TimelineFilterValue>[]) => void
   quickFilter: QuickFilter
   onQuickFilterChange: (next: QuickFilter) => void
+  roleFilter: RoleQuickFilter
+  onRoleFilterChange: (next: RoleQuickFilter) => void
   filteredCount: number
   totalCount: number
   searchMatchCount: number
@@ -50,6 +53,8 @@ export function TimelineFilters({
   onFiltersChange,
   quickFilter,
   onQuickFilterChange,
+  roleFilter,
+  onRoleFilterChange,
   filteredCount,
   totalCount,
   searchMatchCount,
@@ -57,6 +62,7 @@ export function TimelineFilters({
   onSearchChange,
 }: TimelineFiltersProps) {
   const fieldOptions = useMemo(() => buildFieldConfig(events), [events])
+  const hasMessageEvents = useMemo(() => events.some((event) => event.type === 'Message'), [events])
 
   return (
     <div className="rounded-xl border bg-muted/5 p-4">
@@ -88,6 +94,27 @@ export function TimelineFilters({
               {option.label}
             </ToggleGroupItem>
           ))}
+        </ToggleGroup>
+        <ToggleGroup
+          type="single"
+          size="sm"
+          value={roleFilter}
+          onValueChange={(value) => {
+            if (!value) return
+            onRoleFilterChange(value as RoleQuickFilter)
+          }}
+          disabled={!hasMessageEvents}
+          className="flex flex-wrap gap-1"
+        >
+          <ToggleGroupItem value="all" aria-label="All roles" className="flex items-center gap-1 text-[11px]">
+            All roles
+          </ToggleGroupItem>
+          <ToggleGroupItem value="user" aria-label="User messages" className="flex items-center gap-1 text-[11px]">
+            User
+          </ToggleGroupItem>
+          <ToggleGroupItem value="assistant" aria-label="Assistant messages" className="flex items-center gap-1 text-[11px]">
+            Assistant
+          </ToggleGroupItem>
         </ToggleGroup>
       </div>
 
@@ -122,22 +149,28 @@ export function TimelineFilters({
 
 export function applyTimelineFilters(
   events: readonly ResponseItem[],
-  state: { filters: Filter<TimelineFilterValue>[]; quickFilter: QuickFilter },
+  state: { filters: Filter<TimelineFilterValue>[]; quickFilter: QuickFilter; roleFilter: RoleQuickFilter },
 ) {
   if (!events.length) return [] as ResponseItem[]
-  const { filters, quickFilter } = state
-  return events.filter((event) => matchesQuickFilter(event, quickFilter) && matchesFilterSet(event, filters))
+  const { filters, quickFilter, roleFilter } = state
+  return events.filter(
+    (event) => matchesQuickFilter(event, quickFilter) && matchesRoleQuickFilter(event, roleFilter) && matchesFilterSet(event, filters),
+  )
 }
 
 function buildFieldConfig(events: readonly ResponseItem[]): FilterFieldsConfig<TimelineFilterValue> {
   const types = new Set<string>(defaultTypeOptions)
+  const roles = new Set<string>(['user', 'assistant', 'system'])
   for (const event of events) {
     if (typeof event.type === 'string') {
       types.add(event.type)
     }
+    if (event.type === 'Message' && typeof event.role === 'string') {
+      roles.add(event.role)
+    }
   }
 
-  return [
+  const fields: FilterFieldsConfig<TimelineFilterValue> = [
     {
       key: 'type',
       label: 'Event type',
@@ -147,6 +180,21 @@ function buildFieldConfig(events: readonly ResponseItem[]): FilterFieldsConfig<T
       searchable: true,
     },
   ]
+
+  if (roles.size) {
+    fields.push({
+      key: 'role',
+      label: 'Message role',
+      type: 'multiselect',
+      options: Array.from(roles)
+        .sort()
+        .map((value) => ({ value, label: value.charAt(0).toUpperCase() + value.slice(1) })),
+      allowCustomValues: false,
+      searchable: false,
+    })
+  }
+
+  return fields
 }
 
 function matchesQuickFilter(event: ResponseItem, quickFilter: QuickFilter) {
@@ -168,9 +216,30 @@ function matchesFilterSet(event: ResponseItem, filters: Filter<TimelineFilterVal
 }
 
 function matchesFilter(event: ResponseItem, filter: Filter<TimelineFilterValue>) {
-  if (filter.field !== 'type') return true
   const values = (filter.values ?? []).map((value) => value.toLowerCase())
-  return compareValue(event.type, values, filter.operator)
+  switch (filter.field) {
+    case 'type':
+      return compareValue(event.type, values, filter.operator)
+    case 'role':
+      return compareValue(event.type === 'Message' ? event.role : undefined, values, filter.operator)
+    default:
+      return true
+  }
+}
+
+function matchesRoleQuickFilter(event: ResponseItem, roleFilter: RoleQuickFilter) {
+  if (roleFilter === 'all') return true
+  const role = event.type === 'Message' ? event.role?.toLowerCase() : undefined
+  if (roleFilter === 'user') {
+    return event.type === 'Message' && role === 'user'
+  }
+  if (roleFilter === 'assistant') {
+    if (event.type === 'Message') {
+      return role === 'assistant'
+    }
+    return ['FunctionCall', 'LocalShellCall', 'CustomToolCall', 'WebSearchCall'].includes(event.type)
+  }
+  return true
 }
 
 function compareValue(

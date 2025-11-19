@@ -36,7 +36,9 @@ src/routeTree.gen.ts
 .spezi
 
 # personal ignores
-
+**/var/**
+**/.vite/**
+**/logs/**
 playwright-report/
 .codex/
 oplink.config.mjs

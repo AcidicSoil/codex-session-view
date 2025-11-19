@@ -6,6 +6,7 @@ import {
   TimelineFilters,
   applyTimelineFilters,
   type QuickFilter,
+  type RoleQuickFilter,
   type TimelineFilterValue,
 } from '~/components/viewer/TimelineFilters'
 
@@ -20,6 +21,7 @@ interface TimelineWithFiltersProps {
 export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
   const [filters, setFilters] = useState<Filter<TimelineFilterValue>[]>([])
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
+  const [roleFilter, setRoleFilter] = useState<RoleQuickFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
   const searchMatches = useMemo(
@@ -27,8 +29,8 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
     [events, searchQuery],
   )
   const filteredEvents = useMemo(
-    () => applyTimelineFilters(searchMatches, { filters, quickFilter }),
-    [searchMatches, filters, quickFilter],
+    () => applyTimelineFilters(searchMatches, { filters, quickFilter, roleFilter }),
+    [searchMatches, filters, quickFilter, roleFilter],
   )
 
   const hasSourceEvents = events.length > 0
@@ -43,6 +45,8 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
         onFiltersChange={setFilters}
         quickFilter={quickFilter}
         onQuickFilterChange={setQuickFilter}
+        roleFilter={roleFilter}
+        onRoleFilterChange={setRoleFilter}
         filteredCount={filteredEvents.length}
         totalCount={events.length}
         searchMatchCount={searchMatches.length}

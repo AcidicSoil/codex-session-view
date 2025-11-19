@@ -16,11 +16,12 @@
     "lint:fix": "oxlint --fix",
     "rules:apply": "ruler apply --nested",
     "prepare": "ruler apply --nested",
-    "code:src": "codefetch --include-dir src -o src.md",
-    "code:comp": "codefetch --include-dir src/components -o components.md",
-    "code:routes": "codefetch --include-dir src/routes -o routes.md",
-    "code:hooks": "codefetch --include-dir src/hooks -o hooks.md",
-    "code:serve": "codefetch --include-dir src/server -o server.md"
+    "code:src": "codefetch -t 4 --include-dir src --exclude-dir .ruler,.cursor -o src.md",
+    "code:comp": "codefetch --include-dir src/components --exclude-dir .ruler,.cursor -o components.md",
+    "code:routes": "codefetch --include-dir src/routes --exclude-dir .ruler,.cursor -o routes.md",
+    "code:hooks": "codefetch --include-dir src/hooks --exclude-dir .ruler,.cursor -o hooks.md",
+    "code:serve": "codefetch --include-dir src/server --exclude-dir .ruler,.cursor -o server.md",
+    "code:all": "pnpm code:src && pnpm code:comp && pnpm code:routes && pnpm code:hooks && pnpm code:serve"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^1.0.27",
@@ -40,6 +41,7 @@
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@shikijs/transformers": "^3.15.0",
     "@tanstack/db": "^0.5.1",
+    "@tanstack/query-core": "^5.90.10",
     "@tanstack/query-db-collection": "^1.0.0",
     "@tanstack/react-db": "^0.1.44",
     "@tanstack/react-query": "^5.90.5",

@@ -14,8 +14,8 @@ export const persistSessionFile = createServerFn({ method: 'POST' })
     logInfo('session-store', 'Persisting session file', { filename: data.filename });
     try {
       const record = await saveSessionUpload(data.filename, data.content);
-      logInfo('session-store', 'Persisted session file', { path: record.absolutePath });
-      return { id: record.id, path: record.absolutePath };
+      logInfo('session-store', 'Persisted session file', { id: record.id });
+      return { id: record.id, url: record.url };
     } catch (error) {
       logError('session-store', 'Failed to persist session file', error as Error);
       throw error;
