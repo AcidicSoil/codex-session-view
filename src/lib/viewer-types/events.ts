@@ -29,11 +29,11 @@ export interface ReasoningEvent extends BaseEvent {
 
 /** Generic function/tool call with structured arguments. */
 export interface FunctionCallEvent extends BaseEvent {
-    readonly type: "FunctionCall"
-    readonly name: string
-    readonly args?: unknown
-    readonly result?: unknown
-    readonly durationMs?: number
+  readonly type: "FunctionCall"
+  readonly name: string
+  readonly args?: unknown
+  readonly result?: unknown
+  readonly durationMs?: number
 }
 
 /** Local shell command execution event. */
@@ -87,4 +87,3 @@ export type ResponseItem =
     | CustomToolCallEvent
     | FileChangeEvent
     | OtherEvent
-

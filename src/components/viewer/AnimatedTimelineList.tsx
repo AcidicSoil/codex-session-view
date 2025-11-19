@@ -111,56 +111,41 @@ export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTi
 }
 
 export function dedupeTimelineEvents(events: readonly TimelineEvent[]) {
-  const seen = new Set<string>()
+  const seenIds = new Set<string>()
+  const seenPayloads = new Set<string>()
   return events.filter((event) => {
-    const signature = createEventSignature(event)
-    if (seen.has(signature)) return false
-    seen.add(signature)
+    if (event.id) {
+      const id = String(event.id)
+      if (seenIds.has(id)) return false
+      seenIds.add(id)
+      return true
+    }
+    const signature = buildEventSignature(event)
+    if (seenPayloads.has(signature)) return false
+    seenPayloads.add(signature)
     return true
   })
 }
 
-function createEventSignature(event: TimelineEvent) {
-  const base: Record<string, unknown> = {
-    type: event.type,
-    id: event.id ?? null,
-    index: event.index ?? null,
-    at: event.at ?? null,
-  }
+function buildEventSignature(event: TimelineEvent) {
   switch (event.type) {
     case 'Message':
-      base.role = event.role
-      base.content = event.content
-      break
+      return `msg|${event.role ?? ''}|${extractMessageText(event.content) ?? ''}`
     case 'Reasoning':
-      base.content = event.content
-      break
+      return `reason|${event.content ?? ''}`
     case 'FunctionCall':
-      base.name = event.name
-      base.args = event.args
-      base.result = event.result
-      break
+      return `call|${event.name ?? ''}|${safeStringify(event.args)}|${safeStringify(event.result)}`
     case 'LocalShellCall':
-      base.command = event.command
-      base.stdout = event.stdout
-      base.stderr = event.stderr
-      break
+      return `shell|${event.command ?? ''}|${event.stdout ?? ''}|${event.stderr ?? ''}`
     case 'WebSearchCall':
-      base.query = event.query
-      break
+      return `search|${event.query ?? ''}`
     case 'CustomToolCall':
-      base.toolName = event.toolName
-      base.input = event.input
-      base.output = event.output
-      break
+      return `tool|${event.toolName ?? ''}|${safeStringify(event.input)}|${safeStringify(event.output)}`
     case 'FileChange':
-      base.path = event.path
-      base.diff = event.diff
-      break
+      return `file|${event.path ?? ''}|${event.diff ?? ''}`
     default:
-      base.payload = (event as any).data ?? event
+      return safeStringify(event)
   }
-  return safeStringify(base)
 }
 
 function renderTimelineItem(event: TimelineEvent, index: number, expanded: boolean, toggle: () => void) {
@@ -276,44 +261,53 @@ function renderEventDetail(event: TimelineEvent) {
         case 'FunctionCall': {
           const args = safeStringify(event.args)
           const result = safeStringify(event.result)
-          if (!args && !result) {
-            return <EmptyDetail message="No arguments or result recorded." />
-          }
           return (
             <div className="space-y-3">
-              <DetailText value={args} label="Args" format="code" language="json" />
-              <DetailText value={result} label="Result" format="code" language="json" />
+              <DetailText value={args || '(no args captured)'} label="Args" format="code" language="json" />
+              <DetailText value={result || '(no result captured)'} label="Result" format="code" language="json" />
             </div>
           )
         }
         case 'LocalShellCall': {
           const stdout = event.stdout ?? ''
           const stderr = event.stderr ?? ''
-          if (!stdout && !stderr) {
-            return <EmptyDetail message="No output captured." />
-          }
+          const command = event.command ?? ''
           return (
             <div className="space-y-3">
-              <DetailText
-                value={stdout}
-                label="stdout"
-                format={event.stdoutFormat === 'code' ? 'code' : 'text'}
-                language={event.stdoutFormat === 'code' ? 'diff' : undefined}
-              />
-              <DetailText
-                value={stderr}
-                label="stderr"
-                format={event.stderrFormat === 'code' ? 'code' : 'text'}
-                language={event.stderrFormat === 'code' ? 'diff' : undefined}
-              />
+              {command ? (
+                <DetailText value={command} label="Command" format="code" language="bash" />
+              ) : null}
+              {stdout ? (
+                <DetailText
+                  value={stdout}
+                  label="stdout"
+                  format={event.stdoutFormat === 'code' ? 'code' : 'text'}
+                  language={event.stdoutFormat === 'code' ? 'diff' : undefined}
+                />
+              ) : null}
+              {stderr ? (
+                <DetailText
+                  value={stderr}
+                  label="stderr"
+                  format={event.stderrFormat === 'code' ? 'code' : 'text'}
+                  language={event.stderrFormat === 'code' ? 'diff' : undefined}
+                />
+              ) : null}
+              {!command && !stdout && !stderr ? (
+                <EmptyDetail message="No captured output." />
+              ) : null}
             </div>
           )
         }
         case 'WebSearchCall':
           return event.query ? <DetailText value={event.query} label="Query" /> : <EmptyDetail message="No query string." />
         case 'CustomToolCall': {
-          const payload = safeStringify(event.output ?? event.input)
-          return payload ? <DetailText value={payload} label="Payload" format="code" language="json" /> : <EmptyDetail message="No payload." />
+          return (
+            <div className="space-y-3">
+              <DetailText value={safeStringify(event.input) || '(no input captured)'} label="Input" format="code" language="json" />
+              <DetailText value={safeStringify(event.output) || '(no output captured)'} label="Output" format="code" language="json" />
+            </div>
+          )
         }
         case 'FileChange':
           return event.diff ? <DetailText value={event.diff} label="Diff" format="code" language="diff" /> : <EmptyDetail message="No diff provided." />

@@ -9,6 +9,7 @@ export type TimelineFilterFieldKey = 'type' | 'role'
 export type TimelineFilterValue = string
 export type QuickFilter = 'all' | 'messages' | 'tools' | 'files'
 export type RoleQuickFilter = 'all' | 'user' | 'assistant'
+export type SortOrder = 'asc' | 'desc'
 
 interface TimelineFiltersProps {
   events: readonly ResponseItem[]
@@ -18,6 +19,8 @@ interface TimelineFiltersProps {
   onQuickFilterChange: (next: QuickFilter) => void
   roleFilter: RoleQuickFilter
   onRoleFilterChange: (next: RoleQuickFilter) => void
+  sortOrder: SortOrder
+  onSortOrderChange: (next: SortOrder) => void
   filteredCount: number
   totalCount: number
   searchMatchCount: number
@@ -55,6 +58,8 @@ export function TimelineFilters({
   onQuickFilterChange,
   roleFilter,
   onRoleFilterChange,
+  sortOrder,
+  onSortOrderChange,
   filteredCount,
   totalCount,
   searchMatchCount,
@@ -114,6 +119,23 @@ export function TimelineFilters({
           </ToggleGroupItem>
           <ToggleGroupItem value="assistant" aria-label="Assistant messages" className="flex items-center gap-1 text-[11px]">
             Assistant
+          </ToggleGroupItem>
+        </ToggleGroup>
+        <ToggleGroup
+          type="single"
+          size="sm"
+          value={sortOrder}
+          onValueChange={(value) => {
+            if (!value) return
+            onSortOrderChange(value as SortOrder)
+          }}
+          className="flex flex-wrap gap-1"
+        >
+          <ToggleGroupItem value="asc" aria-label="Oldest first" className="flex items-center gap-1 text-[11px]">
+            Asc
+          </ToggleGroupItem>
+          <ToggleGroupItem value="desc" aria-label="Newest first" className="flex items-center gap-1 text-[11px]">
+            Desc
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
