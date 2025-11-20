@@ -1,1 +1,1 @@
-export { getBrowserLogs, readBrowserLogSnapshot } from './browserLogs';
+export { getBrowserLogs, readBrowserLogSnapshot, clearBrowserLogs } from './browserLogs';

@@ -12,6 +12,12 @@ export interface BrowserLogSnapshot {
   updatedAt: string
 }
 
+export interface ClearBrowserLogsResult {
+  clearedFiles: number
+  directory: string
+  existed: boolean
+}
+
 type BrowserLogLevel = 'debug' | 'info' | 'error'
 
 const logEntrySchema = z.object({
@@ -94,6 +100,13 @@ export const getBrowserLogs = createServerFn({ method: 'GET' }).handler(async ()
   return readBrowserLogSnapshot()
 })
 
+export const clearBrowserLogs = createServerFn({ method: 'POST' }).handler(async () => {
+  logInfo('browser-logs', 'Clear logs request received')
+  const result = await clearBrowserLogFiles()
+  logInfo('browser-logs', 'Clear logs completed', result)
+  return result
+})
+
 export const captureBrowserLog = createServerFn({ method: 'POST' })
   .inputValidator((payload: unknown) => logEntrySchema.parse(payload))
   .handler(async ({ data }) => {
@@ -126,6 +139,39 @@ export async function recordBrowserLogEntry(entry: {
     serializedMeta ? ` ${serializedMeta}` : ''
   }`
   await fs.appendFile(activeLogFile, `${line}\n`, 'utf8')
+}
+
+export async function clearBrowserLogFiles(directory: string = DEFAULT_LOG_DIR): Promise<ClearBrowserLogsResult> {
+  const [{ resolve, join }, fs] = await Promise.all([loadPathModule(), loadFsModule()])
+  const resolvedDir = resolve(process.cwd(), directory)
+
+  let entries: string[]
+  try {
+    entries = await fs.readdir(resolvedDir)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      logDebug('browser-logs', 'Clear requested for missing directory', { directory: resolvedDir })
+      return { clearedFiles: 0, directory: resolvedDir, existed: false }
+    }
+    logError('browser-logs', 'Failed to list directory for clearing', error as Error)
+    throw error
+  }
+
+  const logFiles = entries.filter((file) => file.endsWith('.log')).map((file) => join(resolvedDir, file))
+  if (!logFiles.length) {
+    logDebug('browser-logs', 'Clear requested but no log files found', { directory: resolvedDir })
+    return { clearedFiles: 0, directory: resolvedDir, existed: true }
+  }
+
+  try {
+    await Promise.all(logFiles.map((file) => fs.unlink(file)))
+  } catch (error) {
+    logError('browser-logs', 'Failed to delete log files', error as Error)
+    throw error
+  }
+  activeLogFile = null
+
+  return { clearedFiles: logFiles.length, directory: resolvedDir, existed: true }
 }
 
 type FsModule = typeof import('node:fs/promises')
