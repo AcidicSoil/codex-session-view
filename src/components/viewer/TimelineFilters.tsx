@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { Filters } from '~/components/ui/filters'
 import type { Filter, FilterFieldsConfig } from '~/components/ui/filters'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
@@ -26,6 +26,7 @@ interface TimelineFiltersProps {
   searchMatchCount: number
   searchQuery: string
   onSearchChange: (next: string) => void
+  onSearchNext?: () => void
 }
 
 const defaultTypeOptions = [
@@ -65,9 +66,11 @@ export function TimelineFilters({
   searchMatchCount,
   searchQuery,
   onSearchChange,
+  onSearchNext,
 }: TimelineFiltersProps) {
   const fieldOptions = useMemo(() => buildFieldConfig(events), [events])
   const hasMessageEvents = useMemo(() => events.some((event) => event.type === 'Message'), [events])
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   return (
     <div className="rounded-xl border bg-muted/5 p-4">
@@ -159,7 +162,17 @@ export function TimelineFilters({
           <input
             type="search"
             value={searchQuery}
+            ref={searchInputRef}
             onChange={(event) => onSearchChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                onSearchNext?.()
+                requestAnimationFrame(() => {
+                  searchInputRef.current?.focus()
+                })
+              }
+            }}
             placeholder="Filter by content, path, or type…"
             className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
