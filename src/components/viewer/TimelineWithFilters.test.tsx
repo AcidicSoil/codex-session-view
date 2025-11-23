@@ -13,6 +13,12 @@ const sampleEvents: ResponseItem[] = [
   { type: 'Other', data: { foo: 'bar' } },
 ]
 
+function expectMessage(event: ResponseItem): asserts event is Extract<ResponseItem, { type: 'Message' }> {
+  if (event.type !== 'Message') {
+    throw new Error(`Expected Message event, received ${event.type}`)
+  }
+}
+
 function filterCount(type: string) {
   const filters = [
     { id: 'type', field: 'type', operator: 'is', values: [type] },
@@ -81,7 +87,9 @@ describe('applyTimelineFilters', () => {
     ]
     const filtered = applyTimelineFilters(events, { filters: [], quickFilter: 'messages', roleFilter: 'user' })
     expect(filtered).toHaveLength(1)
-    expect(filtered[0].role).toBe('user')
+    const [message] = filtered
+    expectMessage(message)
+    expect(message.role).toBe('user')
   })
 
   it('role filter keeps assistant messages when set to assistant', () => {
@@ -91,6 +99,8 @@ describe('applyTimelineFilters', () => {
     ]
     const filtered = applyTimelineFilters(events, { filters: [], quickFilter: 'all', roleFilter: 'assistant' })
     expect(filtered).toHaveLength(1)
-    expect(filtered[0].role).toBe('assistant')
-  })
+    const [message] = filtered
+    expectMessage(message)
+    expect(message.role).toBe('assistant')
+})
 })

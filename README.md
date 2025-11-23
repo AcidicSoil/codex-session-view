@@ -1,7 +1,6 @@
-
 <div align="center">
   <h1>Codex Session Viewer</h1>
-  <p><strong>Using a modern Web App Starter Kit based on Tanstack Starter using React, shadcn/ui and Tailwind CSS 4</strong></p>
+  <p><strong>A modern web application for replaying and analyzing interactive user sessions, built on the TanStack ecosystem with React, TypeScript, and shadcn/ui.</strong></p>
 
   [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org/)
   [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
@@ -14,16 +13,22 @@
 <img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/README_demo.gif" alt="demo" />
 </p>
 
-## ✨ Features
+## Overview
 
-- **[TanStack Start RC1](https://tanstack.com/start)** - Modern full-stack React framework
-- **[shadcn/ui](https://ui.shadcn.com/)** - Beautiful, accessible component library
-- **[Tailwind CSS v4](https://tailwindcss.com/)** - Modern utility-first CSS framework
-- **[TypeScript](https://typescriptlang.org/)** - Full type safety
-- **[TanStack Router](https://tanstack.com/router)** - Type-safe file-based routing
-- **[Browser Echo](https://github.com/browser-echo/browser-echo)** - Advanced client-side logging and debugging
-- **[Unplugin Icons](https://github.com/antfu/unplugin-icons)** - Automatic icon loading and optimization
-- **Session Viewer controls** – Upload sessions, filter timeline events, toggle persistence, and eject snapshots instantly
+Codex Session Viewer is a sophisticated tool designed for replaying, analyzing, and debugging interactive user sessions. It provides a detailed timeline of events, including user actions, console logs, and network requests, alongside a chat-like interface to inspect conversational context. It's built to help developers and AI engineers understand complex interactions and diagnose issues with precision.
+
+This application serves as an advanced implementation of a modern web app starter kit, showcasing the power of the TanStack ecosystem.
+
+## ✨ Key Features
+
+- **Interactive Session Replay:** Upload and view comprehensive session snapshots to replay user interactions step-by-step.
+- **Detailed Timeline View:** Visualize the complete sequence of events in a session, including user inputs, mutations, console logs, and more.
+- **Advanced Filtering:** Dynamically filter timeline events by type (e.g., `ACTION`, `MUTATION`, `LOG`) to isolate and analyze specific activities.
+- **Chat & Discovery:** Analyze conversational AI interactions within the `ChatDock` and explore raw session data through the `DiscoveryPanel`.
+- **Data Persistence Control:** Easily toggle session persistence in `localStorage` to save analysis across browser sessions.
+- **Modern Tech Stack:** Built with the latest [TanStack ecosystem](https://tanstack.com/) (Start RC1, Router, Query), [React](https://react.dev/), and [TypeScript](https://www.typescriptlang.org/) for a robust, type-safe, and performant experience.
+- **Beautiful & Accessible UI:** Crafted with [shadcn/ui](https://ui.shadcn.com/) and [Tailwind CSS v4](https://tailwindcss.com/) for a polished, responsive, and accessible user interface.
+- **Enhanced Client-Side Debugging:** Leverages [Browser Echo](https://github.com/browser-echo/browser-echo) for advanced client-side logging and inspection.
 
 ## 🚀 Quick Start
 
@@ -69,16 +74,19 @@ pnpm biome:fix:unsafe # Fix code issues (unsafe)
 
 ```
 src/
-├── app/
-│   ├── routes/           # File-based routing
-│   │   ├── __root.tsx   # Root layout
-│   │   ├── index.tsx    # Home page
-│   │   └── api/         # API routes
-│   └── styles/          # Global styles
+├── routes/
+│   ├── __root.tsx              # Root shell rendered on every page
+│   └── (site)/viewer/index.tsx # Viewer route wired to TanStack Start loader/head/search
+├── features/
+│   └── viewer/                 # viewer.loader.ts, discovery/upload sections, route helpers
 ├── components/
-│   └── ui/              # shadcn/ui components
-└── utils/               # Utility functions
+│   └── viewer/                 # Session explorer, drop zone, chat dock, etc.
+├── hooks/                      # useFileLoader, storage helpers
+├── lib/                        # parser + repository utilities
+└── server/                     # server functions + persistence
 ```
+
+The viewer route’s loader (`src/features/viewer/viewer.loader.ts`) runs on navigation to stream discovery data (project files + session assets) into the router cache before `ViewerPage` renders. Search params stay typed via `viewer.search.ts`, and `DiscoverySection` reads both loader data and search state with `useLoaderData({ from: VIEWER_ROUTE_ID })` / `useSearch({ from: VIEWER_ROUTE_ID })`.
 
 ## 🎯 Core Technologies
 

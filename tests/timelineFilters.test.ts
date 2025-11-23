@@ -19,7 +19,7 @@ describe("applyTimelineFilters", () => {
         const filters: Filter<TimelineFilterValue>[] = [
             { id: "type", field: "type", operator: "is", values: [value] },
         ]
-        return applyTimelineFilters(events, { filters, quickFilter: "all" })
+        return applyTimelineFilters(events, { filters, quickFilter: "all", roleFilter: "all" })
     }
 
     const eventTypes = [
@@ -40,25 +40,25 @@ describe("applyTimelineFilters", () => {
     })
 
     it("quick filter 'messages' returns only message events", () => {
-        const filtered = applyTimelineFilters(events, { filters: [], quickFilter: "messages" })
+        const filtered = applyTimelineFilters(events, { filters: [], quickFilter: "messages", roleFilter: "all" })
         expect(filtered).toHaveLength(1)
         expect(filtered[0].type).toBe("Message")
     })
 
     it("quick filter 'tools' returns tool-like events", () => {
-        const filtered = applyTimelineFilters(events, { filters: [], quickFilter: "tools" })
+        const filtered = applyTimelineFilters(events, { filters: [], quickFilter: "tools", roleFilter: "all" })
         const types = filtered.map((event) => event.type)
         expect(types).toEqual(["FunctionCall", "LocalShellCall", "WebSearchCall", "CustomToolCall"])
     })
 
     it("quick filter 'files' returns file events", () => {
-        const filtered = applyTimelineFilters(events, { filters: [], quickFilter: "files" })
+        const filtered = applyTimelineFilters(events, { filters: [], quickFilter: "files", roleFilter: "all" })
         expect(filtered).toHaveLength(1)
         expect(filtered[0].type).toBe("FileChange")
     })
 
     it("quick filter 'all' returns every event", () => {
-        const filtered = applyTimelineFilters(events, { filters: [], quickFilter: "all" })
+        const filtered = applyTimelineFilters(events, { filters: [], quickFilter: "all", roleFilter: "all" })
         expect(filtered).toHaveLength(events.length)
     })
 })

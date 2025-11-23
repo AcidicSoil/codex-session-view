@@ -1,6 +1,12 @@
-import { randomUUID } from 'node:crypto'
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import type { Todo } from '~/features/todos/types'
+
+function createTodoId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `todo_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+}
 
 const todosCollection = createCollection(
   localOnlyCollectionOptions<Todo>({
@@ -15,7 +21,7 @@ export async function listTodos(): Promise<Todo[]> {
 
 export async function addTodo(text: string): Promise<Todo> {
   const record: Todo = {
-    id: randomUUID(),
+    id: createTodoId(),
     text,
     completed: false,
     createdAt: new Date().toISOString(),

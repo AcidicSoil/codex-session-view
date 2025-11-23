@@ -1,6 +1,9 @@
 //import { SignedIn, SignedOut, UserButton } from "@daveyplate/better-auth-ui"
 import { Link } from '@tanstack/react-router';
 import { ModeToggle } from './mode-toggle';
+import { VIEWER_ROUTE_PATH, type ViewerSearch } from '~/features/viewer/route-id';
+
+const defaultViewerSearch: ViewerSearch = { filters: [], expanded: [] };
 
 
 export function Header() {
@@ -19,7 +22,8 @@ export function Header() {
             Todo
           </Link>
           <Link
-            to="/viewer"
+            to={VIEWER_ROUTE_PATH}
+            search={defaultViewerSearch}
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             Viewer

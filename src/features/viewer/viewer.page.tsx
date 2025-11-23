@@ -1,22 +1,30 @@
 import { ClientOnly } from '@tanstack/react-router'
+import { useFileLoader } from '~/hooks/useFileLoader'
 import { DiscoverySection } from './viewer.discovery.section'
 import { UploadSection } from './viewer.upload.section'
 
 export function ViewerPage() {
   return (
     <ClientOnly fallback={<ViewerSkeleton />}>
-      <main className="container mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10">
-        <section className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Codex Session Viewer</p>
-          <h1 className="text-3xl font-bold tracking-tight">Workspace Discovery</h1>
-          <p className="text-muted-foreground">Drop in a session to stream its timeline, then iterate with the chat dock.</p>
-        </section>
-
-        <DiscoverySection />
-        <UploadSection />
-      </main>
+      <ViewerClient />
     </ClientOnly>
-  )
+  );
+}
+
+function ViewerClient() {
+  const loader = useFileLoader();
+  return (
+    <main className="container mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10">
+      <section className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Codex Session Viewer</p>
+        <h1 className="text-3xl font-bold tracking-tight">Workspace Discovery</h1>
+        <p className="text-muted-foreground">Drop in a session to stream its timeline, then iterate with the chat dock.</p>
+      </section>
+
+      <DiscoverySection loader={loader} />
+      <UploadSection loader={loader} />
+    </main>
+  );
 }
 
 function ViewerSkeleton() {

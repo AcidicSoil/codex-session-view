@@ -130,7 +130,7 @@ export function DropZone({
           {meta?.timestamp ? (
             <div className="flex items-center justify-between">
               <dt className="text-muted-foreground">Timestamp</dt>
-              <dd>{formatDateTime(meta.timestamp, 'Unknown timestamp')}</dd>
+              <dd>{formatDateTime(meta.timestamp, { fallback: 'Unknown timestamp' })}</dd>
             </div>
           ) : null}
           {meta?.git?.repo ? (

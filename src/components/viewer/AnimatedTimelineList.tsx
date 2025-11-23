@@ -69,7 +69,7 @@ export function AnimatedTimelineList({ events, className, onSelect, searchQuery,
     if (activeMatchIndex < 0 || activeMatchIndex >= items.length) return
     setExpandedIndex(activeMatchIndex)
     setScrollTarget(activeMatchIndex)
-  }, [activeMatchIndex, items])
+  }, [activeMatchIndex, items.length])
 
   const handleScrollChange = ({ scrollTop, totalHeight, height }: { scrollTop: number; totalHeight: number; height: number }) => {
     const top = Math.min(scrollTop / 80, 1)

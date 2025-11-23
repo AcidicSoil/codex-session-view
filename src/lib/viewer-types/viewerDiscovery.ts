@@ -1,3 +1,5 @@
+import { deriveRepoDetailsFromLine, type RepoMetadata } from '~/lib/repo-metadata';
+
 const isServerRuntime = typeof process !== 'undefined' && !!process.versions?.node;
 
 type NodeDeps = {
@@ -25,6 +27,8 @@ export interface DiscoveredSessionAsset {
   sortKey?: number;
   size?: number;
   tags?: readonly string[];
+  repoLabel?: string;
+  repoMeta?: RepoMetadata;
 }
 export interface ProjectDiscoverySnapshot {
   projectFiles: string[];
@@ -65,19 +69,13 @@ function extractSortKeyFromPath(path: string) {
   return 0;
 }
 
-function getFileSizeFromAbsolutePath(path: string, deps: NodeDeps | null) {
-  if (!deps) return undefined;
+function getFileSizeFromAbsolutePath(path: string | undefined, deps: NodeDeps | null) {
+  if (!deps || !path) return undefined;
   try {
     return deps.fs.statSync(path).size;
   } catch {
     return undefined;
   }
-}
-
-function getFileSizeFromGlobPath(path: string, deps: NodeDeps | null) {
-  if (!deps) return undefined;
-  const absolutePath = deps.path.resolve(process.cwd(), path.replace(/^\//, ''));
-  return getFileSizeFromAbsolutePath(absolutePath, deps);
 }
 /**
  * Build-time discovery of project files and session assets.
@@ -97,7 +95,7 @@ export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot>
     '!/src/**/*.spec.{ts,tsx,js,jsx}',
     '!/src/**/*.stories.{ts,tsx,js,jsx}',
   ]);
-  const docAssets = import.meta.glob(['/README*', '/AGENTS.md'], {
+  const docAssets = import.meta.glob(['/README*'], {
     eager: true,
     query: '?url',
     import: 'default',
@@ -115,12 +113,20 @@ export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot>
       import: 'default',
     }
   ) as Record<string, string>;
-  const bundledSessions = Object.entries(sessionMatches).map(([path, url]) => ({
-    path: path.replace(/^\//, ''),
-    url,
-    sortKey: extractSortKeyFromPath(path),
-    size: getFileSizeFromGlobPath(path, nodeDeps),
-  }));
+  const bundledSessions = await Promise.all(
+    Object.entries(sessionMatches).map(async ([path, url]) => {
+      const relativePath = path.replace(/^\//, '');
+      const absolutePath = resolveWorkspacePath(relativePath, nodeDeps);
+      const repoDetails = await readRepoDetailsFromFile(absolutePath, nodeDeps);
+      return {
+        path: relativePath,
+        url,
+        sortKey: extractSortKeyFromPath(path),
+        size: getFileSizeFromAbsolutePath(absolutePath, nodeDeps),
+        ...repoDetails,
+      } satisfies DiscoveredSessionAsset;
+    }),
+  );
   const externalSessions = await discoverExternalSessionAssets(nodeDeps);
   const storedUploads = await discoverStoredSessionAssets();
   const sessionAssets = sortSessionAssets(mergeSessionAssets(bundledSessions, externalSessions, storedUploads));
@@ -152,15 +158,20 @@ async function discoverExternalSessionAssets(deps: NodeDeps | null): Promise<Dis
       onlyFiles: true,
       dot: true,
     });
-    for (const relativePath of matches) {
-      const absolutePath = deps.path.resolve(dirInfo.absolute, relativePath);
-      assets.push({
-        path: joinDisplayPath(dirInfo.displayPrefix, relativePath),
-        url: deps.url.pathToFileURL(absolutePath).toString(),
-        sortKey: extractSortKeyFromPath(relativePath),
-        size: getFileSizeFromAbsolutePath(absolutePath, deps),
-      });
-    }
+    const entries = await Promise.all(
+      matches.map(async (relativePath) => {
+        const absolutePath = deps.path.resolve(dirInfo.absolute, relativePath);
+        const repoDetails = await readRepoDetailsFromFile(absolutePath, deps);
+        return {
+          path: joinDisplayPath(dirInfo.displayPrefix, relativePath),
+          url: deps.url.pathToFileURL(absolutePath).toString(),
+          sortKey: extractSortKeyFromPath(relativePath),
+          size: getFileSizeFromAbsolutePath(absolutePath, deps),
+          ...repoDetails,
+        } satisfies DiscoveredSessionAsset;
+      }),
+    );
+    assets.push(...entries);
   }
   return assets;
 }
@@ -228,5 +239,46 @@ async function discoverStoredSessionAssets(): Promise<DiscoveredSessionAsset[]> 
     sortKey: Date.parse(record.storedAt),
     size: record.size,
     tags: ['upload'],
+    repoLabel: record.repoLabel,
+    repoMeta: record.repoMeta,
   }));
+}
+
+function resolveWorkspacePath(relativePath: string, deps: NodeDeps | null) {
+  if (!deps) return undefined;
+  return deps.path.resolve(process.cwd(), relativePath.replace(/^\//, ''));
+}
+
+async function readRepoDetailsFromFile(absolutePath: string | undefined, deps: NodeDeps | null) {
+  if (!absolutePath || !deps) return {};
+  try {
+    const firstLine = await readFirstLine(absolutePath, deps);
+    return deriveRepoDetailsFromLine(firstLine);
+  } catch {
+    return {};
+  }
+}
+
+async function readFirstLine(absolutePath: string, deps: NodeDeps) {
+  const handle = await deps.fs.promises.open(absolutePath, 'r');
+  const bufferSize = 2048;
+  const maxRead = bufferSize * 4;
+  let collected = '';
+  try {
+    while (collected.length < maxRead) {
+      const buffer = Buffer.alloc(bufferSize);
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+      if (!bytesRead) break;
+      const chunk = buffer.subarray(0, bytesRead).toString('utf8');
+      const newlineIndex = chunk.indexOf('\n');
+      if (newlineIndex >= 0) {
+        collected += chunk.slice(0, newlineIndex);
+        return collected.replace(/\r$/, '');
+      }
+      collected += chunk;
+    }
+    return collected ? collected.replace(/\r$/, '') : undefined;
+  } finally {
+    await handle.close();
+  }
 }

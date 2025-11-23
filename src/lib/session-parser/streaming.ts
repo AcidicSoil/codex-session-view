@@ -7,7 +7,7 @@ import {
 } from './validators';
 import type { ResponseItemParsed, SessionMetaParsed } from './schemas';
 
-export interface ParserError {
+export interface ParserError extends Record<string, unknown> {
   readonly line: number;
   readonly reason: ParseFailureReason;
   readonly message: string;
