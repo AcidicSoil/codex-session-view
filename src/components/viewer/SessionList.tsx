@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Filter as FilterIcon } from 'lucide-react';
+import { ArrowDownUp, Search, SlidersHorizontal } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Loader } from '~/components/ui/loader';
@@ -9,7 +9,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
@@ -19,20 +18,14 @@ import { cn } from '~/lib/utils';
 import { formatCount, formatDateTime } from '~/utils/intl';
 import { BorderBeam } from '~/components/ui/border-beam';
 import { TimelineView } from '~/components/viewer/TimelineView';
-
-type FilterGroup = 'size' | 'date';
-
-interface FilterChipConfig {
-  id: string;
-  label: string;
-  description: string;
-  group: FilterGroup;
-  predicate: (asset: DiscoveredSessionAsset, now: number) => boolean;
-}
+import { logDebug, logError, logInfo, logWarn } from '~/lib/logger';
 
 interface RepositoryGroup {
   id: string;
   label: string;
+  repoName: string;
+  branchName: string;
+  commit?: string;
   sessions: DiscoveredSessionAsset[];
   totalSize: number;
   lastUpdated?: number;
@@ -42,42 +35,11 @@ interface RepositoryGroup {
 export interface SessionListProps {
   sessionAssets: DiscoveredSessionAsset[];
   snapshotTimestamp: number;
-  selectedFilterIds?: string[];
-  onSelectedFilterIdsChange?: (next: string[]) => void;
-  expandedRepoIds?: string[];
-  onExpandedRepoIdsChange?: (next: string[]) => void;
-  minSizeMb?: number;
-  onMinSizeMbChange?: (value?: number) => void;
   onSessionOpen?: (asset: DiscoveredSessionAsset) => Promise<void> | void;
   loadingSessionPath?: string | null;
+  selectedSessionPath?: string | null;
+  onSelectionChange?: (path: string | null) => void;
 }
-
-const dateFilters: FilterChipConfig[] = [
-  {
-    id: 'date-7',
-    label: 'Last 7 days',
-    description: 'Newest sessions from this week',
-    group: 'date',
-    predicate: (asset, now) => (asset.sortKey ?? 0) >= now - 7 * 24 * 60 * 60 * 1000,
-  },
-  {
-    id: 'date-30',
-    label: 'Last 30 days',
-    description: 'Sessions updated in the past month',
-    group: 'date',
-    predicate: (asset, now) => (asset.sortKey ?? 0) >= now - 30 * 24 * 60 * 60 * 1000,
-  },
-  {
-    id: 'date-90',
-    label: 'Last 90 days',
-    description: 'Quarterly view of recent work',
-    group: 'date',
-    predicate: (asset, now) => (asset.sortKey ?? 0) >= now - 90 * 24 * 60 * 60 * 1000,
-  },
-];
-
-const allFilterChips = dateFilters;
-export const sessionFilterChipIds = allFilterChips.map((chip) => chip.id);
 
 const sessionCountIntensity = {
   low: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-400/20 dark:text-emerald-100',
@@ -85,246 +47,348 @@ const sessionCountIntensity = {
   high: 'bg-sky-100 text-sky-900 dark:bg-sky-500/20 dark:text-sky-50',
 } as const;
 
-function uniqueStrings(values: string[], allowList?: Set<string>) {
-  const seen = new Set<string>();
-  const cleaned: string[] = [];
-  for (const value of values) {
-    if (!value) continue;
-    if (allowList && !allowList.has(value)) continue;
-    if (seen.has(value)) continue;
-    seen.add(value);
-    cleaned.push(value);
-  }
-  return cleaned;
-}
+const SIZE_PRESETS = {
+  any: { id: 'any', label: 'Size: any', minBytes: undefined },
+  'over-512kb': { id: 'over-512kb', label: '> 512 KB', minBytes: 512 * 1024 },
+  'over-1mb': { id: 'over-1mb', label: '> 1 MB', minBytes: 1024 * 1024 },
+  'over-10mb': { id: 'over-10mb', label: '> 10 MB', minBytes: 10 * 1024 * 1024 },
+} as const;
 
-const filterChipIdSet = new Set(sessionFilterChipIds);
-
-export function sanitizeSessionFilterIds(ids: string[]) {
-  return uniqueStrings(ids, filterChipIdSet);
-}
-
-function dedupeRepoIds(ids: string[]) {
-  return uniqueStrings(ids);
-}
+type SizePresetId = keyof typeof SIZE_PRESETS;
+type SizeUnit = 'KB' | 'MB';
+type SortKey = 'timestamp' | 'size';
+type SortDirection = 'asc' | 'desc';
 
 export function SessionList({
   sessionAssets,
   snapshotTimestamp,
-  selectedFilterIds: selectedFilterIdsProp,
-  onSelectedFilterIdsChange,
-  expandedRepoIds: expandedRepoIdsProp,
-  onExpandedRepoIdsChange,
-  minSizeMb: minSizeMbProp,
-  onMinSizeMbChange,
   onSessionOpen,
   loadingSessionPath,
+  selectedSessionPath,
+  onSelectionChange,
 }: SessionListProps) {
-  const isFiltersControlled = Array.isArray(selectedFilterIdsProp);
-  const isExpandedControlled = Array.isArray(expandedRepoIdsProp);
-  const isMinSizeControlled = typeof minSizeMbProp === 'number';
-
-  const [localFilterIds, setLocalFilterIds] = useState<string[]>(() =>
-    sanitizeSessionFilterIds(selectedFilterIdsProp ?? [])
-  );
-  const [localExpandedRepoIds, setLocalExpandedRepoIds] = useState<string[]>(() =>
-    dedupeRepoIds(expandedRepoIdsProp ?? [])
-  );
-  const [localMinSizeMb, setLocalMinSizeMb] = useState<number | undefined>(minSizeMbProp);
-  const [sizeInputValue, setSizeInputValue] = useState<string>(() =>
-    minSizeMbProp !== undefined ? String(minSizeMbProp) : ''
-  );
+  const [searchText, setSearchText] = useState('');
+  const [sizePreset, setSizePreset] = useState<SizePresetId>('any');
+  const [manualMinValue, setManualMinValue] = useState('');
+  const [manualMaxValue, setManualMaxValue] = useState('');
+  const [manualMinUnit, setManualMinUnit] = useState<SizeUnit>('MB');
+  const [manualMaxUnit, setManualMaxUnit] = useState<SizeUnit>('MB');
+  const [sortKey, setSortKey] = useState<SortKey>('timestamp');
+  const [sortDir, setSortDir] = useState<SortDirection>('desc');
+  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
   const [loadingRepoId, setLoadingRepoId] = useState<string | null>(null);
+  const filterLogRef = useRef<{ modelKey: string; count: number }>({ modelKey: '', count: sessionAssets.length });
+  const viewModelLogRef = useRef<{ total: number; groups: number } | null>(null);
+
+  const manualMinBytes = toBytes(manualMinValue, manualMinUnit);
+  const manualMaxBytes = toBytes(manualMaxValue, manualMaxUnit);
+  const presetMinBytes = SIZE_PRESETS[sizePreset].minBytes;
+  const hasManualRange = manualMinBytes !== undefined || manualMaxBytes !== undefined;
+  const effectiveMinBytes = hasManualRange ? manualMinBytes : presetMinBytes;
+  const effectiveMaxBytes = hasManualRange ? manualMaxBytes : undefined;
 
   useEffect(() => {
-    if (isMinSizeControlled) {
-      setLocalMinSizeMb(minSizeMbProp);
-      setSizeInputValue(minSizeMbProp !== undefined ? String(minSizeMbProp) : '');
-    } else if (minSizeMbProp === undefined) {
-      setLocalMinSizeMb(undefined);
-      setSizeInputValue('');
+    if (
+      manualMinBytes !== undefined &&
+      manualMaxBytes !== undefined &&
+      manualMinBytes > manualMaxBytes
+    ) {
+      logWarn('viewer.filters', 'Manual size range invalid', {
+        manualMinBytes,
+        manualMaxBytes,
+      });
     }
-  }, [isMinSizeControlled, minSizeMbProp]);
+  }, [manualMinBytes, manualMaxBytes]);
 
-  const resolvedFilterIds = sanitizeSessionFilterIds(
-    isFiltersControlled ? selectedFilterIdsProp ?? [] : localFilterIds
+  const repositoryGroups = useMemo(
+    () => aggregateByRepository(sessionAssets),
+    [sessionAssets],
   );
-  const resolvedExpandedRepoIds = dedupeRepoIds(
-    isExpandedControlled ? expandedRepoIdsProp ?? [] : localExpandedRepoIds
-  );
-  const resolvedMinSizeMb = isMinSizeControlled ? minSizeMbProp ?? undefined : localMinSizeMb;
-  const resolvedMinSizeBytes = resolvedMinSizeMb !== undefined ? resolvedMinSizeMb * 1024 * 1024 : undefined;
 
-  const updateFilterIds = (next: string[]) => {
-    if (!isFiltersControlled) {
-      setLocalFilterIds(next);
-    }
-    onSelectedFilterIdsChange?.(next);
-  };
-
-  const updateExpandedRepoIds = (next: string[]) => {
-    if (!isExpandedControlled) {
-      setLocalExpandedRepoIds(next);
-    }
-    onExpandedRepoIdsChange?.(next);
-  };
-
-  const updateMinSizeMb = (next: number | undefined) => {
-    if (!isMinSizeControlled) {
-      setLocalMinSizeMb(next);
-    }
-    onMinSizeMbChange?.(next);
-  };
-
-  const handleMinSizeInput = (value: string) => {
-    setSizeInputValue(value);
-    if (!value.trim()) {
-      updateMinSizeMb(undefined);
+  useEffect(() => {
+    const repoCount = new Set(repositoryGroups.map((group) => group.repoName)).size;
+    const modelKey = `${sessionAssets.length}:${repositoryGroups.length}`;
+    if (viewModelLogRef.current?.total === sessionAssets.length && viewModelLogRef.current?.groups === repositoryGroups.length) {
       return;
     }
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed) || parsed < 0) return;
-    updateMinSizeMb(parsed);
-  };
-
-  const activeFilters = useMemo(
-    () => allFilterChips.filter((chip) => resolvedFilterIds.includes(chip.id)),
-    [resolvedFilterIds]
-  );
-  const activeFilterBadges = [
-    ...activeFilters.map((chip) => chip.label),
-    resolvedMinSizeMb !== undefined ? `≥ ${resolvedMinSizeMb} MB` : null,
-  ].filter(Boolean) as string[];
-  const activeFilterCount = activeFilterBadges.length;
-
-  const filteredSessions = useMemo(() => {
-    if (!activeFilters.length && resolvedMinSizeBytes === undefined) return sessionAssets;
-    const now = Date.now();
-    return sessionAssets.filter((asset) => {
-      const matchesFilters = activeFilters.every((filter) => filter.predicate(asset, now));
-      const matchesSize = resolvedMinSizeBytes === undefined ? true : (asset.size ?? 0) >= resolvedMinSizeBytes;
-      return matchesFilters && matchesSize;
+    logInfo('viewer.explorer', 'Computed session explorer view model', {
+      totalSessions: sessionAssets.length,
+      repoCount,
+      groupCount: repositoryGroups.length,
     });
-  }, [sessionAssets, activeFilters, resolvedMinSizeBytes]);
+    viewModelLogRef.current = { total: sessionAssets.length, groups: repositoryGroups.length };
+  }, [sessionAssets.length, repositoryGroups]);
 
-  const repositoryGroups = useMemo(() => aggregateByRepository(filteredSessions), [filteredSessions]);
+  const { groups: filteredGroups, filteredSessionCount } = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    const min = typeof effectiveMinBytes === 'number' ? effectiveMinBytes : undefined;
+    const max = typeof effectiveMaxBytes === 'number' ? effectiveMaxBytes : undefined;
+    const groups = repositoryGroups
+      .map((group) => {
+        const filteredSessions = group.sessions.filter((session) => {
+          const matchesSearch = query
+            ? matchesSearchText(query, group, session)
+            : true;
+          if (!matchesSearch) return false;
+          const size = session.size ?? 0;
+          const meetsMin = min === undefined || size >= min;
+          const meetsMax = max === undefined || size <= max;
+          return meetsMin && meetsMax;
+        });
+        if (!filteredSessions.length) return null;
+        const sortedSessions = sortSessions(filteredSessions, sortKey, sortDir);
+        return {
+          ...group,
+          sessions: sortedSessions,
+          primarySortValue: getSortValue(sortedSessions[0], sortKey),
+        };
+      })
+      .filter(Boolean) as Array<RepositoryGroup & { primarySortValue: number }>;
 
-  const sortedGroups = useMemo(() => sortRepositories(repositoryGroups, activeFilters), [repositoryGroups, activeFilters]);
+    const sortedGroups = groups.sort((a, b) => {
+      const direction = sortDir === 'asc' ? 1 : -1;
+      const diff = (a.primarySortValue ?? 0) - (b.primarySortValue ?? 0);
+      if (diff !== 0) {
+        return direction * diff;
+      }
+      return a.label.localeCompare(b.label);
+    });
 
-  const handleChipToggle = (filterId: string) => {
-    const next = resolvedFilterIds.includes(filterId)
-      ? resolvedFilterIds.filter((id) => id !== filterId)
-      : [...resolvedFilterIds, filterId];
-    updateFilterIds(sanitizeSessionFilterIds(next));
-  };
+    const total = sortedGroups.reduce((count, group) => count + group.sessions.length, 0);
+    return { groups: sortedGroups, filteredSessionCount: total };
+  }, [repositoryGroups, searchText, effectiveMinBytes, effectiveMaxBytes, sortKey, sortDir]);
 
-  const clearFilters = () => {
-    updateFilterIds([]);
-    handleMinSizeInput('');
-  };
+  useEffect(() => {
+    const filterModel = buildFilterModel({
+      searchText,
+      sizePreset,
+      manualMinBytes,
+      manualMaxBytes,
+      sortKey,
+      sortDir,
+    });
+    const modelKey = JSON.stringify(filterModel);
+    if (filterLogRef.current.modelKey === modelKey && filterLogRef.current.count === filteredSessionCount) {
+      return;
+    }
+    logInfo('viewer.filters', 'Session explorer filters updated', {
+      filterModel,
+      beforeCount: filterLogRef.current.count,
+      afterCount: filteredSessionCount,
+      navigation: 'local-state',
+    });
+    filterLogRef.current = { modelKey, count: filteredSessionCount };
+  }, [filteredSessionCount, manualMaxBytes, manualMinBytes, searchText, sizePreset, sortDir, sortKey]);
 
-  const toggleRepo = (repoId: string, sessionCount: number) => {
-    const isExpanded = resolvedExpandedRepoIds.includes(repoId);
+  useEffect(() => {
+    if (!selectedSessionPath) return;
+    const stillVisible = filteredGroups.some((group) =>
+      group.sessions.some((session) => session.path === selectedSessionPath),
+    );
+    if (!stillVisible) {
+      const existsInMemory = sessionAssets.some((session) => session.path === selectedSessionPath);
+      if (existsInMemory) {
+        logDebug('viewer.explorer', 'Selected session hidden by filters', {
+          selectedSessionPath,
+          filterModel: buildFilterModel({
+            searchText,
+            sizePreset,
+            manualMinBytes,
+            manualMaxBytes,
+            sortKey,
+            sortDir,
+          }),
+        });
+        onSelectionChange?.(null);
+      }
+    }
+  }, [
+    filteredGroups,
+    manualMaxBytes,
+    manualMinBytes,
+    onSelectionChange,
+    searchText,
+    selectedSessionPath,
+    sessionAssets,
+    sizePreset,
+    sortDir,
+    sortKey,
+  ]);
+
+  useEffect(() => {
+    const visibleIds = new Set(filteredGroups.map((group) => group.id));
+    setExpandedGroupIds((current) => current.filter((id) => visibleIds.has(id)));
+  }, [filteredGroups]);
+
+  useEffect(() => {
+    if (sessionAssets.length > 0 && filteredSessionCount === 0) {
+      const filterModel = buildFilterModel({
+        searchText,
+        sizePreset,
+        manualMinBytes,
+        manualMaxBytes,
+        sortKey,
+        sortDir,
+      });
+      logError('viewer.explorer', 'Filters produced zero sessions while memory still populated', {
+        filterModel,
+        totalSessions: sessionAssets.length,
+        groupSamples: repositoryGroups.slice(0, 5).map((group) => group.id),
+      });
+    }
+  }, [filteredSessionCount, manualMaxBytes, manualMinBytes, repositoryGroups, searchText, sessionAssets.length, sizePreset, sortDir, sortKey]);
+
+  const toggleRepo = (group: RepositoryGroup) => {
+    const isExpanded = expandedGroupIds.includes(group.id);
     const next = isExpanded
-      ? resolvedExpandedRepoIds.filter((id) => id !== repoId)
-      : [...resolvedExpandedRepoIds, repoId];
-    const deduped = dedupeRepoIds(next);
-    updateExpandedRepoIds(deduped);
-
+      ? expandedGroupIds.filter((id) => id !== group.id)
+      : [...expandedGroupIds, group.id];
+    setExpandedGroupIds(next);
+    logDebug('viewer.explorer', 'Toggled repository group', {
+      groupId: group.id,
+      repoName: group.repoName,
+      branchName: group.branchName,
+      previousOpenState: isExpanded,
+      nextOpenState: !isExpanded,
+    });
     if (!isExpanded) {
-      setLoadingRepoId(repoId);
-      const simulatedDelay = sessionCount > 20 ? 400 : sessionCount > 8 ? 260 : 160;
+      setLoadingRepoId(group.id);
+      const simulatedDelay = group.sessions.length > 20 ? 400 : group.sessions.length > 8 ? 260 : 160;
       setTimeout(() => {
-        setLoadingRepoId((current) => (current === repoId ? null : current));
+        setLoadingRepoId((current) => (current === group.id ? null : current));
       }, simulatedDelay);
     }
   };
 
-  const hasResults = sortedGroups.length > 0;
+  const resetFilters = () => {
+    setSearchText('');
+    setSizePreset('any');
+    setManualMinValue('');
+    setManualMaxValue('');
+    setSortKey('timestamp');
+    setSortDir('desc');
+    setExpandedGroupIds([]);
+    onSelectionChange?.(null);
+  };
+
+  const hasResults = filteredGroups.length > 0;
   const datasetEmpty = sessionAssets.length === 0;
 
   return (
     <section className="space-y-4 rounded-xl border border-border/80 bg-background/50 p-4 shadow-sm">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex-1 space-y-2">
           <p className="text-sm font-semibold">Session filters</p>
           <p className="text-xs text-muted-foreground">
-            Showing {formatCount(filteredSessions.length)} of {formatCount(sessionAssets.length)} sessions
-            {resolvedMinSizeMb !== undefined ? ` (min ${resolvedMinSizeMb} MB).` : '.'}
+            Showing {formatCount(filteredSessionCount)} of {formatCount(sessionAssets.length)} sessions
           </p>
-          {activeFilterBadges.length ? (
-            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-              {activeFilterBadges.map((label) => (
-                <span key={label} className="rounded-full border border-border/70 px-2 py-0.5">
-                  {label}
-                </span>
-              ))}
-            </div>
-          ) : null}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2 top-2.5 size-4 text-muted-foreground" />
+            <input
+              type="search"
+              aria-label="Search sessions"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search repo, branch, filename, or tag"
+              className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <FilterIcon className="size-4" />
-                Filters
-                {activeFilterCount ? (
-                  <span className="text-xs text-muted-foreground">({activeFilterCount})</span>
-                ) : null}
+                <SlidersHorizontal className="size-4" />
+                {SIZE_PRESETS[sizePreset].label}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80 space-y-3">
-              <DropdownMenuLabel>Minimum size</DropdownMenuLabel>
-              <div className="flex items-center gap-2 px-2">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.1"
-                  className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  placeholder="e.g. 2"
-                  value={sizeInputValue}
-                  onChange={(event) => handleMinSizeInput(event.target.value)}
-                />
-                <span className="text-xs text-muted-foreground">MB</span>
-                {resolvedMinSizeMb !== undefined ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => handleMinSizeInput('')}
-                  >
-                    Clear
-                  </Button>
-                ) : null}
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Date filters</DropdownMenuLabel>
-              {dateFilters.map((chip) => (
+            <DropdownMenuContent className="w-64">
+              <DropdownMenuLabel>Size presets</DropdownMenuLabel>
+              {Object.values(SIZE_PRESETS).map((preset) => (
                 <DropdownMenuCheckboxItem
-                  key={chip.id}
-                  checked={resolvedFilterIds.includes(chip.id)}
-                  onCheckedChange={() => handleChipToggle(chip.id)}
+                  key={preset.id}
+                  checked={sizePreset === preset.id}
+                  onCheckedChange={() => setSizePreset(preset.id)}
                 >
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium">{chip.label}</span>
-                    <span className="text-xs text-muted-foreground">{chip.description}</span>
-                  </div>
+                  {preset.label}
                 </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          <div className="flex flex-col gap-2 rounded-md border border-border/60 px-3 py-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span>Min</span>
+              <input
+                type="number"
+                min={0}
+                value={manualMinValue}
+                onChange={(event) => setManualMinValue(event.target.value)}
+                aria-label="Minimum size"
+                className="h-7 w-16 rounded border border-border/60 bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+              <select
+                value={manualMinUnit}
+                onChange={(event) => setManualMinUnit(event.target.value as SizeUnit)}
+                className="h-7 rounded border border-border/60 bg-background px-1 text-xs"
+              >
+                <option value="KB">KB</option>
+                <option value="MB">MB</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>Max</span>
+              <input
+                type="number"
+                min={0}
+                value={manualMaxValue}
+                onChange={(event) => setManualMaxValue(event.target.value)}
+                aria-label="Maximum size"
+                className="h-7 w-16 rounded border border-border/60 bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+              <select
+                value={manualMaxUnit}
+                onChange={(event) => setManualMaxUnit(event.target.value as SizeUnit)}
+                className="h-7 rounded border border-border/60 bg-background px-1 text-xs"
+              >
+                <option value="KB">KB</option>
+                <option value="MB">MB</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={sortKey === 'timestamp' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setSortKey('timestamp')}
+            >
+              Timestamp
+            </Button>
+            <Button
+              type="button"
+              variant={sortKey === 'size' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setSortKey('size')}
+            >
+              Size
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+              className="flex items-center gap-1"
+            >
+              <ArrowDownUp className="size-4" />
+              {sortDir === 'asc' ? 'ASC' : 'DESC'}
+            </Button>
+          </div>
           <button
             type="button"
-            className={cn(
-              'text-xs font-medium underline-offset-4 transition hover:underline',
-              activeFilterCount === 0 ? 'text-muted-foreground' : 'text-foreground'
-            )}
-            onClick={clearFilters}
-            disabled={activeFilterCount === 0}
+            className="text-xs font-semibold text-muted-foreground underline-offset-4 hover:underline"
+            onClick={resetFilters}
           >
-            Reset filters
+            Reset
           </button>
         </div>
       </div>
@@ -335,7 +399,7 @@ export function SessionList({
             Session repositories
           </p>
           <p className="text-xs text-muted-foreground">
-            {formatCount(sortedGroups.length)} grouped results
+            {formatCount(filteredGroups.length)} grouped results
           </p>
         </div>
         {!hasResults ? (
@@ -350,10 +414,9 @@ export function SessionList({
             </p>
           </div>
         ) : (
-          sortedGroups.map((repo) => {
-            const isExpanded = resolvedExpandedRepoIds.includes(repo.id);
+          filteredGroups.map((repo) => {
+            const isExpanded = expandedGroupIds.includes(repo.id);
             const intentClass = getSessionChipIntent(repo.sessions.length);
-            const sessionLabel = repo.sessions.length === 1 ? 'session' : 'sessions';
             const sectionId = `repo-${repo.id}`;
             return (
               <article
@@ -365,7 +428,7 @@ export function SessionList({
                   aria-expanded={isExpanded}
                   aria-controls={`${sectionId}-sessions`}
                   aria-label={`Toggle ${repo.label} repository`}
-                  onClick={() => toggleRepo(repo.id, repo.sessions.length)}
+                  onClick={() => toggleRepo(repo)}
                   className={cn(
                     'flex w-full flex-col gap-3 rounded-xl border border-transparent px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center sm:justify-between',
                     intentClass,
@@ -384,21 +447,17 @@ export function SessionList({
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="text-xs font-semibold">{repo.label}</p>
-                        {repo.repoMeta?.repo ? (
-                          <p className="text-xs opacity-80">Repo: {repo.repoMeta.repo}</p>
-                        ) : null}
-                        {repo.repoMeta?.branch ? (
-                          <p className="text-xs opacity-80">Branch: {repo.repoMeta.branch}</p>
-                        ) : null}
-                        {repo.repoMeta?.commit ? (
-                          <p className="text-xs opacity-80">Commit: {formatCommit(repo.repoMeta.commit)}</p>
+                        <p className="text-xs opacity-80">Repo: {repo.repoName}</p>
+                        <p className="text-xs opacity-80">Branch: {repo.branchName}</p>
+                        {repo.commit ? (
+                          <p className="text-xs opacity-80">Commit: {formatCommit(repo.commit)}</p>
                         ) : null}
                         <p className="text-xs opacity-80">Total size: {formatBytes(repo.totalSize)}</p>
                         <p className="text-xs opacity-80">Last updated: {formatDate(repo.lastUpdated)}</p>
                       </TooltipContent>
                     </Tooltip>
                     <span className="text-xs font-semibold">
-                      {formatCount(repo.sessions.length)} {sessionLabel}
+                      {formatCount(repo.sessions.length)} {repo.sessions.length === 1 ? 'session' : 'sessions'}
                     </span>
                     <span className="text-[10px] uppercase tracking-wide">
                       {isExpanded ? 'Hide' : 'Expand'}
@@ -421,8 +480,12 @@ export function SessionList({
                       <SessionRepoVirtualList
                         sessions={repo.sessions}
                         snapshotTimestamp={snapshotTimestamp}
-                        onSessionOpen={onSessionOpen}
+                        onSessionOpen={(session) => {
+                          onSelectionChange?.(session.path);
+                          return onSessionOpen?.(session);
+                        }}
                         loadingSessionPath={loadingSessionPath}
+                        selectedSessionPath={selectedSessionPath}
                       />
                     )}
                   </div>
@@ -439,21 +502,26 @@ export function SessionList({
 function aggregateByRepository(sessionAssets: DiscoveredSessionAsset[]): RepositoryGroup[] {
   const map = new Map<string, RepositoryGroup>();
   for (const asset of sessionAssets) {
-    const canonical = asset.repoMeta?.repo ?? asset.repoLabel ?? formatRepositoryLabel(asset.path);
-    const label = asset.repoLabel ?? canonical;
-    const id = slugify(canonical ?? label);
-    const current = map.get(id);
-    if (current) {
-      current.sessions.push(asset);
-      current.totalSize += asset.size ?? 0;
-      current.lastUpdated = Math.max(current.lastUpdated ?? 0, asset.sortKey ?? 0) || current.lastUpdated;
-      if (!current.repoMeta && asset.repoMeta) {
-        current.repoMeta = asset.repoMeta;
+    const repoName = asset.repoMeta?.repo ?? asset.repoLabel ?? formatRepositoryLabel(asset.path);
+    const branchName = asset.repoMeta?.branch ?? 'unknown';
+    const commit = asset.repoMeta?.commit;
+    const label = `${repoName ?? 'Session repo'} • ${branchName}`;
+    const slug = slugify(`${repoName ?? 'session'}-${branchName}`);
+    const existing = map.get(slug);
+    if (existing) {
+      existing.sessions.push(asset);
+      existing.totalSize += asset.size ?? 0;
+      existing.lastUpdated = Math.max(existing.lastUpdated ?? 0, asset.sortKey ?? 0) || existing.lastUpdated;
+      if (!existing.repoMeta && asset.repoMeta) {
+        existing.repoMeta = asset.repoMeta;
       }
     } else {
-      map.set(id, {
-        id,
+      map.set(slug, {
+        id: slug,
         label,
+        repoName: repoName ?? 'Unknown repo',
+        branchName,
+        commit,
         sessions: [asset],
         totalSize: asset.size ?? 0,
         lastUpdated: asset.sortKey,
@@ -462,32 +530,75 @@ function aggregateByRepository(sessionAssets: DiscoveredSessionAsset[]): Reposit
     }
   }
 
-  return Array.from(map.values()).map((repo) => ({
-    ...repo,
-    sessions: [...repo.sessions].sort((a, b) => (b.sortKey ?? 0) - (a.sortKey ?? 0) || a.path.localeCompare(b.path)),
-  }));
+  return Array.from(map.values());
 }
 
-function sortRepositories(groups: RepositoryGroup[], activeFilters: FilterChipConfig[]) {
-  const hasSizeFilter = activeFilters.some((filter) => filter.group === 'size');
-  const hasDateFilter = activeFilters.some((filter) => filter.group === 'date');
+function matchesSearchText(query: string, group: RepositoryGroup, session: DiscoveredSessionAsset) {
+  const haystack = [
+    group.repoName,
+    group.branchName,
+    group.commit,
+    session.repoLabel,
+    session.path,
+    session.tags?.join(' '),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(query);
+}
 
-  return [...groups].sort((a, b) => {
-    if (hasSizeFilter) {
-      const diff = b.totalSize - a.totalSize;
-      if (diff !== 0) return diff;
+function sortSessions(sessions: DiscoveredSessionAsset[], sortKey: SortKey, sortDir: SortDirection) {
+  const direction = sortDir === 'asc' ? 1 : -1;
+  return [...sessions].sort((a, b) => {
+    const diff = (getSortValue(a, sortKey) ?? 0) - (getSortValue(b, sortKey) ?? 0);
+    if (diff !== 0) {
+      return direction * diff;
     }
-
-    if (hasDateFilter) {
-      const diff = (b.lastUpdated ?? 0) - (a.lastUpdated ?? 0);
-      if (diff !== 0) return diff;
-    }
-
-    const countDiff = b.sessions.length - a.sessions.length;
-    if (countDiff !== 0) return countDiff;
-
-    return a.label.localeCompare(b.label);
+    return a.path.localeCompare(b.path);
   });
+}
+
+function getSortValue(session: DiscoveredSessionAsset, sortKey: SortKey) {
+  if (sortKey === 'size') {
+    return session.size ?? 0;
+  }
+  return session.sortKey ?? 0;
+}
+
+function toBytes(value: string, unit: SizeUnit) {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+  const multiplier = unit === 'KB' ? 1024 : 1024 * 1024;
+  return parsed * multiplier;
+}
+
+function buildFilterModel({
+  searchText,
+  sizePreset,
+  manualMinBytes,
+  manualMaxBytes,
+  sortKey,
+  sortDir,
+}: {
+  searchText: string;
+  sizePreset: SizePresetId;
+  manualMinBytes?: number;
+  manualMaxBytes?: number;
+  sortKey: SortKey;
+  sortDir: SortDirection;
+}) {
+  return {
+    textQuery: searchText.trim() || null,
+    sizePreset,
+    sizeMinBytes: manualMinBytes ?? SIZE_PRESETS[sizePreset].minBytes ?? null,
+    sizeMaxBytes: manualMaxBytes ?? null,
+    sortKey,
+    sortOrder: sortDir,
+    repoFilter: null,
+    branchFilter: null,
+  };
 }
 
 function formatRepositoryLabel(path: string) {
@@ -566,11 +677,13 @@ function SessionRepoVirtualList({
   snapshotTimestamp,
   onSessionOpen,
   loadingSessionPath,
+  selectedSessionPath,
 }: {
   sessions: DiscoveredSessionAsset[];
   snapshotTimestamp: number;
   onSessionOpen?: (asset: DiscoveredSessionAsset) => Promise<void> | void;
   loadingSessionPath?: string | null;
+  selectedSessionPath?: string | null;
 }) {
   const items = useMemo<SessionTimelineItem[]>(
     () => sessions.map((session, index) => ({ session, index })),
@@ -606,6 +719,7 @@ function SessionRepoVirtualList({
               snapshotTimestamp={snapshotTimestamp}
               onSessionOpen={onSessionOpen}
               isLoading={loadingSessionPath === item.session.path}
+              isSelected={selectedSessionPath === item.session.path}
             />
           </motion.div>
         )}
@@ -629,15 +743,22 @@ function SessionCard({
   snapshotTimestamp,
   onSessionOpen,
   isLoading,
+  isSelected,
 }: {
   session: DiscoveredSessionAsset;
   snapshotTimestamp: number;
   onSessionOpen?: (asset: DiscoveredSessionAsset) => Promise<void> | void;
   isLoading?: boolean;
+  isSelected?: boolean;
 }) {
   const displayName = formatSessionTitle(session.path);
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border/60 bg-gradient-to-br from-background via-background/60 to-muted/40 p-4">
+    <div
+      className={cn(
+        'relative overflow-hidden rounded-xl border border-border/60 bg-gradient-to-br from-background via-background/60 to-muted/40 p-4',
+        isSelected && 'border-primary/60 ring-2 ring-primary/50'
+      )}
+    >
       <BorderBeam className="opacity-50" size={120} duration={8} borderWidth={1} />
       <div className="relative z-10 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -663,6 +784,11 @@ function SessionCard({
           <div className="text-right text-xs text-muted-foreground">
             <p>{formatBytes(session.size)}</p>
             <p>{formatRelativeTime(session.sortKey, snapshotTimestamp)}</p>
+            {isSelected ? (
+              <span className="mt-1 inline-flex rounded-full border border-primary/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
+                Selected
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">

@@ -1,17 +1,54 @@
-import { discoverProjectAssets } from '~/lib/viewer-types/viewerDiscovery'
-import { logError, logInfo } from '~/lib/logger'
+import type { LoaderFnContext } from '@tanstack/react-router'
+import { logError, logInfo, logWarn } from '~/lib/logger'
+import { runSessionDiscovery } from '~/server/function/sessionDiscovery'
 
-export async function viewerLoader() {
-  logInfo('viewer.loader', 'Discovering project assets')
+let previousStats: { projectFiles: number; sessionAssets: number } | null = null
+
+export async function viewerLoader(ctx?: LoaderFnContext) {
+  const environment = typeof window === 'undefined' ? 'server' : 'client'
+  const trigger = ctx?.cause ?? 'unknown'
+  const loaderDeps = ctx?.deps ?? {}
+  const searchParams = ctx?.location?.search ?? {}
+  logInfo('viewer.loader', 'Loader invoked', {
+    environment,
+    trigger,
+    loaderDeps,
+    searchParams,
+  })
+
   try {
-    const snapshot = await discoverProjectAssets()
-    logInfo('viewer.loader', 'Discovered project assets', {
+    const snapshot = await runSessionDiscovery()
+    logInfo('viewer.loader', 'Loader discovery completed', {
+      environment,
+      trigger,
+      projectFilesCount: snapshot.projectFiles.length,
+      sessionAssetsCount: snapshot.sessionAssets.length,
+      sourceCounts: snapshot.stats,
+      discoveryInputs: snapshot.inputs,
+    })
+
+    if (previousStats && previousStats.sessionAssets > 0 && snapshot.sessionAssets.length === 0) {
+      logWarn('viewer.loader', 'Session assets dropped to zero after previous non-empty discovery', {
+        previous: previousStats,
+        next: {
+          projectFiles: snapshot.projectFiles.length,
+          sessionAssets: snapshot.sessionAssets.length,
+        },
+      })
+    }
+
+    previousStats = {
       projectFiles: snapshot.projectFiles.length,
       sessionAssets: snapshot.sessionAssets.length,
-    })
+    }
+
     return snapshot
   } catch (error) {
-    logError('viewer.loader', 'Failed to discover project assets', error as Error)
+    logError('viewer.loader', 'Failed to discover project assets', {
+      error: error instanceof Error ? error.message : 'unknown',
+      environment,
+      trigger,
+    })
     throw error
   }
 }

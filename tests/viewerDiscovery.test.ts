@@ -5,7 +5,7 @@ const fixtureDir = resolve(process.cwd(), "tests/fixtures/home-sessions")
 const previousEnv = process.env.CODEX_SESSION_DIR
 process.env.CODEX_SESSION_DIR = fixtureDir
 
-import { discoverProjectAssets } from "~/lib/viewerDiscovery"
+import { discoverProjectAssets } from "~/lib/viewerDiscovery.server"
 
 afterAll(() => {
   if (previousEnv === undefined) {

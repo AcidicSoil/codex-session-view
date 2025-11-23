@@ -11,12 +11,18 @@ const sampleSessions: DiscoveredSessionAsset[] = [
     sortKey: Date.UTC(2024, 0, 20),
     size: 2_400_000,
     tags: ["alpha"],
+    repoLabel: "Alpha",
+    repoMeta: { repo: "example/alpha", branch: "main", commit: "abc123" },
+    source: "bundled",
   },
   {
     path: "sessions/beta/run-a.jsonl",
     url: "/sessions/beta/run-a.jsonl",
     sortKey: Date.UTC(2024, 0, 10),
     size: 80_000,
+    repoLabel: "Beta",
+    repoMeta: { repo: "example/beta", branch: "develop" },
+    source: "bundled",
   },
   {
     path: "sessions/beta/run-b.jsonl",
@@ -24,65 +30,44 @@ const sampleSessions: DiscoveredSessionAsset[] = [
     sortKey: Date.UTC(2023, 11, 10),
     size: 70_000,
     tags: ["upload"],
+    repoLabel: "Beta",
+    repoMeta: { repo: "example/beta", branch: "develop" },
+    source: "upload",
   },
 ]
 
 describe("SessionList", () => {
-  it("filters repositories when size chips are toggled", async () => {
+  it("filters repositories with search input", async () => {
     const user = userEvent.setup()
     render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
-    expect(screen.getByText(/Alpha/i)).toBeInTheDocument()
-    expect(screen.getByText(/Beta/i)).toBeInTheDocument()
+    expect(screen.getByText(/example\/alpha/i)).toBeInTheDocument()
+    expect(screen.getByText(/example\/beta/i)).toBeInTheDocument()
 
-    await user.click(screen.getByRole("button", { name: /Size > 1 MB/i }))
+    await user.type(screen.getByPlaceholderText(/search repo/i), "beta")
+
+    expect(screen.queryByText(/example\/alpha/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/example\/beta/i)).toBeInTheDocument()
+  })
+
+  it("applies size presets and highlights repo headers", async () => {
+    const user = userEvent.setup()
+    render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
+
+    await user.click(screen.getByRole("button", { name: /Size: any/i }))
+    await user.click(screen.getByRole("menuitemcheckbox", { name: /> 1 MB/i }))
 
     expect(screen.getByText(/Alpha/i)).toBeInTheDocument()
     expect(screen.queryByText(/Beta/i)).not.toBeInTheDocument()
   })
 
-  it("notifies parent when filters are controlled", async () => {
-    const user = userEvent.setup()
-    const handleFilters = vi.fn()
-    render(
-      <SessionList
-        sessionAssets={sampleSessions}
-        snapshotTimestamp={Date.now()}
-        selectedFilterIds={["size-100kb"]}
-        onSelectedFilterIdsChange={handleFilters}
-      />
-    )
-
-    await user.click(screen.getByRole("button", { name: /Size > 1 MB/i }))
-
-    expect(handleFilters).toHaveBeenCalledWith(["size-100kb", "size-1mb"])
-  })
-
-  it("notifies parent when repository expansion changes", async () => {
-    const user = userEvent.setup()
-    const handleExpand = vi.fn()
-    render(
-      <SessionList
-        sessionAssets={sampleSessions}
-        snapshotTimestamp={Date.now()}
-        expandedRepoIds={[]}
-        onExpandedRepoIdsChange={handleExpand}
-      />
-    )
-
-    await user.click(screen.getByRole("button", { name: /Toggle Beta repository/i }))
-
-    expect(handleExpand).toHaveBeenCalledWith(["beta"])
-  })
-
-  it("renders session metadata inside expanded panels", async () => {
+  it("expands repositories and shows sessions", async () => {
     const user = userEvent.setup()
     render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
-    await user.click(screen.getByRole("button", { name: /Toggle Alpha repository/i }))
+    await user.click(screen.getByRole("button", { name: /Toggle example\/alpha • main repository/i }))
     const matches = await screen.findAllByText(/run-a\.jsonl/i)
-    expect(matches.length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByRole('link', { name: /Open file/i })).toHaveAttribute('href', '/sessions/alpha/run-a.jsonl')
+    expect(matches.length).toBeGreaterThan(0)
   })
 
   it("calls onSessionOpen when load button pressed", async () => {
@@ -95,9 +80,14 @@ describe("SessionList", () => {
         onSessionOpen={handleOpen}
       />,
     )
-    await user.click(screen.getByRole("button", { name: /Toggle Alpha repository/i }))
+    await user.click(screen.getByRole("button", { name: /Toggle example\/alpha • main repository/i }))
     const loadButton = await screen.findByRole('button', { name: /Load session/i })
     await user.click(loadButton)
     expect(handleOpen).toHaveBeenCalled()
+  })
+
+  it("renders empty state when dataset is empty", () => {
+    render(<SessionList sessionAssets={[]} snapshotTimestamp={Date.now()} />)
+    expect(screen.getByText(/No session logs discovered yet/i)).toBeInTheDocument()
   })
 })

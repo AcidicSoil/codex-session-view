@@ -22,27 +22,40 @@ test.describe('codex session viewer', () => {
     await fileInputs.first().setInputFiles(sessionFixture);
     await expect(page.getByText(/Loaded/, { exact: false })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(/finish up the users work/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/example\/session-viewer-fixture • main/i)).toBeVisible({ timeout: 10_000 });
   });
 
   test('viewer discovery filters respond to interaction', async ({ page }) => {
     await page.goto('/viewer');
-    await expect(page.getByRole('heading', { name: /Workspace Discovery/i })).toBeVisible();
-    const repoButton = page.getByRole('button', { name: /sessions/i }).first();
-    await repoButton.click();
-    await expect(page.getByText(/sessions shown/i)).toBeVisible();
-    await page.getByRole('button', { name: /Size > 1 MB/i }).click();
-    await expect(page.getByText(/filters/i)).toBeVisible();
-    // Validate uploads repository becomes available without manual refresh
     const fileInputs = page.locator('input[type="file"]');
     await fileInputs.first().setInputFiles(sessionFixture);
-    await expect(page.getByText(/uploads\//i)).toBeVisible({ timeout: 10_000 });
+    const repoButton = page.getByRole('button', { name: /Toggle example\/session-viewer-fixture • main repository/i });
+    await expect(repoButton).toBeVisible({ timeout: 20_000 });
+    await repoButton.click();
+    await expect(page.getByText(/sample-session\.jsonl/i)).toBeVisible();
+    await repoButton.click();
+    await expect(page.getByText(/Showing 1 of 1 sessions/i)).toBeVisible();
+
+    const searchInput = page.getByPlaceholder('Search repo, branch, filename, or tag');
+    await searchInput.fill('session-viewer');
+    await expect(page.getByText(/example\/session-viewer-fixture/i)).toBeVisible();
+    await searchInput.fill('');
+
+    await page.getByRole('button', { name: /Size: any/i }).click();
+    await page.getByRole('menuitemcheckbox', { name: /> 512 KB/i }).click();
+    await page.keyboard.press('Escape');
+    // Type a manual max to ensure the dropdown does not refetch data
+    await page.getByLabel('Maximum size').fill('5');
+    await page.getByLabel('Minimum size').fill('0');
+    await expect(page.getByText(/example\/session-viewer-fixture/i)).toBeVisible();
+    await expect(page.getByText(/No session logs discovered yet/i)).toHaveCount(0);
   });
 
   test('session explorer loads uploaded session into timeline', async ({ page }) => {
     await page.goto('/viewer');
     const fileInputs = page.locator('input[type="file"]');
     await fileInputs.first().setInputFiles(sessionFixture);
-    const repoToggle = page.getByRole('button', { name: /Toggle example\/session-viewer-fixture repository/i });
+    const repoToggle = page.getByRole('button', { name: /Toggle example\/session-viewer-fixture • main repository/i });
     await expect(repoToggle).toBeVisible({ timeout: 20_000 });
     await repoToggle.click();
     const loadButton = page.getByRole('button', { name: /Load session/i }).first();

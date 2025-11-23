@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react'
-import { useRouter } from '@tanstack/react-router'
 import { DropZone } from '~/components/viewer/DropZone'
 import { TimelineWithFilters } from '~/components/viewer/TimelineWithFilters'
 import { ChatDock } from '~/components/viewer/ChatDock'
@@ -10,13 +9,15 @@ import { persistSessionFile } from '~/server/function/sessionStore'
 import { formatCount } from '~/utils/intl'
 import { toast } from 'sonner'
 import { logDebug, logError, logInfo } from '~/lib/logger'
+import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery'
+import { uploadRecordToAsset } from '~/lib/viewerDiscovery'
 
 interface UploadSectionProps {
   loader: FileLoaderHook
+  onUploadsPersisted?: (assets: DiscoveredSessionAsset[]) => void
 }
 
-export function UploadSection({ loader }: UploadSectionProps) {
-  const router = useRouter()
+export function UploadSection({ loader, onUploadsPersisted }: UploadSectionProps) {
   const [isEjecting, setIsEjecting] = useState(false)
   const [isPersistingUpload, setIsPersistingUpload] = useState(false)
 
@@ -26,12 +27,17 @@ export function UploadSection({ loader }: UploadSectionProps) {
       setIsPersistingUpload(true)
       logInfo('viewer.upload', 'Persisting uploads', { count: files.length })
       try {
+        const appendedAssets: DiscoveredSessionAsset[] = []
         for (const file of files) {
           const content = await file.text()
-          await persistSessionFile({ data: { filename: file.name, content } })
-          logDebug('viewer.upload', 'Persisted session file', { name: file.name })
+          const summary = await persistSessionFile({ data: { filename: file.name, content } })
+          const asset = uploadRecordToAsset(summary)
+          appendedAssets.push(asset)
+          logDebug('viewer.upload', 'Persisted session file', { name: file.name, repo: asset.repoMeta?.repo })
         }
-        await router.invalidate()
+        if (appendedAssets.length) {
+          onUploadsPersisted?.(appendedAssets)
+        }
         toast.success(
           files.length > 1
             ? `${formatCount(files.length)} sessions cached to ~/.codex/sessions`
@@ -47,7 +53,7 @@ export function UploadSection({ loader }: UploadSectionProps) {
         setIsPersistingUpload(false)
       }
     },
-    [router],
+    [onUploadsPersisted],
   )
 
   const handleFile = useCallback(

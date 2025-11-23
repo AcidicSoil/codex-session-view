@@ -1,5 +1,8 @@
 type LogMeta = Record<string, unknown> | Error | string | number | boolean | null | undefined
-type LogLevel = 'debug' | 'info' | 'error'
+type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+const SERVER_LOG_DIR = process.env.SERVER_LOG_DIR ?? 'logs'
+const SERVER_LOG_FILE = process.env.SERVER_LOG_FILE ?? 'dev.log'
 
 function formatPrefix(scope: string) {
   return `[codex:${scope}]`
@@ -11,6 +14,10 @@ export function logDebug(scope: string, message: string, meta?: LogMeta) {
 
 export function logInfo(scope: string, message: string, meta?: LogMeta) {
   emit('info', scope, message, meta)
+}
+
+export function logWarn(scope: string, message: string, meta?: LogMeta) {
+  emit('warn', scope, message, meta)
 }
 
 export function logError(scope: string, message: string, meta?: LogMeta) {
@@ -25,8 +32,17 @@ function emit(level: LogLevel, scope: string, message: string, meta?: LogMeta) {
     console.debug(prefix, ...payload)
   } else if (level === 'info') {
     console.info(prefix, ...payload)
+  } else if (level === 'warn') {
+    console.warn(prefix, ...payload)
   } else {
     console.error(prefix, ...payload)
+  }
+
+  if (typeof window === 'undefined' && level === 'error') {
+    const serialized = serializeMeta(meta)
+    queueMicrotask(() => {
+      appendServerLog({ level, scope, message, meta: serialized }).catch(() => {})
+    })
   }
 
   forwardToServer(level, scope, message, meta)
@@ -100,4 +116,31 @@ function ensureServerLogWriter(): Promise<ServerLogWriter> {
     serverLogWriterPromise = import('~/server/function/browserLogs').then((mod) => mod.recordBrowserLogEntry as ServerLogWriter)
   }
   return serverLogWriterPromise
+}
+
+interface ServerLogEntry {
+  level: LogLevel
+  scope: string
+  message: string
+  meta?: unknown
+}
+
+let fsModulePromise: Promise<typeof import('node:fs/promises')> | null = null
+let pathModulePromise: Promise<typeof import('node:path')> | null = null
+
+async function appendServerLog(entry: ServerLogEntry) {
+  if (!fsModulePromise) {
+    fsModulePromise = import('node:fs/promises')
+  }
+  if (!pathModulePromise) {
+    pathModulePromise = import('node:path')
+  }
+  const [{ mkdir, appendFile }, pathModule] = await Promise.all([fsModulePromise, pathModulePromise])
+  const dir = pathModule.resolve(process.cwd(), SERVER_LOG_DIR)
+  await mkdir(dir, { recursive: true })
+  const filePath = pathModule.join(dir, SERVER_LOG_FILE)
+  const timestamp = new Date().toISOString()
+  const metaFragment = entry.meta === undefined ? '' : ` ${JSON.stringify(entry.meta)}`
+  const line = `[${timestamp}] [${entry.scope}] ${entry.level.toUpperCase()}: ${entry.message}${metaFragment}`
+  await appendFile(filePath, `${line}\n`, 'utf8')
 }

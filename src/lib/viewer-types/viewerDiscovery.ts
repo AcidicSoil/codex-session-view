@@ -1,25 +1,6 @@
-import { deriveRepoDetailsFromLine, type RepoMetadata } from '~/lib/repo-metadata';
+import type { RepoMetadata } from '~/lib/repo-metadata';
 
-const isServerRuntime = typeof process !== 'undefined' && !!process.versions?.node;
-
-type NodeDeps = {
-  fs: typeof import('fs');
-  path: typeof import('path');
-  url: typeof import('url');
-};
-
-let nodeDepsPromise: Promise<NodeDeps> | null = null;
-
-async function ensureNodeDeps(): Promise<NodeDeps> {
-  if (!nodeDepsPromise) {
-    nodeDepsPromise = Promise.all([import('fs'), import('path'), import('url')]).then(([fs, path, url]) => ({
-      fs,
-      path,
-      url,
-    }));
-  }
-  return nodeDepsPromise;
-}
+export type SessionAssetSource = 'bundled' | 'external' | 'upload';
 
 export interface DiscoveredSessionAsset {
   path: string;
@@ -29,111 +10,47 @@ export interface DiscoveredSessionAsset {
   tags?: readonly string[];
   repoLabel?: string;
   repoMeta?: RepoMetadata;
+  source: SessionAssetSource;
 }
+
+export interface DiscoveryStats {
+  bundled: number;
+  external: number;
+  uploads: number;
+  total: number;
+}
+
+export interface SessionDirectoryInfo {
+  absolute: string;
+  displayPrefix: string;
+}
+
+export interface DiscoveryInputs {
+  projectGlobPatterns: string[];
+  projectExcludedGlobs: string[];
+  bundledSessionGlobs: string[];
+  externalDirectories: SessionDirectoryInfo[];
+  uploadStores: string[];
+}
+
 export interface ProjectDiscoverySnapshot {
   projectFiles: string[];
   sessionAssets: DiscoveredSessionAsset[];
   generatedAt: number;
-}
-function isIgnoredPath(path: string) {
-  return (
-    /\/(?:__tests__|__mocks__)\//.test(path) || /\.(?:test|spec|stories)\.[a-z0-9]+$/i.test(path)
-  );
-}
-function normalizePaths(raw: string[]) {
-  return Array.from(
-    new Set(
-      raw
-        .filter((p) => /\.[a-z0-9]+$/i.test(p))
-        .filter((p) => !p.endsWith('.map'))
-        .filter((p) => !p.endsWith('.d.ts'))
-        .filter((p) => !isIgnoredPath(p))
-        .map((p) => p.replace(/^\//, ''))
-    )
-  ).sort();
-}
-function extractSortKeyFromPath(path: string) {
-  const dateMatch = path.match(/(20\d{2})[-_]?(\d{2})[-_]?(\d{2})/);
-  if (dateMatch) {
-    const year = Number(dateMatch[1]);
-    const month = Number(dateMatch[2]);
-    const day = Number(dateMatch[3]);
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return Date.UTC(year, month - 1, day);
-    }
-  }
-  const epochMatch = path.match(/(1\d{9}|2\d{9})/);
-  if (epochMatch) {
-    return Number(epochMatch[1]) * 1000;
-  }
-  return 0;
+  stats: DiscoveryStats;
+  inputs: DiscoveryInputs;
 }
 
-function getFileSizeFromAbsolutePath(path: string | undefined, deps: NodeDeps | null) {
-  if (!deps || !path) return undefined;
-  try {
-    return deps.fs.statSync(path).size;
-  } catch {
-    return undefined;
-  }
-}
-/**
- * Build-time discovery of project files and session assets.
- * Runs inside route loaders (rule: fetch on navigation vs. useEffect).
- */
-export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot> {
-  const nodeDeps = isServerRuntime ? await ensureNodeDeps() : null;
-  const codeGlobs = import.meta.glob([
-    '/src/**/*',
-    '/scripts/**/*',
-    '/public/**/*',
-    '/package.json',
-    '/tsconfig.json',
-    '!/src/**/__tests__/**',
-    '!/src/**/__mocks__/**',
-    '!/src/**/*.test.{ts,tsx,js,jsx}',
-    '!/src/**/*.spec.{ts,tsx,js,jsx}',
-    '!/src/**/*.stories.{ts,tsx,js,jsx}',
-  ]);
-  const docAssets = import.meta.glob(['/README*'], {
-    eager: true,
-    query: '?url',
-    import: 'default',
-  }) as Record<string, string>;
-  const projectFiles = normalizePaths([...Object.keys(codeGlobs), ...Object.keys(docAssets)]);
-  const sessionMatches = import.meta.glob(
-    [
-      '/.codex/sessions/**/*.{jsonl,ndjson,json}',
-      '/sessions/**/*.{jsonl,ndjson,json}',
-      '/artifacts/sessions/**/*.{jsonl,ndjson,json}',
-    ],
-    {
-      eager: true,
-      query: '?url',
-      import: 'default',
-    }
-  ) as Record<string, string>;
-  const bundledSessions = await Promise.all(
-    Object.entries(sessionMatches).map(async ([path, url]) => {
-      const relativePath = path.replace(/^\//, '');
-      const absolutePath = resolveWorkspacePath(relativePath, nodeDeps);
-      const repoDetails = await readRepoDetailsFromFile(absolutePath, nodeDeps);
-      return {
-        path: relativePath,
-        url,
-        sortKey: extractSortKeyFromPath(path),
-        size: getFileSizeFromAbsolutePath(absolutePath, nodeDeps),
-        ...repoDetails,
-      } satisfies DiscoveredSessionAsset;
-    }),
-  );
-  const externalSessions = await discoverExternalSessionAssets(nodeDeps);
-  const storedUploads = await discoverStoredSessionAssets();
-  const sessionAssets = sortSessionAssets(mergeSessionAssets(bundledSessions, externalSessions, storedUploads));
-  return { projectFiles, sessionAssets, generatedAt: Date.now() };
+export interface SessionUploadView {
+  originalName: string;
+  storedAt: string;
+  size: number;
+  url: string;
+  repoLabel?: string;
+  repoMeta?: RepoMetadata;
 }
 
-function mergeSessionAssets(...lists: DiscoveredSessionAsset[][]) {
+export function mergeSessionAssets(...lists: DiscoveredSessionAsset[][]) {
   const map = new Map<string, DiscoveredSessionAsset>();
   for (const list of lists) {
     for (const asset of list) {
@@ -143,97 +60,12 @@ function mergeSessionAssets(...lists: DiscoveredSessionAsset[][]) {
   return Array.from(map.values());
 }
 
-function sortSessionAssets(assets: DiscoveredSessionAsset[]) {
+export function sortSessionAssets(assets: DiscoveredSessionAsset[]) {
   return [...assets].sort((a, b) => (b.sortKey ?? 0) - (a.sortKey ?? 0) || a.path.localeCompare(b.path));
 }
 
-async function discoverExternalSessionAssets(deps: NodeDeps | null): Promise<DiscoveredSessionAsset[]> {
-  if (!deps) return [];
-  const { default: fg } = await import('fast-glob');
-  const directories = getExternalSessionDirectories(deps);
-  const assets: DiscoveredSessionAsset[] = [];
-  for (const dirInfo of directories) {
-    const matches = fg.sync('**/*.{jsonl,ndjson,json}', {
-      cwd: dirInfo.absolute,
-      onlyFiles: true,
-      dot: true,
-    });
-    const entries = await Promise.all(
-      matches.map(async (relativePath) => {
-        const absolutePath = deps.path.resolve(dirInfo.absolute, relativePath);
-        const repoDetails = await readRepoDetailsFromFile(absolutePath, deps);
-        return {
-          path: joinDisplayPath(dirInfo.displayPrefix, relativePath),
-          url: deps.url.pathToFileURL(absolutePath).toString(),
-          sortKey: extractSortKeyFromPath(relativePath),
-          size: getFileSizeFromAbsolutePath(absolutePath, deps),
-          ...repoDetails,
-        } satisfies DiscoveredSessionAsset;
-      }),
-    );
-    assets.push(...entries);
-  }
-  return assets;
-}
-
-interface SessionDirectoryInfo {
-  absolute: string;
-  displayPrefix: string;
-}
-
-function getExternalSessionDirectories(deps: NodeDeps): SessionDirectoryInfo[] {
-  const directories: SessionDirectoryInfo[] = [];
-  const seen = new Set<string>();
-  const addDir = (dir: string | undefined, displayPrefix?: string) => {
-    if (!dir) return;
-    const absolute = deps.path.resolve(dir);
-    if (!deps.fs.existsSync(absolute)) return;
-    if (seen.has(absolute)) return;
-    seen.add(absolute);
-    directories.push({ absolute, displayPrefix: displayPrefix ?? formatDisplayPrefix(absolute) });
-  };
-
-  const homeDir = process.env.HOME ?? process.env.USERPROFILE;
-  if (homeDir) {
-    addDir(deps.path.resolve(homeDir, '.codex/sessions'), '~/.codex/sessions');
-  }
-
-  const envValue = process.env.CODEX_SESSION_DIR;
-  if (envValue) {
-    for (const raw of envValue.split(deps.path.delimiter)) {
-      if (!raw.trim()) continue;
-      addDir(raw.trim());
-    }
-  }
-
-  return directories;
-}
-
-function formatDisplayPrefix(absolute: string) {
-  const workspace = normalizeSlashes(process.cwd());
-  const normalized = normalizeSlashes(absolute);
-  if (normalized.startsWith(workspace)) {
-    const remaining = normalized.slice(workspace.length).replace(/^\/+/, '');
-    return remaining || '.';
-  }
-  return normalized;
-}
-
-function joinDisplayPath(prefix: string, relativePath: string) {
-  const cleanPrefix = prefix.replace(/\\/g, '/').replace(/\/+$/, '');
-  const cleanRelative = relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
-  return cleanPrefix ? `${cleanPrefix}/${cleanRelative}` : cleanRelative;
-}
-
-function normalizeSlashes(value: string) {
-  return value.replace(/\\/g, '/').replace(/\/+$/, '');
-}
-
-async function discoverStoredSessionAssets(): Promise<DiscoveredSessionAsset[]> {
-  if (!isServerRuntime) return [];
-  const { listSessionUploadRecords } = await import('~/server/persistence/sessionUploads');
-  const records = await listSessionUploadRecords();
-  return records.map((record) => ({
+export function uploadRecordToAsset(record: SessionUploadView): DiscoveredSessionAsset {
+  return {
     path: `uploads/${record.originalName}`,
     url: record.url,
     sortKey: Date.parse(record.storedAt),
@@ -241,44 +73,6 @@ async function discoverStoredSessionAssets(): Promise<DiscoveredSessionAsset[]> 
     tags: ['upload'],
     repoLabel: record.repoLabel,
     repoMeta: record.repoMeta,
-  }));
-}
-
-function resolveWorkspacePath(relativePath: string, deps: NodeDeps | null) {
-  if (!deps) return undefined;
-  return deps.path.resolve(process.cwd(), relativePath.replace(/^\//, ''));
-}
-
-async function readRepoDetailsFromFile(absolutePath: string | undefined, deps: NodeDeps | null) {
-  if (!absolutePath || !deps) return {};
-  try {
-    const firstLine = await readFirstLine(absolutePath, deps);
-    return deriveRepoDetailsFromLine(firstLine);
-  } catch {
-    return {};
-  }
-}
-
-async function readFirstLine(absolutePath: string, deps: NodeDeps) {
-  const handle = await deps.fs.promises.open(absolutePath, 'r');
-  const bufferSize = 2048;
-  const maxRead = bufferSize * 4;
-  let collected = '';
-  try {
-    while (collected.length < maxRead) {
-      const buffer = Buffer.alloc(bufferSize);
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
-      if (!bytesRead) break;
-      const chunk = buffer.subarray(0, bytesRead).toString('utf8');
-      const newlineIndex = chunk.indexOf('\n');
-      if (newlineIndex >= 0) {
-        collected += chunk.slice(0, newlineIndex);
-        return collected.replace(/\r$/, '');
-      }
-      collected += chunk;
-    }
-    return collected ? collected.replace(/\r$/, '') : undefined;
-  } finally {
-    await handle.close();
-  }
+    source: 'upload',
+  };
 }
