@@ -13,6 +13,7 @@ export type CodeBlockContentProps = HTMLAttributes<HTMLDiv> & {
   language?: BundledLanguage;
   children: string;
   syntaxHighlighting?: boolean;
+  highlightQuery?: string;
 };
 
 export const CodeBlockContent = async ({
@@ -20,6 +21,7 @@ export const CodeBlockContent = async ({
   themes,
   language,
   syntaxHighlighting = true,
+  highlightQuery: _highlightQuery,
   ...props
 }: CodeBlockContentProps) => {
   const html = syntaxHighlighting

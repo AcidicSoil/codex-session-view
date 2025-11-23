@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ResponseItem } from '~/lib/viewer-types'
 import { AnimatedTimelineList } from '~/components/viewer/AnimatedTimelineList'
 import type { Filter } from '~/components/ui/filters'
@@ -40,6 +40,39 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
     () => (sortOrder === 'asc' ? dedupedEvents : [...dedupedEvents].reverse()),
     [dedupedEvents, sortOrder],
   )
+  const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null)
+
+  const resetSearchNavigation = useCallback(() => {
+    setActiveSearchIndex(null)
+  }, [])
+
+  useEffect(() => {
+    resetSearchNavigation()
+  }, [searchQuery, resetSearchNavigation])
+
+  useEffect(() => {
+    if (orderedEvents.length === 0) {
+      resetSearchNavigation()
+      return
+    }
+    setActiveSearchIndex((current) => {
+      if (current == null) return current
+      if (current >= orderedEvents.length) {
+        return orderedEvents.length - 1
+      }
+      return current
+    })
+  }, [orderedEvents.length, resetSearchNavigation])
+
+  const handleSearchNext = useCallback(() => {
+    if (!searchQuery.trim()) return
+    if (!orderedEvents.length) return
+    setActiveSearchIndex((current) => {
+      if (current == null) return 0
+      const nextIndex = (current + 1) % orderedEvents.length
+      return nextIndex
+    })
+  }, [orderedEvents.length, searchQuery])
 
   const hasSourceEvents = events.length > 0
   const hasFilteredEvents = filteredEvents.length > 0
@@ -60,6 +93,7 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
         searchMatchCount={searchMatches.length}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        onSearchNext={handleSearchNext}
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
       />
@@ -68,7 +102,11 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
       ) : noMatches ? (
         <p className="text-sm text-muted-foreground">No events match your current filters.</p>
       ) : (
-        <AnimatedTimelineList events={orderedEvents} />
+        <AnimatedTimelineList
+          events={orderedEvents}
+          searchQuery={searchQuery}
+          activeMatchIndex={activeSearchIndex}
+        />
       )}
     </div>
   )

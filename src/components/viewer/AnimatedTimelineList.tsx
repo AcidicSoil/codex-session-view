@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { BorderBeam } from '~/components/ui/border-beam'
 import {
@@ -25,6 +25,7 @@ import type { ResponseItemParsed } from '~/lib/session-parser'
 import { TimelineView } from '~/components/viewer/TimelineView'
 import { eventKey } from '~/utils/event-key'
 import { formatClockTime } from '~/utils/intl'
+import { createSearchMatcher } from '~/utils/search'
 
 export type TimelineEvent = ResponseItem | ResponseItemParsed
 
@@ -32,6 +33,8 @@ interface AnimatedTimelineListProps {
   events: readonly TimelineEvent[]
   className?: string
   onSelect?: (event: TimelineEvent, index: number) => void
+  searchQuery?: string
+  activeMatchIndex?: number | null
 }
 
 const SNIPPET_LENGTH = 100
@@ -40,7 +43,7 @@ const SNIPPET_LENGTH = 100
  * Virtualized, animated timeline list used by the viewer. Rendering an empty
  * list is safe – callers should decide when to show empty-state messaging.
  */
-export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTimelineListProps) {
+export function AnimatedTimelineList({ events, className, onSelect, searchQuery, activeMatchIndex }: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [scrollTarget, setScrollTarget] = useState<number | null>(null)
   const [gradients, setGradients] = useState({ top: 0, bottom: 0 })
@@ -60,6 +63,13 @@ export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTi
     const id = requestAnimationFrame(() => setScrollTarget(null))
     return () => cancelAnimationFrame(id)
   }, [scrollTarget])
+
+  useEffect(() => {
+    if (activeMatchIndex == null) return
+    if (activeMatchIndex < 0 || activeMatchIndex >= items.length) return
+    setExpandedIndex(activeMatchIndex)
+    setScrollTarget(activeMatchIndex)
+  }, [activeMatchIndex, items])
 
   const handleScrollChange = ({ scrollTop, totalHeight, height }: { scrollTop: number; totalHeight: number; height: number }) => {
     const top = Math.min(scrollTop / 80, 1)
@@ -92,7 +102,7 @@ export function AnimatedTimelineList({ events, className, onSelect }: AnimatedTi
                 return next
               })
               onSelect?.(item.event, item.index)
-            })}
+            }, searchQuery)}
           </motion.div>
         )}
         scrollToIndex={scrollTarget}
@@ -148,7 +158,7 @@ function buildEventSignature(event: TimelineEvent) {
   }
 }
 
-function renderTimelineItem(event: TimelineEvent, index: number, expanded: boolean, toggle: () => void) {
+function renderTimelineItem(event: TimelineEvent, index: number, expanded: boolean, toggle: () => void, searchQuery?: string) {
   return (
     <div
       className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30 p-4 cursor-pointer"
@@ -175,7 +185,7 @@ function renderTimelineItem(event: TimelineEvent, index: number, expanded: boole
         </div>
         {expanded ? (
           <div className="rounded-lg border border-white/5 bg-black/60 p-3 text-sm text-slate-100">
-            {renderEventDetail(event)}
+            {renderEventDetail(event, searchQuery)}
           </div>
         ) : null}
       </div>
@@ -250,84 +260,125 @@ function buildMetaLine(event: TimelineEvent) {
   return value && value.length > 0 ? value : 'Event'
 }
 
-function renderEventDetail(event: TimelineEvent) {
+function renderEventDetail(event: TimelineEvent, searchQuery?: string) {
   switch (event.type) {
     case 'Message': {
       const text = extractMessageText(event.content)
-      return text ? <DetailText value={text} label="Content" /> : <EmptyDetail message="No message content." />
+      return text ? (
+        <DetailText value={text} label="Content" highlightQuery={searchQuery} />
+      ) : (
+        <EmptyDetail message="No message content." />
+      )
     }
-        case 'Reasoning':
-          return event.content ? <DetailText value={event.content} label="Trace" /> : <EmptyDetail message="No reasoning trace." />
-        case 'FunctionCall': {
-          const args = safeStringify(event.args)
-          const result = safeStringify(event.result)
-          return (
-            <div className="space-y-3">
-              <DetailText value={args || '(no args captured)'} label="Args" format="code" language="json" />
-              <DetailText value={result || '(no result captured)'} label="Result" format="code" language="json" />
-            </div>
-          )
-        }
-        case 'LocalShellCall': {
-          const stdout = event.stdout ?? ''
-          const stderr = event.stderr ?? ''
-          const command = event.command ?? ''
-          return (
-            <div className="space-y-3">
-              {command ? (
-                <DetailText value={command} label="Command" format="code" language="bash" />
-              ) : null}
-              {stdout ? (
-                <DetailText
-                  value={stdout}
-                  label="stdout"
-                  format={event.stdoutFormat === 'code' ? 'code' : 'text'}
-                  language={event.stdoutFormat === 'code' ? 'diff' : undefined}
-                />
-              ) : null}
-              {stderr ? (
-                <DetailText
-                  value={stderr}
-                  label="stderr"
-                  format={event.stderrFormat === 'code' ? 'code' : 'text'}
-                  language={event.stderrFormat === 'code' ? 'diff' : undefined}
-                />
-              ) : null}
-              {!command && !stdout && !stderr ? (
-                <EmptyDetail message="No captured output." />
-              ) : null}
-            </div>
-          )
-        }
-        case 'WebSearchCall':
-          return event.query ? <DetailText value={event.query} label="Query" /> : <EmptyDetail message="No query string." />
-        case 'CustomToolCall': {
-          return (
-            <div className="space-y-3">
-              <DetailText value={safeStringify(event.input) || '(no input captured)'} label="Input" format="code" language="json" />
-              <DetailText value={safeStringify(event.output) || '(no output captured)'} label="Output" format="code" language="json" />
-            </div>
-          )
-        }
-        case 'FileChange':
-          return event.diff ? <DetailText value={event.diff} label="Diff" format="code" language="diff" /> : <EmptyDetail message="No diff provided." />
-        default: {
-          const payload = safeStringify(event)
-          return payload ? <DetailText value={payload} label="Event" format="code" language="json" /> : <EmptyDetail message="No additional data." />
-        }
-      }
+    case 'Reasoning':
+      return event.content ? (
+        <DetailText value={event.content} label="Trace" highlightQuery={searchQuery} />
+      ) : (
+        <EmptyDetail message="No reasoning trace." />
+      )
+    case 'FunctionCall': {
+      const args = safeStringify(event.args)
+      const result = safeStringify(event.result)
+      return (
+        <div className="space-y-3">
+          <DetailText
+            value={args || '(no args captured)'}
+            label="Args"
+            format="code"
+            language="json"
+            highlightQuery={searchQuery}
+          />
+          <DetailText
+            value={result || '(no result captured)'}
+            label="Result"
+            format="code"
+            language="json"
+            highlightQuery={searchQuery}
+          />
+        </div>
+      )
     }
+    case 'LocalShellCall': {
+      const stdout = event.stdout ?? ''
+      const stderr = event.stderr ?? ''
+      const command = event.command ?? ''
+      return (
+        <div className="space-y-3">
+          {command ? (
+            <DetailText value={command} label="Command" format="code" language="bash" highlightQuery={searchQuery} />
+          ) : null}
+          {stdout ? (
+            <DetailText
+              value={stdout}
+              label="stdout"
+              format={event.stdoutFormat === 'code' ? 'code' : 'text'}
+              language={event.stdoutFormat === 'code' ? 'diff' : undefined}
+              highlightQuery={searchQuery}
+            />
+          ) : null}
+          {stderr ? (
+            <DetailText
+              value={stderr}
+              label="stderr"
+              format={event.stderrFormat === 'code' ? 'code' : 'text'}
+              language={event.stderrFormat === 'code' ? 'diff' : undefined}
+              highlightQuery={searchQuery}
+            />
+          ) : null}
+          {!command && !stdout && !stderr ? <EmptyDetail message="No captured output." /> : null}
+        </div>
+      )
+    }
+    case 'WebSearchCall':
+      return event.query ? <DetailText value={event.query} label="Query" highlightQuery={searchQuery} /> : <EmptyDetail message="No query string." />
+    case 'CustomToolCall':
+      return (
+        <div className="space-y-3">
+          <DetailText
+            value={safeStringify(event.input) || '(no input captured)'}
+            label="Input"
+            format="code"
+            language="json"
+            highlightQuery={searchQuery}
+          />
+          <DetailText
+            value={safeStringify(event.output) || '(no output captured)'}
+            label="Output"
+            format="code"
+            language="json"
+            highlightQuery={searchQuery}
+          />
+        </div>
+      )
+    case 'FileChange':
+      return event.diff ? (
+        <DetailText value={event.diff} label="Diff" format="code" language="diff" highlightQuery={searchQuery} />
+      ) : (
+        <EmptyDetail message="No diff provided." />
+      )
+    default: {
+      const payload = safeStringify(event)
+      return payload ? (
+        <DetailText value={payload} label="Event" format="code" language="json" highlightQuery={searchQuery} />
+      ) : (
+        <EmptyDetail message="No additional data." />
+      )
+    }
+  }
+}
 
 function DetailText({
   value,
   label,
   format = "text",
   language,
+  highlightQuery,
 }: {
   value: string
   label: string
   format?: "text" | "code"
   language?: BundledLanguage
+  highlightQuery?: string
 }) {
   if (!value) return null
 
@@ -355,7 +406,9 @@ function DetailText({
           <CodeBlockBody>
             {(item) => (
               <CodeBlockItem key={item.language} value={item.language} className="bg-background/95">
-                <CodeBlockContent language={codeLanguage}>{item.code}</CodeBlockContent>
+                <CodeBlockContent language={codeLanguage} highlightQuery={highlightQuery}>
+                  {item.code}
+                </CodeBlockContent>
               </CodeBlockItem>
             )}
           </CodeBlockBody>
@@ -365,6 +418,7 @@ function DetailText({
   }
 
   const tabValue = "value"
+  const highlightedValue = renderHighlightedValue(value, highlightQuery)
 
   return (
     <div
@@ -380,10 +434,45 @@ function DetailText({
           </SnippetTabsList>
           <SnippetCopyButton value={value} aria-label={`Copy ${label.toLowerCase()}`} />
         </SnippetHeader>
-        <SnippetTabsContent value={tabValue}>{value}</SnippetTabsContent>
+        <SnippetTabsContent value={tabValue}>{highlightedValue}</SnippetTabsContent>
       </Snippet>
     </div>
   )
+}
+
+function renderHighlightedValue(value: string, query?: string): ReactNode {
+  const matcher = createSearchMatcher(query)
+  if (!matcher) return value
+
+  const segments: ReactNode[] = []
+  let lastIndex = 0
+  let highlightIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = matcher.exec(value))) {
+    const start = match.index
+    const end = matcher.lastIndex
+    if (start > lastIndex) {
+      segments.push(value.slice(lastIndex, start))
+    }
+    const segment = value.slice(start, end)
+    segments.push(
+      <mark key={`timeline-highlight-${highlightIndex++}`} className="rounded-sm bg-amber-400/30 px-0.5 text-foreground">
+        {segment}
+      </mark>
+    )
+    lastIndex = end
+  }
+
+  if (segments.length === 0) {
+    return value
+  }
+
+  if (lastIndex < value.length) {
+    segments.push(value.slice(lastIndex))
+  }
+
+  return segments
 }
 
 function EmptyDetail({ message }: { message: string }) {

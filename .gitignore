@@ -53,6 +53,9 @@ session-id.md
 .gemini/
 *.jsonl
 pnpm-lock.yaml
+.genkit/
+
+
 # START Ruler Generated Files
 /.codex/config.toml
 /.codex/config.toml.bak

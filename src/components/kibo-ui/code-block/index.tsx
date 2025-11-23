@@ -107,6 +107,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { cn } from "~/lib/utils";
+import { createSearchMatcher } from "~/utils/search";
 
 export type { BundledLanguage } from "shiki";
 
@@ -602,6 +603,7 @@ export type CodeBlockContentProps = HTMLAttributes<HTMLDivElement> & {
   language?: BundledLanguage;
   syntaxHighlighting?: boolean;
   children: string;
+  highlightQuery?: string;
 };
 
 export const CodeBlockContent = ({
@@ -609,22 +611,49 @@ export const CodeBlockContent = ({
   themes,
   language,
   syntaxHighlighting = true,
+  highlightQuery,
   ...props
 }: CodeBlockContentProps) => {
+  const [baseHtml, setBaseHtml] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!syntaxHighlighting) {
+      setBaseHtml(null);
+      setHtml(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    setBaseHtml(null);
+    setHtml(null);
+
+    highlight(children as string, language, themes)
+      .then((markup) => {
+        if (!cancelled) {
+          setBaseHtml(markup);
+        }
+      })
+      // biome-ignore lint/suspicious/noConsole: "it's fine"
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
+  }, [children, themes, syntaxHighlighting, language]);
 
   useEffect(() => {
     if (!syntaxHighlighting) {
       return;
     }
+    if (!baseHtml) {
+      return;
+    }
 
-    highlight(children as string, language, themes)
-      .then(setHtml)
-      // biome-ignore lint/suspicious/noConsole: "it's fine"
-      .catch(console.error);
-  }, [children, themes, syntaxHighlighting, language]);
+    setHtml(applySearchHighlights(baseHtml, highlightQuery));
+  }, [baseHtml, highlightQuery, syntaxHighlighting]);
 
-  if (!(syntaxHighlighting && html)) {
+  if (!syntaxHighlighting || !html) {
     return <CodeBlockFallback>{children}</CodeBlockFallback>;
   }
 
@@ -635,4 +664,70 @@ export const CodeBlockContent = ({
       {...props}
     />
   );
+};
+
+const applySearchHighlights = (html: string, query?: string) => {
+  const matcher = createSearchMatcher(query);
+  if (!matcher) {
+    return html;
+  }
+  if (typeof document === "undefined") {
+    return html;
+  }
+
+  const template = document.createElement("template");
+  template.innerHTML = html;
+
+  const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_TEXT);
+  const nodes: Text[] = [];
+  let current: Node | null = walker.nextNode();
+  while (current) {
+    nodes.push(current as Text);
+    current = walker.nextNode();
+  }
+
+  const pattern = matcher.source;
+  const flags = matcher.flags;
+
+  nodes.forEach((node) => {
+    const text = node.nodeValue;
+    if (!text) {
+      return;
+    }
+
+    const nodeMatcher = new RegExp(pattern, flags);
+    let match: RegExpExecArray | null;
+    let lastIndex = 0;
+    let hasMatch = false;
+    const fragment = document.createDocumentFragment();
+
+    while ((match = nodeMatcher.exec(text))) {
+      hasMatch = true;
+      const start = match.index;
+      const end = nodeMatcher.lastIndex;
+
+      if (start > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+      }
+
+      const mark = document.createElement("mark");
+      mark.className = "highlighted-word";
+      mark.textContent = text.slice(start, end);
+      fragment.appendChild(mark);
+
+      lastIndex = end;
+    }
+
+    if (!hasMatch) {
+      return;
+    }
+
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+
+    node.replaceWith(fragment);
+  });
+
+  return template.innerHTML;
 };
