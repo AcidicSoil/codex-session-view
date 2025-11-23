@@ -1,11 +1,23 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import type { DiscoveredSessionAsset } from "~/lib/viewerDiscovery"
 import { DiscoveryPanel } from "~/components/viewer/DiscoveryPanel"
 
 const sampleSessions: DiscoveredSessionAsset[] = [
-    { path: "sessions/alpha.jsonl", url: "/sessions/alpha.jsonl", sortKey: Date.UTC(2024, 0, 2) },
-    { path: "sessions/beta.jsonl", url: "/sessions/beta.jsonl", sortKey: Date.UTC(2024, 0, 3) }
+    {
+        path: "sessions/alpha.jsonl",
+        url: "/sessions/alpha.jsonl",
+        sortKey: Date.UTC(2024, 0, 2),
+        repoMeta: { repo: "example/alpha", branch: "main" },
+        source: "bundled"
+    },
+    {
+        path: "sessions/beta.jsonl",
+        url: "/sessions/beta.jsonl",
+        sortKey: Date.UTC(2024, 0, 3),
+        repoMeta: { repo: "example/beta", branch: "develop" },
+        source: "external"
+    }
 ]
 
 describe("DiscoveryPanel", () => {
@@ -25,13 +37,11 @@ describe("DiscoveryPanel", () => {
 
             expect(screen.getByText(/project files/i)).toHaveTextContent("2 project files")
             expect(screen.getByText(/session assets/i)).toHaveTextContent("2 session assets")
-            expect(screen.getByText(/repository filters/i)).toBeInTheDocument()
-            expect(screen.getByText("Size > 1 MB")).toBeInTheDocument()
-            expect(screen.getByText("Alpha")).toBeInTheDocument()
+            expect(screen.getByPlaceholderText(/search repo/i)).toBeInTheDocument()
+            expect(screen.getByRole("button", { name: /Size: any/i })).toBeInTheDocument()
+            expect(screen.getByText(/example\/alpha • main/i)).toBeInTheDocument()
 
-            const alphaCard = screen.getByText("Alpha").closest("article")
-            expect(alphaCard).not.toBeNull()
-            const expandButton = within(alphaCard as HTMLElement).getByRole("button", { name: /toggle alpha repository/i })
+            const expandButton = screen.getByRole("button", { name: /Toggle example\/alpha • main repository/i })
 
             act(() => {
                 fireEvent.click(expandButton)
@@ -58,6 +68,6 @@ describe("DiscoveryPanel", () => {
             />,
         )
 
-        expect(screen.getByText("No session logs discovered yet.")).toBeInTheDocument()
+        expect(screen.getByText(/No session logs discovered yet/i)).toBeInTheDocument()
     })
 })

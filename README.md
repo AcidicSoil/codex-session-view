@@ -24,6 +24,7 @@ This application serves as an advanced implementation of a modern web app starte
 - **Interactive Session Replay:** Upload and view comprehensive session snapshots to replay user interactions step-by-step.
 - **Detailed Timeline View:** Visualize the complete sequence of events in a session, including user inputs, mutations, console logs, and more.
 - **Advanced Filtering:** Dynamically filter timeline events by type (e.g., `ACTION`, `MUTATION`, `LOG`) to isolate and analyze specific activities.
+- **Repo-aware Session Explorer:** Group sessions by repo + branch metadata, expand/collapse groups locally, and search/size/sort entirely client-side without triggering new discovery.
 - **Chat & Discovery:** Analyze conversational AI interactions within the `ChatDock` and explore raw session data through the `DiscoveryPanel`.
 - **Data Persistence Control:** Easily toggle session persistence in `localStorage` to save analysis across browser sessions.
 - **Modern Tech Stack:** Built with the latest [TanStack ecosystem](https://tanstack.com/) (Start RC1, Router, Query), [React](https://react.dev/), and [TypeScript](https://www.typescriptlang.org/) for a robust, type-safe, and performant experience.
@@ -86,7 +87,7 @@ src/
 └── server/                     # server functions + persistence
 ```
 
-The viewer route’s loader (`src/features/viewer/viewer.loader.ts`) runs on navigation to stream discovery data (project files + session assets) into the router cache before `ViewerPage` renders. Search params stay typed via `viewer.search.ts`, and `DiscoverySection` reads both loader data and search state with `useLoaderData({ from: VIEWER_ROUTE_ID })` / `useSearch({ from: VIEWER_ROUTE_ID })`.
+The viewer route’s loader (`src/features/viewer/viewer.loader.ts`) calls a dedicated server function that performs all filesystem discovery before `ViewerPage` renders. The loader never depends on search params or client filters, so revalidations always hit the server function and never drop the discovered sessions. Repo/branch grouping, search text, size ranges, ASC/DESC toggles, and expand state all live in client state inside `DiscoverySection`, ensuring fast, in-memory filtering without retriggering the loader.
 
 ## 🎯 Core Technologies
 

@@ -6,7 +6,6 @@ import Icons from 'unplugin-icons/vite';
 import { defineConfig, loadEnv, type ConfigEnv } from 'vite';
 import micromatch from 'micromatch';
 import tsConfigPaths from 'vite-tsconfig-paths';
-import { nitro } from 'nitro/vite';
 
 export default ({ mode }: ConfigEnv) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -21,7 +20,6 @@ export default ({ mode }: ConfigEnv) => {
         projects: ['./tsconfig.json'],
       }),
       tanstackStart(),
-      nitro(),
       react(),
       Icons({
         compiler: 'jsx',

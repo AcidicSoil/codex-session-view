@@ -1,80 +1,64 @@
 import { Component, type ErrorInfo, type ReactNode, useEffect, useRef, useState } from 'react'
-import { useLoaderData, useRouter, useSearch } from '@tanstack/react-router'
+import { useLoaderData } from '@tanstack/react-router'
 import { DiscoveryPanel } from '~/components/viewer/DiscoveryPanel'
 import { toast } from 'sonner'
 import type { FileLoaderHook } from '~/hooks/useFileLoader'
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery'
-import { logDebug, logError, logInfo } from '~/lib/logger'
-import { VIEWER_ROUTE_ID, VIEWER_ROUTE_PATH, type ViewerSearch } from './route-id'
+import { logError, logInfo, logWarn } from '~/lib/logger'
+import { mergeSessionAssets, sortSessionAssets } from '~/lib/viewerDiscovery'
+import { VIEWER_ROUTE_ID } from './route-id'
 import type { ViewerSnapshot } from './viewer.loader'
-import { arraysEqual } from './viewer.search'
 
 interface ViewerDiscoveryOptions {
   loader: FileLoaderHook
 }
 
-function useViewerDiscovery({ loader }: ViewerDiscoveryOptions) {
-  const router = useRouter()
+export interface ViewerDiscoveryState {
+  snapshot?: ViewerSnapshot
+  projectFiles: string[]
+  sessionAssets: DiscoveredSessionAsset[]
+  appendSessionAssets: (assets: DiscoveredSessionAsset[], reason: string) => void
+  onSessionOpen: (asset: DiscoveredSessionAsset) => Promise<void> | void
+  loadingSessionPath: string | null
+  selectedSessionPath: string | null
+  setSelectedSessionPath: (path: string | null) => void
+}
+
+export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDiscoveryState {
   const loaderSnapshot = useLoaderData({ from: VIEWER_ROUTE_ID }) as ViewerSnapshot | undefined
-  const search = useSearch({ from: VIEWER_ROUTE_ID }) ?? { filters: [], expanded: [], sizeMinMb: undefined }
   const [snapshot, setSnapshot] = useState<ViewerSnapshot | undefined>(loaderSnapshot)
+  const [sessionAssets, setSessionAssets] = useState<DiscoveredSessionAsset[]>(loaderSnapshot?.sessionAssets ?? [])
+  const [projectFiles, setProjectFiles] = useState(loaderSnapshot?.projectFiles ?? [])
   const hasResolvedOnceRef = useRef(Boolean(loaderSnapshot))
   const loggedMissingRef = useRef(false)
   const [loadingSessionPath, setLoadingSessionPath] = useState<string | null>(null)
+  const [selectedSessionPath, setSelectedSessionPath] = useState<string | null>(null)
 
   useEffect(() => {
     if (loaderSnapshot) {
       setSnapshot(loaderSnapshot)
+      setSessionAssets(loaderSnapshot.sessionAssets)
+      setProjectFiles(loaderSnapshot.projectFiles)
       hasResolvedOnceRef.current = true
       loggedMissingRef.current = false
       return
     }
     if (!hasResolvedOnceRef.current || loggedMissingRef.current) return
     loggedMissingRef.current = true
-    logError('viewer.discovery', 'Lost viewer snapshot after initial load', { search })
-  }, [loaderSnapshot, search])
+    logError('viewer.discovery', 'Lost viewer snapshot after initial load')
+  }, [loaderSnapshot])
 
-  const setFilters = (next: string[]) => {
-    if (arraysEqual(next, search.filters)) return
-    logDebug('viewer.filters', 'Updating filters', { next })
-    router.navigate({
-      to: VIEWER_ROUTE_PATH,
-      search: (prev) => {
-        const prevSearch = (prev as ViewerSearch | undefined) ?? search
-        const prevExpanded = Array.isArray(prevSearch.expanded) ? prevSearch.expanded : search.expanded
-        return { filters: next, expanded: prevExpanded, sizeMinMb: prevSearch.sizeMinMb }
-      },
-      replace: true,
-    })
-  }
-
-  const setExpanded = (next: string[]) => {
-    if (arraysEqual(next, search.expanded)) return
-    logDebug('viewer.filters', 'Updating expanded repos', { next })
-    router.navigate({
-      to: VIEWER_ROUTE_PATH,
-      search: (prev) => {
-        const prevSearch = (prev as ViewerSearch | undefined) ?? search
-        const prevFilters = Array.isArray(prevSearch.filters) ? prevSearch.filters : search.filters
-        return { expanded: next, filters: prevFilters, sizeMinMb: prevSearch.sizeMinMb }
-      },
-      replace: true,
-    })
-  }
-
-  const setMinSizeMb = (value?: number) => {
-    const normalized = value !== undefined && Number.isFinite(value) && value >= 0 ? Number(value) : undefined
-    router.navigate({
-      to: VIEWER_ROUTE_PATH,
-      search: (prev) => {
-        const prevSearch = (prev as ViewerSearch | undefined) ?? search
-        return {
-          filters: prevSearch.filters ?? search.filters,
-          expanded: prevSearch.expanded ?? search.expanded,
-          sizeMinMb: normalized,
-        }
-      },
-      replace: true,
+  const appendSessionAssets = (assets: DiscoveredSessionAsset[], reason: string) => {
+    if (!assets.length) return
+    setSessionAssets((current) => {
+      const merged = sortSessionAssets(mergeSessionAssets(current, assets))
+      logInfo('viewer.discovery', 'Merged session assets into explorer', {
+        reason,
+        before: current.length,
+        after: merged.length,
+        added: assets.length,
+      })
+      return merged
     })
   }
 
@@ -86,6 +70,7 @@ function useViewerDiscovery({ loader }: ViewerDiscoveryOptions) {
       logError('viewer.discovery', 'Unsupported session URL protocol', { path: asset.path, url: asset.url })
       return
     }
+    setSelectedSessionPath(asset.path)
     setLoadingSessionPath(asset.path)
     logInfo('viewer.discovery', 'Loading session asset into timeline', { path: asset.path })
     try {
@@ -109,50 +94,41 @@ function useViewerDiscovery({ loader }: ViewerDiscoveryOptions) {
 
   return {
     snapshot: snapshot ?? loaderSnapshot,
-    filters: search.filters,
-    expanded: search.expanded,
-    sizeMinMb: search.sizeMinMb,
-    setFilters,
-    setExpanded,
-    setMinSizeMb,
+    projectFiles,
+    sessionAssets,
+    appendSessionAssets,
     onSessionOpen: handleSessionOpen,
     loadingSessionPath,
+    selectedSessionPath,
+    setSelectedSessionPath,
   }
 }
 
-interface DiscoverySectionProps {
-  loader: FileLoaderHook
-}
+interface DiscoverySectionProps extends ViewerDiscoveryState {}
 
-export function DiscoverySection({ loader }: DiscoverySectionProps) {
+export function DiscoverySection(props: DiscoverySectionProps) {
   const {
     snapshot,
-    filters,
-    expanded,
-    sizeMinMb,
-    setFilters,
-    setExpanded,
-    setMinSizeMb,
+    projectFiles,
+    sessionAssets,
     onSessionOpen,
     loadingSessionPath,
-  } = useViewerDiscovery({ loader })
+    selectedSessionPath,
+    setSelectedSessionPath,
+  } = props
   if (!snapshot) {
     return <DiscoveryUnavailable />
   }
   return (
     <SessionExplorerBoundary resetKey={snapshot.generatedAt}>
       <DiscoveryPanel
-        projectFiles={snapshot.projectFiles}
-        sessionAssets={snapshot.sessionAssets}
+        projectFiles={projectFiles}
+        sessionAssets={sessionAssets}
         generatedAtMs={snapshot.generatedAt}
-        selectedFilterIds={filters}
-        onSelectedFilterIdsChange={setFilters}
-        expandedRepoIds={expanded}
-        onExpandedRepoIdsChange={setExpanded}
-        minSizeMb={sizeMinMb}
-        onMinSizeMbChange={setMinSizeMb}
         onSessionOpen={onSessionOpen}
         loadingSessionPath={loadingSessionPath}
+        selectedSessionPath={selectedSessionPath}
+        onSelectionChange={setSelectedSessionPath}
       />
     </SessionExplorerBoundary>
   )

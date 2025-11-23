@@ -28,6 +28,7 @@ This guide captures the mandatory changes and local patches we applied while upg
 - `getWebRequest` → `getRequest`, `getHeaders` → `getRequestHeaders`, etc. Apply the full set of renames listed in `docs/tasks/03-upgrade-tanstack-rc1.md`.
 - Response modes were removed—return a `Response` directly when needed.
 - Keep shared types (e.g. `Theme`) exported from server modules so route loaders and components can import them without circular dependencies.
+- Filesystem discovery (sessions, repo metadata, etc.) should live entirely inside `createServerFn` handlers. Route loaders call the server fn, return the snapshot, and never import Node `fs` or `path` directly. UI filters/search/expand state stays in client components so loader revalidations never refetch purely because of display interactions.
 
 ## API Routes
 

@@ -6,28 +6,20 @@ interface DiscoveryPanelProps {
   projectFiles: string[];
   sessionAssets: DiscoveredSessionAsset[];
   generatedAtMs: number;
-  selectedFilterIds?: string[];
-  onSelectedFilterIdsChange?: (next: string[]) => void;
-  expandedRepoIds?: string[];
-  onExpandedRepoIdsChange?: (next: string[]) => void;
-  minSizeMb?: number;
-  onMinSizeMbChange?: (value?: number) => void;
   onSessionOpen?: (asset: DiscoveredSessionAsset) => Promise<void> | void;
   loadingSessionPath?: string | null;
+  selectedSessionPath?: string | null;
+  onSelectionChange?: (path: string | null) => void;
 }
 
 export function DiscoveryPanel({
   projectFiles,
   sessionAssets,
   generatedAtMs,
-  selectedFilterIds,
-  onSelectedFilterIdsChange,
-  expandedRepoIds,
-  onExpandedRepoIdsChange,
-  minSizeMb,
-  onMinSizeMbChange,
   onSessionOpen,
   loadingSessionPath,
+  selectedSessionPath,
+  onSelectionChange,
 }: DiscoveryPanelProps) {
   return (
     <div className="space-y-6">
@@ -50,14 +42,10 @@ export function DiscoveryPanel({
         <SessionList
           sessionAssets={sessionAssets}
           snapshotTimestamp={generatedAtMs}
-          selectedFilterIds={selectedFilterIds}
-          onSelectedFilterIdsChange={onSelectedFilterIdsChange}
-          expandedRepoIds={expandedRepoIds}
-          onExpandedRepoIdsChange={onExpandedRepoIdsChange}
-          minSizeMb={minSizeMb}
-          onMinSizeMbChange={onMinSizeMbChange}
           onSessionOpen={onSessionOpen}
           loadingSessionPath={loadingSessionPath}
+          selectedSessionPath={selectedSessionPath}
+          onSelectionChange={onSelectionChange}
         />
       </section>
     </div>
