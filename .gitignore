@@ -52,9 +52,10 @@ session-id.md
 .TODO/
 .gemini/
 *.jsonl
-pnpm-lock.yaml
+
 .genkit/
 
+**/*screenshot*.png/**
 
 # START Ruler Generated Files
 /.codex/config.toml

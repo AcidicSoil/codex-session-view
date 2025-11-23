@@ -4,6 +4,7 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
 import Icons from 'unplugin-icons/vite';
 import { defineConfig, loadEnv, type ConfigEnv } from 'vite';
+import micromatch from 'micromatch';
 import tsConfigPaths from 'vite-tsconfig-paths';
 import { nitro } from 'nitro/vite';
 
@@ -37,6 +38,29 @@ export default ({ mode }: ConfigEnv) => {
         },
       }),
       tailwindcss(),
+      {
+        name: 'ignore-governance-docs',
+        resolveId(source) {
+          if (micromatch.isMatch(source, '**/{AGENTS,CLAUDE}.md{,.*}')) {
+            return { id: source, external: true };
+          }
+          return null;
+        },
+        load(id) {
+          if (micromatch.isMatch(id, '**/{AGENTS,CLAUDE}.md{,.*}')) {
+            return 'export default "";';
+          }
+          return null;
+        },
+      },
     ],
+    assetsInclude: ['**/*.md'],
+    optimizeDeps: {
+      esbuildOptions: {
+        loader: {
+          '.md': 'text',
+        },
+      },
+    },
   });
 };

@@ -4,10 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const sessionFixture = path.resolve(
-  __dirname,
-  '../sample_session/rollout-2025-11-17T15-30-28-019a93b9-f380-7600-98ff-940e6b99603c.jsonl',
-);
+const sessionFixture = path.resolve(__dirname, './fixtures/sample-session.jsonl');
 
 test.describe('codex session viewer', () => {
   test('home page renders hero and API controls', async ({ page }) => {
@@ -39,6 +36,18 @@ test.describe('codex session viewer', () => {
     const fileInputs = page.locator('input[type="file"]');
     await fileInputs.first().setInputFiles(sessionFixture);
     await expect(page.getByText(/uploads\//i)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('session explorer loads uploaded session into timeline', async ({ page }) => {
+    await page.goto('/viewer');
+    const fileInputs = page.locator('input[type="file"]');
+    await fileInputs.first().setInputFiles(sessionFixture);
+    const repoToggle = page.getByRole('button', { name: /Toggle example\/session-viewer-fixture repository/i });
+    await expect(repoToggle).toBeVisible({ timeout: 20_000 });
+    await repoToggle.click();
+    const loadButton = page.getByRole('button', { name: /Load session/i }).first();
+    await loadButton.click();
+    await expect(page.getByText(/Explorer session uploaded via test harness/i)).toBeVisible({ timeout: 20_000 });
   });
 
   test('logs route records client-side runtime errors', async ({ page }) => {

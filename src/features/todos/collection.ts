@@ -3,7 +3,6 @@ import { queryCollectionOptions } from '@tanstack/query-db-collection'
 import type { QueryClient } from '@tanstack/react-query'
 import { createTodo, deleteTodo, getTodos, toggleTodo } from '~/server/function/todos'
 import type { Todo } from './types'
-import { todoSchema } from './types'
 
 type TodosCollection = ReturnType<typeof createTodosCollection>
 
@@ -17,7 +16,6 @@ function createTodosCollection(queryClient: QueryClient) {
       queryFn: async ({ signal }) => await getTodos({ signal }),
       queryClient,
       getKey: (todo) => todo.id,
-      schema: todoSchema,
       staleTime: 1000 * 30,
     })
   )

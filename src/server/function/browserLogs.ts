@@ -103,7 +103,7 @@ export const getBrowserLogs = createServerFn({ method: 'GET' }).handler(async ()
 export const clearBrowserLogs = createServerFn({ method: 'POST' }).handler(async () => {
   logInfo('browser-logs', 'Clear logs request received')
   const result = await clearBrowserLogFiles()
-  logInfo('browser-logs', 'Clear logs completed', result)
+  logInfo('browser-logs', 'Clear logs completed', { ...result })
   return result
 })
 

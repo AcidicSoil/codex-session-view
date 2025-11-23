@@ -45,6 +45,8 @@ export interface LocalShellCallEvent extends BaseEvent {
     readonly stdout?: string
     readonly stderr?: string
     readonly durationMs?: number
+    readonly stdoutFormat?: "text" | "code"
+    readonly stderrFormat?: "text" | "code"
 }
 
 /** Web search action event. */

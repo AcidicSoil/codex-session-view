@@ -30,7 +30,7 @@ const sampleSessions: DiscoveredSessionAsset[] = [
 describe("SessionList", () => {
   it("filters repositories when size chips are toggled", async () => {
     const user = userEvent.setup()
-    render(<SessionList sessionAssets={sampleSessions} />)
+    render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
     expect(screen.getByText(/Alpha/i)).toBeInTheDocument()
     expect(screen.getByText(/Beta/i)).toBeInTheDocument()
@@ -47,6 +47,7 @@ describe("SessionList", () => {
     render(
       <SessionList
         sessionAssets={sampleSessions}
+        snapshotTimestamp={Date.now()}
         selectedFilterIds={["size-100kb"]}
         onSelectedFilterIdsChange={handleFilters}
       />
@@ -60,7 +61,14 @@ describe("SessionList", () => {
   it("notifies parent when repository expansion changes", async () => {
     const user = userEvent.setup()
     const handleExpand = vi.fn()
-    render(<SessionList sessionAssets={sampleSessions} expandedRepoIds={[]} onExpandedRepoIdsChange={handleExpand} />)
+    render(
+      <SessionList
+        sessionAssets={sampleSessions}
+        snapshotTimestamp={Date.now()}
+        expandedRepoIds={[]}
+        onExpandedRepoIdsChange={handleExpand}
+      />
+    )
 
     await user.click(screen.getByRole("button", { name: /Toggle Beta repository/i }))
 
@@ -69,11 +77,27 @@ describe("SessionList", () => {
 
   it("renders session metadata inside expanded panels", async () => {
     const user = userEvent.setup()
-    render(<SessionList sessionAssets={sampleSessions} />)
+    render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
     await user.click(screen.getByRole("button", { name: /Toggle Alpha repository/i }))
-    const listItem = await screen.findByText(/run-a\.jsonl/i)
-    expect(listItem).toBeInTheDocument()
-    expect(screen.getByText(/alpha/i)).toBeInTheDocument()
+    const matches = await screen.findAllByText(/run-a\.jsonl/i)
+    expect(matches.length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('link', { name: /Open file/i })).toHaveAttribute('href', '/sessions/alpha/run-a.jsonl')
+  })
+
+  it("calls onSessionOpen when load button pressed", async () => {
+    const user = userEvent.setup()
+    const handleOpen = vi.fn()
+    render(
+      <SessionList
+        sessionAssets={sampleSessions}
+        snapshotTimestamp={Date.now()}
+        onSessionOpen={handleOpen}
+      />,
+    )
+    await user.click(screen.getByRole("button", { name: /Toggle Alpha repository/i }))
+    const loadButton = await screen.findByRole('button', { name: /Load session/i })
+    await user.click(loadButton)
+    expect(handleOpen).toHaveBeenCalled()
   })
 })

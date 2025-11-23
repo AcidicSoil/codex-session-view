@@ -1,10 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'motion/react';
+import { Filter as FilterIcon } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import { Loader } from '~/components/ui/loader';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
+import type { RepoMetadata } from '~/lib/repo-metadata';
 import { cn } from '~/lib/utils';
 import { formatCount, formatDateTime } from '~/utils/intl';
+import { BorderBeam } from '~/components/ui/border-beam';
+import { TimelineView } from '~/components/viewer/TimelineView';
 
 type FilterGroup = 'size' | 'date';
 
@@ -22,6 +36,7 @@ interface RepositoryGroup {
   sessions: DiscoveredSessionAsset[];
   totalSize: number;
   lastUpdated?: number;
+  repoMeta?: RepoMetadata;
 }
 
 export interface SessionListProps {
@@ -31,31 +46,11 @@ export interface SessionListProps {
   onSelectedFilterIdsChange?: (next: string[]) => void;
   expandedRepoIds?: string[];
   onExpandedRepoIdsChange?: (next: string[]) => void;
+  minSizeMb?: number;
+  onMinSizeMbChange?: (value?: number) => void;
+  onSessionOpen?: (asset: DiscoveredSessionAsset) => Promise<void> | void;
+  loadingSessionPath?: string | null;
 }
-
-const sizeFilters: FilterChipConfig[] = [
-  {
-    id: 'size-100kb',
-    label: 'Size > 100 KB',
-    description: 'Only show sessions larger than 100 kilobytes',
-    group: 'size',
-    predicate: (asset) => (asset.size ?? 0) > 100 * 1024,
-  },
-  {
-    id: 'size-1mb',
-    label: 'Size > 1 MB',
-    description: 'Restrict to larger transcripts for deeper dives',
-    group: 'size',
-    predicate: (asset) => (asset.size ?? 0) > 1_000_000,
-  },
-  {
-    id: 'size-5mb',
-    label: 'Size > 5 MB',
-    description: 'Surface only heavyweight session captures',
-    group: 'size',
-    predicate: (asset) => (asset.size ?? 0) > 5_000_000,
-  },
-];
 
 const dateFilters: FilterChipConfig[] = [
   {
@@ -81,12 +76,7 @@ const dateFilters: FilterChipConfig[] = [
   },
 ];
 
-const filterGroups = [
-  { title: 'Size', chips: sizeFilters },
-  { title: 'Date', chips: dateFilters },
-];
-
-const allFilterChips = filterGroups.flatMap((group) => group.chips);
+const allFilterChips = dateFilters;
 export const sessionFilterChipIds = allFilterChips.map((chip) => chip.id);
 
 const sessionCountIntensity = {
@@ -125,9 +115,14 @@ export function SessionList({
   onSelectedFilterIdsChange,
   expandedRepoIds: expandedRepoIdsProp,
   onExpandedRepoIdsChange,
+  minSizeMb: minSizeMbProp,
+  onMinSizeMbChange,
+  onSessionOpen,
+  loadingSessionPath,
 }: SessionListProps) {
   const isFiltersControlled = Array.isArray(selectedFilterIdsProp);
   const isExpandedControlled = Array.isArray(expandedRepoIdsProp);
+  const isMinSizeControlled = typeof minSizeMbProp === 'number';
 
   const [localFilterIds, setLocalFilterIds] = useState<string[]>(() =>
     sanitizeSessionFilterIds(selectedFilterIdsProp ?? [])
@@ -135,7 +130,21 @@ export function SessionList({
   const [localExpandedRepoIds, setLocalExpandedRepoIds] = useState<string[]>(() =>
     dedupeRepoIds(expandedRepoIdsProp ?? [])
   );
+  const [localMinSizeMb, setLocalMinSizeMb] = useState<number | undefined>(minSizeMbProp);
+  const [sizeInputValue, setSizeInputValue] = useState<string>(() =>
+    minSizeMbProp !== undefined ? String(minSizeMbProp) : ''
+  );
   const [loadingRepoId, setLoadingRepoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isMinSizeControlled) {
+      setLocalMinSizeMb(minSizeMbProp);
+      setSizeInputValue(minSizeMbProp !== undefined ? String(minSizeMbProp) : '');
+    } else if (minSizeMbProp === undefined) {
+      setLocalMinSizeMb(undefined);
+      setSizeInputValue('');
+    }
+  }, [isMinSizeControlled, minSizeMbProp]);
 
   const resolvedFilterIds = sanitizeSessionFilterIds(
     isFiltersControlled ? selectedFilterIdsProp ?? [] : localFilterIds
@@ -143,6 +152,8 @@ export function SessionList({
   const resolvedExpandedRepoIds = dedupeRepoIds(
     isExpandedControlled ? expandedRepoIdsProp ?? [] : localExpandedRepoIds
   );
+  const resolvedMinSizeMb = isMinSizeControlled ? minSizeMbProp ?? undefined : localMinSizeMb;
+  const resolvedMinSizeBytes = resolvedMinSizeMb !== undefined ? resolvedMinSizeMb * 1024 * 1024 : undefined;
 
   const updateFilterIds = (next: string[]) => {
     if (!isFiltersControlled) {
@@ -158,16 +169,43 @@ export function SessionList({
     onExpandedRepoIdsChange?.(next);
   };
 
+  const updateMinSizeMb = (next: number | undefined) => {
+    if (!isMinSizeControlled) {
+      setLocalMinSizeMb(next);
+    }
+    onMinSizeMbChange?.(next);
+  };
+
+  const handleMinSizeInput = (value: string) => {
+    setSizeInputValue(value);
+    if (!value.trim()) {
+      updateMinSizeMb(undefined);
+      return;
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    updateMinSizeMb(parsed);
+  };
+
   const activeFilters = useMemo(
     () => allFilterChips.filter((chip) => resolvedFilterIds.includes(chip.id)),
     [resolvedFilterIds]
   );
+  const activeFilterBadges = [
+    ...activeFilters.map((chip) => chip.label),
+    resolvedMinSizeMb !== undefined ? `≥ ${resolvedMinSizeMb} MB` : null,
+  ].filter(Boolean) as string[];
+  const activeFilterCount = activeFilterBadges.length;
 
   const filteredSessions = useMemo(() => {
-    if (!activeFilters.length) return sessionAssets;
+    if (!activeFilters.length && resolvedMinSizeBytes === undefined) return sessionAssets;
     const now = Date.now();
-    return sessionAssets.filter((asset) => activeFilters.every((filter) => filter.predicate(asset, now)));
-  }, [sessionAssets, activeFilters]);
+    return sessionAssets.filter((asset) => {
+      const matchesFilters = activeFilters.every((filter) => filter.predicate(asset, now));
+      const matchesSize = resolvedMinSizeBytes === undefined ? true : (asset.size ?? 0) >= resolvedMinSizeBytes;
+      return matchesFilters && matchesSize;
+    });
+  }, [sessionAssets, activeFilters, resolvedMinSizeBytes]);
 
   const repositoryGroups = useMemo(() => aggregateByRepository(filteredSessions), [filteredSessions]);
 
@@ -182,6 +220,7 @@ export function SessionList({
 
   const clearFilters = () => {
     updateFilterIds([]);
+    handleMinSizeInput('');
   };
 
   const toggleRepo = (repoId: string, sessionCount: number) => {
@@ -208,55 +247,86 @@ export function SessionList({
     <section className="space-y-4 rounded-xl border border-border/80 bg-background/50 p-4 shadow-sm">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-sm font-semibold">Repository filters</p>
+          <p className="text-sm font-semibold">Session filters</p>
           <p className="text-xs text-muted-foreground">
-            Toggle chips to refine by size or recency. {formatCount(filteredSessions.length)} of{' '}
-            {formatCount(sessionAssets.length)} sessions shown.
+            Showing {formatCount(filteredSessions.length)} of {formatCount(sessionAssets.length)} sessions
+            {resolvedMinSizeMb !== undefined ? ` (min ${resolvedMinSizeMb} MB).` : '.'}
           </p>
-        </div>
-        <button
-          type="button"
-          className={cn(
-            'text-xs font-medium underline-offset-4 transition hover:underline',
-            resolvedFilterIds.length === 0 ? 'text-muted-foreground' : 'text-foreground'
-          )}
-          onClick={clearFilters}
-          disabled={resolvedFilterIds.length === 0}
-        >
-          Clear all filters
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        {filterGroups.map((group) => (
-          <div key={group.title} className="flex flex-wrap items-center gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {group.title} filters
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {group.chips.map((chip) => {
-                const isActive = resolvedFilterIds.includes(chip.id);
-                return (
-                  <button
-                    key={chip.id}
-                    type="button"
-                    aria-pressed={isActive}
-                    aria-label={`${chip.label}. ${chip.description}`}
-                    onClick={() => handleChipToggle(chip.id)}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      isActive
-                        ? 'border-foreground bg-foreground text-background'
-                        : 'border-border/70 text-foreground hover:bg-muted/60'
-                    )}
-                  >
-                    {chip.label}
-                  </button>
-                );
-              })}
+          {activeFilterBadges.length ? (
+            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+              {activeFilterBadges.map((label) => (
+                <span key={label} className="rounded-full border border-border/70 px-2 py-0.5">
+                  {label}
+                </span>
+              ))}
             </div>
-          </div>
-        ))}
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <FilterIcon className="size-4" />
+                Filters
+                {activeFilterCount ? (
+                  <span className="text-xs text-muted-foreground">({activeFilterCount})</span>
+                ) : null}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-80 space-y-3">
+              <DropdownMenuLabel>Minimum size</DropdownMenuLabel>
+              <div className="flex items-center gap-2 px-2">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="0.1"
+                  className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  placeholder="e.g. 2"
+                  value={sizeInputValue}
+                  onChange={(event) => handleMinSizeInput(event.target.value)}
+                />
+                <span className="text-xs text-muted-foreground">MB</span>
+                {resolvedMinSizeMb !== undefined ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => handleMinSizeInput('')}
+                  >
+                    Clear
+                  </Button>
+                ) : null}
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Date filters</DropdownMenuLabel>
+              {dateFilters.map((chip) => (
+                <DropdownMenuCheckboxItem
+                  key={chip.id}
+                  checked={resolvedFilterIds.includes(chip.id)}
+                  onCheckedChange={() => handleChipToggle(chip.id)}
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium">{chip.label}</span>
+                    <span className="text-xs text-muted-foreground">{chip.description}</span>
+                  </div>
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <button
+            type="button"
+            className={cn(
+              'text-xs font-medium underline-offset-4 transition hover:underline',
+              activeFilterCount === 0 ? 'text-muted-foreground' : 'text-foreground'
+            )}
+            onClick={clearFilters}
+            disabled={activeFilterCount === 0}
+          >
+            Reset filters
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3" aria-live="polite">
@@ -314,6 +384,15 @@ export function SessionList({
                       </TooltipTrigger>
                       <TooltipContent>
                         <p className="text-xs font-semibold">{repo.label}</p>
+                        {repo.repoMeta?.repo ? (
+                          <p className="text-xs opacity-80">Repo: {repo.repoMeta.repo}</p>
+                        ) : null}
+                        {repo.repoMeta?.branch ? (
+                          <p className="text-xs opacity-80">Branch: {repo.repoMeta.branch}</p>
+                        ) : null}
+                        {repo.repoMeta?.commit ? (
+                          <p className="text-xs opacity-80">Commit: {formatCommit(repo.repoMeta.commit)}</p>
+                        ) : null}
                         <p className="text-xs opacity-80">Total size: {formatBytes(repo.totalSize)}</p>
                         <p className="text-xs opacity-80">Last updated: {formatDate(repo.lastUpdated)}</p>
                       </TooltipContent>
@@ -339,39 +418,12 @@ export function SessionList({
                         Preparing session list…
                       </div>
                     ) : (
-                      <ul className="divide-y divide-border rounded-xl border border-border/80 bg-background/70">
-                        {repo.sessions.map((session) => (
-                          <li key={session.path} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="min-w-0 space-y-1">
-                              <p className="truncate text-sm font-medium">{session.path}</p>
-                              <a
-                                className="truncate text-xs text-primary underline-offset-2 hover:underline"
-                                href={session.url}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {session.url}
-                              </a>
-                              {session.tags && session.tags.length > 0 ? (
-                                <div className="flex flex-wrap gap-1 text-[11px] text-muted-foreground">
-                                  {session.tags.map((tag) => (
-                                    <span
-                                      key={`${session.path}-${tag}`}
-                                      className="rounded-full border border-border/70 px-2 py-0.5"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                            <div className="text-right text-xs text-muted-foreground">
-                              <p>{formatBytes(session.size)}</p>
-                              <p>{formatDate(session.sortKey)}</p>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
+                      <SessionRepoVirtualList
+                        sessions={repo.sessions}
+                        snapshotTimestamp={snapshotTimestamp}
+                        onSessionOpen={onSessionOpen}
+                        loadingSessionPath={loadingSessionPath}
+                      />
                     )}
                   </div>
                 ) : null}
@@ -387,13 +439,17 @@ export function SessionList({
 function aggregateByRepository(sessionAssets: DiscoveredSessionAsset[]): RepositoryGroup[] {
   const map = new Map<string, RepositoryGroup>();
   for (const asset of sessionAssets) {
-    const label = formatRepositoryLabel(asset.path);
-    const id = slugify(label);
+    const canonical = asset.repoMeta?.repo ?? asset.repoLabel ?? formatRepositoryLabel(asset.path);
+    const label = asset.repoLabel ?? canonical;
+    const id = slugify(canonical ?? label);
     const current = map.get(id);
     if (current) {
       current.sessions.push(asset);
       current.totalSize += asset.size ?? 0;
       current.lastUpdated = Math.max(current.lastUpdated ?? 0, asset.sortKey ?? 0) || current.lastUpdated;
+      if (!current.repoMeta && asset.repoMeta) {
+        current.repoMeta = asset.repoMeta;
+      }
     } else {
       map.set(id, {
         id,
@@ -401,6 +457,7 @@ function aggregateByRepository(sessionAssets: DiscoveredSessionAsset[]): Reposit
         sessions: [asset],
         totalSize: asset.size ?? 0,
         lastUpdated: asset.sortKey,
+        repoMeta: asset.repoMeta,
       });
     }
   }
@@ -497,4 +554,157 @@ function formatRelativeTime(value: number | undefined, referenceMs: number) {
   if (days < 60) return `${days}d ago`;
   const months = Math.round(days / 30);
   return `${months}mo ago`;
+}
+
+interface SessionTimelineItem {
+  session: DiscoveredSessionAsset;
+  index: number;
+}
+
+function SessionRepoVirtualList({
+  sessions,
+  snapshotTimestamp,
+  onSessionOpen,
+  loadingSessionPath,
+}: {
+  sessions: DiscoveredSessionAsset[];
+  snapshotTimestamp: number;
+  onSessionOpen?: (asset: DiscoveredSessionAsset) => Promise<void> | void;
+  loadingSessionPath?: string | null;
+}) {
+  const items = useMemo<SessionTimelineItem[]>(
+    () => sessions.map((session, index) => ({ session, index })),
+    [sessions],
+  );
+  const [gradients, setGradients] = useState({ top: 0, bottom: 0 });
+  const viewportHeight = items.length ? Math.max(Math.min(items.length * 96, 520), 220) : 200;
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-background/70">
+      <TimelineView
+        items={items}
+        height={viewportHeight}
+        estimateItemHeight={104}
+        overscanPx={200}
+        keyForIndex={(item) => `${item.session.path}:${item.index}`}
+        onScrollChange={({ scrollTop, totalHeight, height }) => {
+          const top = Math.min(scrollTop / 80, 1);
+          const bottomDistance = totalHeight - (scrollTop + height);
+          const bottom = totalHeight <= height ? 0 : Math.min(bottomDistance / 80, 1);
+          setGradients({ top, bottom });
+        }}
+        renderItem={(item) => (
+          <motion.div
+            className="px-3 pb-4 pt-2"
+            initial={{ opacity: 0.6, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            <SessionCard
+              session={item.session}
+              snapshotTimestamp={snapshotTimestamp}
+              onSessionOpen={onSessionOpen}
+              isLoading={loadingSessionPath === item.session.path}
+            />
+          </motion.div>
+        )}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-background to-transparent"
+        style={{ opacity: gradients.top }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent"
+        style={{ opacity: gradients.bottom }}
+      />
+    </div>
+  );
+}
+
+function SessionCard({
+  session,
+  snapshotTimestamp,
+  onSessionOpen,
+  isLoading,
+}: {
+  session: DiscoveredSessionAsset;
+  snapshotTimestamp: number;
+  onSessionOpen?: (asset: DiscoveredSessionAsset) => Promise<void> | void;
+  isLoading?: boolean;
+}) {
+  const displayName = formatSessionTitle(session.path);
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border/60 bg-gradient-to-br from-background via-background/60 to-muted/40 p-4">
+      <BorderBeam className="opacity-50" size={120} duration={8} borderWidth={1} />
+      <div className="relative z-10 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            {session.repoLabel ? (
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
+                {session.repoLabel}
+              </p>
+            ) : null}
+            {session.repoMeta?.repo ? (
+              <p className="truncate text-[11px] text-muted-foreground">{session.repoMeta.repo}</p>
+            ) : null}
+            {session.repoMeta?.branch || session.repoMeta?.commit ? (
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {session.repoMeta?.branch ? `Branch ${session.repoMeta.branch}` : null}
+                {session.repoMeta?.branch && session.repoMeta?.commit ? ' · ' : ''}
+                {session.repoMeta?.commit ? `Commit ${formatCommit(session.repoMeta.commit)}` : null}
+              </p>
+            ) : null}
+            <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+            <p className="truncate text-xs text-muted-foreground">{session.path}</p>
+          </div>
+          <div className="text-right text-xs text-muted-foreground">
+            <p>{formatBytes(session.size)}</p>
+            <p>{formatRelativeTime(session.sortKey, snapshotTimestamp)}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          {session.tags?.slice(0, 3).map((tag) => (
+            <span key={`${session.path}-${tag}`} className="rounded-full border border-border/70 px-2 py-0.5">
+              {tag}
+            </span>
+          ))}
+          {session.tags && session.tags.length > 3 ? <span>+{session.tags.length - 3}</span> : null}
+          <div className="ml-auto flex items-center gap-2">
+            {onSessionOpen ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={isLoading}
+                onClick={() => onSessionOpen(session)}
+              >
+                {isLoading ? 'Loading…' : 'Load session'}
+              </Button>
+            ) : null}
+            <a
+              className="text-xs font-semibold text-primary underline-offset-4 hover:underline"
+              href={session.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open file
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatSessionTitle(path: string) {
+  const segments = path.replace(/\\/g, '/').split('/');
+  const filename = segments.pop() ?? path;
+  return filename || path;
+}
+
+function formatCommit(commit: string) {
+  return commit.length > 8 ? commit.slice(0, 8) : commit;
 }

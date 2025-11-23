@@ -8,7 +8,7 @@ import {
 import type { HTMLAttributes } from 'react';
 import { type BundledLanguage, type CodeOptionsMultipleThemes, codeToHtml } from 'shiki';
 
-export type CodeBlockContentProps = HTMLAttributes<HTMLDiv> & {
+export type CodeBlockContentProps = HTMLAttributes<HTMLDivElement> & {
   themes?: CodeOptionsMultipleThemes['themes'];
   language?: BundledLanguage;
   children: string;

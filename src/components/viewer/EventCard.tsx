@@ -7,7 +7,7 @@ import { formatDateTime } from "~/utils/intl"
 
 function formatTimestamp(value?: string | number) {
     if (!value) return null
-    const formatted = formatDateTime(value, "")
+    const formatted = formatDateTime(value, { fallback: "" })
     return formatted || String(value)
 }
 

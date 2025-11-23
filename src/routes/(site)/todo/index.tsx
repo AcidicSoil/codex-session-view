@@ -13,6 +13,7 @@ import {
   preloadTodosCollection,
   toggleTodoAndSync,
 } from '~/features/todos/collection';
+import type { Todo } from '~/features/todos/types';
 
 
 
@@ -27,7 +28,8 @@ export const Route = createFileRoute('/(site)/todo/')({
 function RouteComponent() {
   const queryClient = useQueryClient();
   const todosCollection = getTodosCollection(queryClient);
-  const { data: todos = [] } = useLiveSuspenseQuery(todosCollection);
+  const todosResult = useLiveSuspenseQuery(todosCollection);
+  const todos = (todosResult.data ?? []) as Todo[];
 
   const createTodoMutation = useMutation({
     mutationFn: async (text: string) => await createTodoAndSync(queryClient, text),

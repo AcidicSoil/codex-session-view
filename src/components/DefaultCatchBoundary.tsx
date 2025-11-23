@@ -1,6 +1,6 @@
 import { ErrorComponent, Link, rootRouteId, useRouter, useRouterState } from '@tanstack/react-router';
 import type { ErrorComponentProps } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { logError } from '~/lib/logger';
 
 export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
@@ -11,11 +11,19 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
       return lastMatch?.routeId === rootRouteId;
     },
   });
+  const lastLoggedFingerprint = useRef<string | null>(null);
+
+  const fingerprint = error ? `${error.name}:${error.message}:${error.stack ?? ''}` : null;
+  if (fingerprint && lastLoggedFingerprint.current !== fingerprint) {
+    lastLoggedFingerprint.current = fingerprint;
+    logError('catch-boundary', 'Route error captured', error);
+  }
 
   useEffect(() => {
-    if (error) {
-      logError('catch-boundary', 'Route error captured', error);
-    }
+    // Allow a future distinct error to be logged again after hydration.
+    return () => {
+      lastLoggedFingerprint.current = null;
+    };
   }, [error]);
 
   return (

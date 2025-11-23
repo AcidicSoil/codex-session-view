@@ -18,6 +18,8 @@ describe("DiscoveryPanel", () => {
                     projectFiles={["src/App.tsx", "README.md"]}
                     sessionAssets={sampleSessions}
                     generatedAtMs={Date.UTC(2024, 0, 4)}
+                    onSessionOpen={vi.fn()}
+                    loadingSessionPath={null}
                 />,
             )
 
@@ -29,7 +31,7 @@ describe("DiscoveryPanel", () => {
 
             const alphaCard = screen.getByText("Alpha").closest("article")
             expect(alphaCard).not.toBeNull()
-            const expandButton = within(alphaCard as HTMLElement).getByRole("button", { name: /session/i })
+            const expandButton = within(alphaCard as HTMLElement).getByRole("button", { name: /toggle alpha repository/i })
 
             act(() => {
                 fireEvent.click(expandButton)
@@ -46,7 +48,15 @@ describe("DiscoveryPanel", () => {
     })
 
     it("shows empty state when no results match", () => {
-        render(<DiscoveryPanel projectFiles={[]} sessionAssets={[]} generatedAtMs={Date.UTC(2024, 0, 4)} />)
+        render(
+            <DiscoveryPanel
+                projectFiles={[]}
+                sessionAssets={[]}
+                generatedAtMs={Date.UTC(2024, 0, 4)}
+                onSessionOpen={vi.fn()}
+                loadingSessionPath={null}
+            />,
+        )
 
         expect(screen.getByText("No session logs discovered yet.")).toBeInTheDocument()
     })

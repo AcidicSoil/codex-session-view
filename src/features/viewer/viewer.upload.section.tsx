@@ -5,15 +5,18 @@ import { TimelineWithFilters } from '~/components/viewer/TimelineWithFilters'
 import { ChatDock } from '~/components/viewer/ChatDock'
 import { Switch } from '~/components/ui/switch'
 import { Button } from '~/components/ui/button'
-import { useFileLoader } from '~/hooks/useFileLoader'
+import type { FileLoaderHook } from '~/hooks/useFileLoader'
 import { persistSessionFile } from '~/server/function/sessionStore'
 import { formatCount } from '~/utils/intl'
 import { toast } from 'sonner'
 import { logDebug, logError, logInfo } from '~/lib/logger'
 
-export function UploadSection() {
+interface UploadSectionProps {
+  loader: FileLoaderHook
+}
+
+export function UploadSection({ loader }: UploadSectionProps) {
   const router = useRouter()
-  const loader = useFileLoader()
   const [isEjecting, setIsEjecting] = useState(false)
   const [isPersistingUpload, setIsPersistingUpload] = useState(false)
 
