@@ -40,3 +40,42 @@ export function fallbackRepositoryLabelFromPath(path?: string | null): string | 
   }
   return normalized[0]
 }
+
+/** Infer a repository label from a working directory path. */
+const GENERIC_SEGMENTS = new Set([
+  'src',
+  'source',
+  'sources',
+  'dist',
+  'build',
+  'out',
+  'lib',
+  'libs',
+  'packages',
+  'package',
+  'apps',
+  'app',
+  'services',
+  'service',
+  'modules',
+  'module',
+]);
+
+export function repositoryLabelFromCwd(cwd?: string | null): string | undefined {
+  if (!cwd) return undefined
+  const trimmed = cwd.trim()
+  if (!trimmed) return undefined
+  const segments = trimmed
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter(Boolean)
+  if (!segments.length) return undefined
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
+    const candidate = segments[i]
+    if (!candidate) continue
+    if (!GENERIC_SEGMENTS.has(candidate.toLowerCase())) {
+      return candidate
+    }
+  }
+  return segments[segments.length - 1]
+}

@@ -1,6 +1,5 @@
 import { deriveRepoDetailsFromLine } from '~/lib/repo-metadata';
 import {
-  mergeSessionAssets,
   sortSessionAssets,
   uploadRecordToAsset,
   type DiscoveryInputs,
@@ -37,17 +36,15 @@ const SESSION_ASSET_GLOBS = [
 type NodeDeps = {
   fs: typeof import('fs');
   path: typeof import('path');
-  url: typeof import('url');
 };
 
 let nodeDepsPromise: Promise<NodeDeps> | null = null;
 
 async function ensureNodeDeps(): Promise<NodeDeps> {
   if (!nodeDepsPromise) {
-    nodeDepsPromise = Promise.all([import('fs'), import('path'), import('url')]).then(([fs, path, url]) => ({
+    nodeDepsPromise = Promise.all([import('fs'), import('path')]).then(([fs, path]) => ({
       fs,
       path,
-      url,
     }));
   }
   return nodeDepsPromise;
@@ -104,6 +101,7 @@ export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot>
     throw new Error('discoverProjectAssets must only run on the server runtime');
   }
   const nodeDeps = await ensureNodeDeps();
+  const sessionUploads = await ensureSessionUploadsModule();
   const codeGlobs = import.meta.glob([
     '/src/**/*',
     '/scripts/**/*',
@@ -131,28 +129,14 @@ export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot>
     query: '?url',
     import: 'default',
   }) as Record<string, string>;
-  const bundledSessions = await Promise.all(
-    Object.entries(sessionMatches).map(async ([path, url]) => {
-      const relativePath = path.replace(/^\//, '');
-      const absolutePath = resolveWorkspacePath(relativePath, nodeDeps);
-      const repoDetails = await readRepoDetailsFromFile(absolutePath, nodeDeps);
-      return {
-        path: relativePath,
-        url,
-        sortKey: extractSortKeyFromPath(path),
-        size: getFileSizeFromAbsolutePath(absolutePath, nodeDeps),
-        ...repoDetails,
-        source: 'bundled',
-      } satisfies DiscoveredSessionAsset;
-    }),
-  );
+  const bundledCount = await synchronizeBundledSessions(sessionMatches, nodeDeps, sessionUploads);
   const directories = getExternalSessionDirectories(nodeDeps);
-  const externalSessions = await discoverExternalSessionAssets(nodeDeps, directories);
-  const storedUploads = await discoverStoredSessionAssets();
-  const sessionAssets = sortSessionAssets(mergeSessionAssets(bundledSessions, externalSessions, storedUploads));
+  const externalCount = await synchronizeExternalSessions(nodeDeps, directories, sessionUploads);
+  const storedUploads = await discoverStoredSessionAssets(sessionUploads);
+  const sessionAssets = sortSessionAssets(storedUploads);
   const stats: DiscoveryStats = {
-    bundled: bundledSessions.length,
-    external: externalSessions.length,
+    bundled: bundledCount,
+    external: externalCount,
     uploads: storedUploads.length,
     total: sessionAssets.length,
   };
@@ -166,33 +150,63 @@ export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot>
   return { projectFiles, sessionAssets, generatedAt: Date.now(), stats, inputs };
 }
 
-async function discoverExternalSessionAssets(deps: NodeDeps | null, directories: SessionDirectoryInfo[]): Promise<DiscoveredSessionAsset[]> {
-  if (!deps) return [];
+async function synchronizeBundledSessions(
+  sessionMatches: Record<string, string>,
+  deps: NodeDeps | null,
+  sessionUploads: SessionUploadsModule,
+) {
+  if (!deps) return 0;
+  await Promise.all(
+    Object.entries(sessionMatches).map(async ([path]) => {
+      const relativePath = path.replace(/^\//, '');
+      const absolutePath = resolveWorkspacePath(relativePath, deps);
+      if (!absolutePath) {
+        return;
+      }
+      const repoDetails = await readRepoDetailsFromFile(absolutePath, deps);
+      await sessionUploads.ensureSessionUploadForFile({
+        relativePath,
+        absolutePath,
+        repoLabel: repoDetails.repoLabel,
+        repoMeta: repoDetails.repoMeta,
+        source: 'bundled',
+      });
+    }),
+  );
+  return Object.keys(sessionMatches).length;
+}
+
+async function synchronizeExternalSessions(
+  deps: NodeDeps | null,
+  directories: SessionDirectoryInfo[],
+  sessionUploads: SessionUploadsModule,
+) {
+  if (!deps) return 0;
   const { default: fg } = await import('fast-glob');
-  const assets: DiscoveredSessionAsset[] = [];
+  let count = 0;
   for (const dirInfo of directories) {
     const matches = fg.sync('**/*.{jsonl,ndjson,json}', {
       cwd: dirInfo.absolute,
       onlyFiles: true,
       dot: true,
     });
-    const entries = await Promise.all(
+    await Promise.all(
       matches.map(async (relativePath) => {
         const absolutePath = deps.path.resolve(dirInfo.absolute, relativePath);
         const repoDetails = await readRepoDetailsFromFile(absolutePath, deps);
-        return {
-          path: joinDisplayPath(dirInfo.displayPrefix, relativePath),
-          url: deps.url.pathToFileURL(absolutePath).toString(),
-          sortKey: extractSortKeyFromPath(relativePath),
-          size: getFileSizeFromAbsolutePath(absolutePath, deps),
-          ...repoDetails,
+        const relativeDisplayPath = joinDisplayPath(dirInfo.displayPrefix, relativePath);
+        await sessionUploads.ensureSessionUploadForFile({
+          relativePath: relativeDisplayPath,
+          absolutePath,
+          repoLabel: repoDetails.repoLabel,
+          repoMeta: repoDetails.repoMeta,
           source: 'external',
-        } satisfies DiscoveredSessionAsset;
+        });
       }),
     );
-    assets.push(...entries);
+    count += matches.length;
   }
-  return assets;
+  return count;
 }
 
 interface SessionDirectoryInfo {
@@ -249,10 +263,9 @@ function normalizeSlashes(value: string) {
   return value.replace(/\\/g, '/').replace(/\/+$/, '');
 }
 
-async function discoverStoredSessionAssets(): Promise<DiscoveredSessionAsset[]> {
+async function discoverStoredSessionAssets(sessionUploads: SessionUploadsModule): Promise<DiscoveredSessionAsset[]> {
   if (!isServerRuntime) return [];
-  const { listSessionUploadRecords } = await import('~/server/persistence/sessionUploads');
-  const records = await listSessionUploadRecords();
+  const records = await sessionUploads.listSessionUploadRecords();
   return records.map(uploadRecordToAsset);
 }
 
@@ -293,4 +306,14 @@ async function readFirstLine(absolutePath: string, deps: NodeDeps) {
   } finally {
     await handle.close();
   }
+}
+type SessionUploadsModule = typeof import('~/server/persistence/sessionUploads');
+
+let sessionUploadsPromise: Promise<SessionUploadsModule> | null = null;
+
+async function ensureSessionUploadsModule(): Promise<SessionUploadsModule> {
+  if (!sessionUploadsPromise) {
+    sessionUploadsPromise = import('~/server/persistence/sessionUploads');
+  }
+  return sessionUploadsPromise;
 }

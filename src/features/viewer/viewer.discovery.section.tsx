@@ -63,9 +63,10 @@ export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDi
   }
 
   const handleSessionOpen = async (asset: DiscoveredSessionAsset) => {
-    if (!asset.url || asset.url.startsWith('file://')) {
+    const isSessionUploadUrl = typeof asset.url === 'string' && asset.url.includes('/api/uploads/')
+    if (!asset.url || !isSessionUploadUrl) {
       toast.error('Session not accessible', {
-        description: 'This session must be uploaded or served over HTTP before loading.',
+        description: 'Expected a session upload URL but found a non-HTTP source.',
       })
       logError('viewer.discovery', 'Unsupported session URL protocol', { path: asset.path, url: asset.url })
       return
