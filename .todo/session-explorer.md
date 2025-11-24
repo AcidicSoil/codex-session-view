@@ -2,7 +2,7 @@
 ? maybe
 [session-explorer](https://magicui.design/docs/components/pulsating-button)
 
-[text](https://magicui.design/docs/components/shine-border)
+[shine-border](https://magicui.design/docs/components/shine-border)
 
 [apply-patch props being rendered in terminal ? ](https://magicui.design/docs/components/terminal)
 
@@ -21,3 +21,8 @@
 [Interactive-hover-button TBD](https://magicui.design/docs/components/interactive-hover-button)
 
 [shimmer-button](https://magicui.design/docs/components/shimmer-button)
+
+// TODO
+
+* add the branch count value for each session explorer prop listed in the session explorer
+* add a small badge displaying the branch amount values on the front-facing prop. Place it next to the "sessions amount" and label it "branches" and place the value in there somewhere.

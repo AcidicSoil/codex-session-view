@@ -105,7 +105,9 @@ export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDi
   }
 }
 
-interface DiscoverySectionProps extends ViewerDiscoveryState {}
+interface DiscoverySectionProps extends ViewerDiscoveryState {
+  onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void
+}
 
 export function DiscoverySection(props: DiscoverySectionProps) {
   const {
@@ -116,6 +118,7 @@ export function DiscoverySection(props: DiscoverySectionProps) {
     loadingSessionPath,
     selectedSessionPath,
     setSelectedSessionPath,
+    onAddSessionToChat,
   } = props
   if (!snapshot) {
     return <DiscoveryUnavailable />
@@ -130,6 +133,7 @@ export function DiscoverySection(props: DiscoverySectionProps) {
         loadingSessionPath={loadingSessionPath}
         selectedSessionPath={selectedSessionPath}
         onSelectionChange={setSelectedSessionPath}
+        onAddSessionToChat={onAddSessionToChat}
       />
     </SessionExplorerBoundary>
   )

@@ -10,6 +10,7 @@ interface DiscoveryPanelProps {
   loadingSessionPath?: string | null;
   selectedSessionPath?: string | null;
   onSelectionChange?: (path: string | null) => void;
+  onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void;
 }
 
 export function DiscoveryPanel({
@@ -20,6 +21,7 @@ export function DiscoveryPanel({
   loadingSessionPath,
   selectedSessionPath,
   onSelectionChange,
+  onAddSessionToChat,
 }: DiscoveryPanelProps) {
   return (
     <div className="space-y-6">
@@ -46,6 +48,7 @@ export function DiscoveryPanel({
           loadingSessionPath={loadingSessionPath}
           selectedSessionPath={selectedSessionPath}
           onSelectionChange={onSelectionChange}
+          onAddSessionToChat={onAddSessionToChat}
         />
       </section>
     </div>

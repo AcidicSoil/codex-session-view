@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ResponseItem } from '~/lib/viewer-types'
-import { AnimatedTimelineList } from '~/components/viewer/AnimatedTimelineList'
+import { AnimatedTimelineList, type TimelineEvent } from '~/components/viewer/AnimatedTimelineList'
 import type { Filter } from '~/components/ui/filters'
 import {
   TimelineFilters,
@@ -18,9 +18,10 @@ interface TimelineWithFiltersProps {
    * callers don't need to manage derived state themselves.
    */
   events: readonly ResponseItem[]
+  onAddEventToChat?: (event: TimelineEvent, index: number) => void
 }
 
-export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
+export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFiltersProps) {
   const [filters, setFilters] = useState<Filter<TimelineFilterValue>[]>([])
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
   const [roleFilter, setRoleFilter] = useState<RoleQuickFilter>('all')
@@ -106,6 +107,7 @@ export function TimelineWithFilters({ events }: TimelineWithFiltersProps) {
           events={orderedEvents}
           searchQuery={searchQuery}
           activeMatchIndex={activeSearchIndex}
+          onAddEventToChat={onAddEventToChat}
         />
       )}
     </div>

@@ -6,16 +6,20 @@ import { DiscoveryPanel } from "~/components/viewer/DiscoveryPanel"
 const sampleSessions: DiscoveredSessionAsset[] = [
     {
         path: "sessions/alpha.jsonl",
-        url: "/sessions/alpha.jsonl",
+        url: "/api/uploads/sessions/alpha.jsonl",
         sortKey: Date.UTC(2024, 0, 2),
         repoMeta: { repo: "example/alpha", branch: "main" },
+        repoName: "example/alpha",
+        branch: "main",
         source: "bundled"
     },
     {
         path: "sessions/beta.jsonl",
-        url: "/sessions/beta.jsonl",
+        url: "/api/uploads/sessions/beta.jsonl",
         sortKey: Date.UTC(2024, 0, 3),
         repoMeta: { repo: "example/beta", branch: "develop" },
+        repoName: "example/beta",
+        branch: "develop",
         source: "external"
     }
 ]
@@ -39,9 +43,8 @@ describe("DiscoveryPanel", () => {
             expect(screen.getByText(/session assets/i)).toHaveTextContent("2 session assets")
             expect(screen.getByPlaceholderText(/search repo/i)).toBeInTheDocument()
             expect(screen.getByRole("button", { name: /Size: any/i })).toBeInTheDocument()
-            expect(screen.getByText(/example\/alpha • main/i)).toBeInTheDocument()
-
-            const expandButton = screen.getByRole("button", { name: /Toggle example\/alpha • main repository/i })
+            expect(screen.getAllByText(/Branches 1/i).length).toBeGreaterThanOrEqual(2)
+            const expandButton = screen.getByRole("button", { name: /Toggle example\/alpha/i })
 
             act(() => {
                 fireEvent.click(expandButton)
