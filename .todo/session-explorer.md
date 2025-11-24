@@ -22,6 +22,9 @@
 
 [shimmer-button](https://magicui.design/docs/components/shimmer-button)
 
+[session-explorer will get ported to live in this component](https://ui.shadcn.com/docs/components/sheet)
+
+
 // TODO
 
 * add the branch count value for each session explorer prop listed in the session explorer

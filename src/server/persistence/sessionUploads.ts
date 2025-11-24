@@ -1,7 +1,15 @@
-import { promises as fs } from 'fs'
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import type { SessionAssetSource } from '~/lib/viewerDiscovery'
 import { deriveRepoDetailsFromLine, deriveSessionTimestampMs, type RepoMetadata } from '~/lib/repo-metadata'
+
+type FsModule = typeof import('node:fs/promises')
+let fsModulePromise: Promise<FsModule> | null = null
+async function loadFsModule(): Promise<FsModule> {
+  if (!fsModulePromise) {
+    fsModulePromise = import('node:fs/promises')
+  }
+  return fsModulePromise
+}
 
 interface SessionUploadRecord {
   id: string
@@ -94,6 +102,7 @@ export async function ensureSessionUploadForFile(options: {
   source: Extract<SessionAssetSource, 'bundled' | 'external'>
   sessionTimestampMs?: number
 }): Promise<SessionUploadSummary> {
+  const fs = await loadFsModule()
   const normalizedPath = normalizeAbsolutePath(options.absolutePath)
   const stat = await fs.stat(options.absolutePath)
   const updatedAt = stat.mtimeMs
