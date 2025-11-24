@@ -102,6 +102,17 @@ The viewer route’s loader (`src/features/viewer/viewer.loader.ts`) calls a ded
 
 ## 🔧 Configuration
 
+### Session metadata requirements
+
+To group sessions correctly, the viewer looks for repository info in this order:
+
+1. `repository_url` or `repo_url` field on the session meta line.
+2. `git.repo` / `git.remote` from the captured session header.
+3. `repoLabel` (if provided by your capture tooling).
+4. The parent folder of `cwd` (e.g., `/path/to/<repo>/src` → `<repo>`).
+
+If none of those exist, the session is grouped under **Unknown repo**. To avoid fallback heuristics, update your capture pipeline to emit `repository_url` or `repoLabel` in the first line of each session file.
+
 ### Adding shadcn/ui Components
 
 ```bash
@@ -145,3 +156,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <div align="center">
   <p>Built with ❤️ using modern React tools</p>
 </div>
+- **Session metadata friendly:** Honors `repository_url`, `git.repo`, and `cwd` fallbacks so uploads stay grouped by their canonical repo/branch.

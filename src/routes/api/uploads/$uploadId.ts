@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { getSessionUploadContent } from '~/server/persistence/sessionUploads'
 
 export const Route = createFileRoute('/api/uploads/$uploadId')({
   params: {
@@ -8,8 +7,9 @@ export const Route = createFileRoute('/api/uploads/$uploadId')({
   },
   ...( {
     server: {
-      handlers: {
-        GET: async ({ params }: { params: { uploadId: string } }) => {
+          handlers: {
+            GET: async ({ params }: { params: { uploadId: string } }) => {
+          const { getSessionUploadContent } = await import('~/server/persistence/sessionUploads')
           const content = await getSessionUploadContent(params.uploadId)
           if (!content) {
             return new Response('Upload not found', { status: 404 })

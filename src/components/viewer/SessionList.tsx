@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowDownUp, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowDownUp, Copy, Search, SlidersHorizontal } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Loader } from '~/components/ui/loader';
@@ -19,17 +19,25 @@ import { formatCount, formatDateTime } from '~/utils/intl';
 import { BorderBeam } from '~/components/ui/border-beam';
 import { TimelineView } from '~/components/viewer/TimelineView';
 import { logDebug, logError, logInfo, logWarn } from '~/lib/logger';
+import { toast } from 'sonner';
+
+interface BranchGroup {
+  id: string;
+  name: string;
+  sessions: DiscoveredSessionAsset[];
+  totalSize: number;
+  lastUpdated?: number;
+}
 
 interface RepositoryGroup {
   id: string;
   label: string;
   repoName: string;
-  branchName: string;
-  commit?: string;
   sessions: DiscoveredSessionAsset[];
   totalSize: number;
   lastUpdated?: number;
   repoMeta?: RepoMetadata;
+  branches: BranchGroup[];
 }
 
 export interface SessionListProps {
@@ -100,24 +108,29 @@ export function SessionList({
     }
   }, [manualMinBytes, manualMaxBytes]);
 
-  const repositoryGroups = useMemo(
-    () => aggregateByRepository(sessionAssets),
+  const accessibleAssets = useMemo(
+    () => sessionAssets.filter((asset) => typeof asset.url === 'string' && asset.url.includes('/api/uploads/')),
     [sessionAssets],
+  );
+
+  const repositoryGroups = useMemo(
+    () => aggregateByRepository(accessibleAssets),
+    [accessibleAssets],
   );
 
   useEffect(() => {
     const repoCount = new Set(repositoryGroups.map((group) => group.repoName)).size;
-    const modelKey = `${sessionAssets.length}:${repositoryGroups.length}`;
-    if (viewModelLogRef.current?.total === sessionAssets.length && viewModelLogRef.current?.groups === repositoryGroups.length) {
+    const modelKey = `${accessibleAssets.length}:${repositoryGroups.length}`;
+    if (viewModelLogRef.current?.total === accessibleAssets.length && viewModelLogRef.current?.groups === repositoryGroups.length) {
       return;
     }
     logInfo('viewer.explorer', 'Computed session explorer view model', {
-      totalSessions: sessionAssets.length,
+      totalSessions: accessibleAssets.length,
       repoCount,
       groupCount: repositoryGroups.length,
     });
-    viewModelLogRef.current = { total: sessionAssets.length, groups: repositoryGroups.length };
-  }, [sessionAssets.length, repositoryGroups]);
+    viewModelLogRef.current = { total: accessibleAssets.length, groups: repositoryGroups.length };
+  }, [accessibleAssets.length, repositoryGroups]);
 
   const { groups: filteredGroups, filteredSessionCount } = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -125,22 +138,43 @@ export function SessionList({
     const max = typeof effectiveMaxBytes === 'number' ? effectiveMaxBytes : undefined;
     const groups = repositoryGroups
       .map((group) => {
-        const filteredSessions = group.sessions.filter((session) => {
-          const matchesSearch = query
-            ? matchesSearchText(query, group, session)
-            : true;
-          if (!matchesSearch) return false;
-          const size = session.size ?? 0;
-          const meetsMin = min === undefined || size >= min;
-          const meetsMax = max === undefined || size <= max;
-          return meetsMin && meetsMax;
+        const filteredBranches = group.branches
+          .map((branch) => {
+            const filteredSessions = branch.sessions.filter((session) => {
+              const matchesSearch = query
+                ? matchesSearchText(query, group, session)
+                : true;
+              if (!matchesSearch) return false;
+              const size = session.size ?? 0;
+              const meetsMin = min === undefined || size >= min;
+              const meetsMax = max === undefined || size <= max;
+              return meetsMin && meetsMax;
+            });
+            if (!filteredSessions.length) return null;
+            const sortedSessions = sortSessions(filteredSessions, sortKey, sortDir);
+            return {
+              ...branch,
+              sessions: sortedSessions,
+              primarySortValue: getSortValue(sortedSessions[0], sortKey),
+            };
+          })
+          .filter(Boolean) as Array<BranchGroup & { primarySortValue: number }>;
+
+        const branchDirection = sortDir === 'asc' ? 1 : -1;
+        const sortedBranches = filteredBranches.sort((a, b) => {
+          const diff = (a.primarySortValue ?? 0) - (b.primarySortValue ?? 0);
+          if (diff !== 0) return branchDirection * diff;
+          return a.name.localeCompare(b.name);
         });
-        if (!filteredSessions.length) return null;
-        const sortedSessions = sortSessions(filteredSessions, sortKey, sortDir);
+
+        if (!sortedBranches.length) return null;
+        const flattenedSessions = sortedBranches.flatMap((branch) => branch.sessions);
+        const primarySortValue = sortedBranches[0]?.primarySortValue ?? getSortValue(flattenedSessions[0], sortKey);
         return {
           ...group,
-          sessions: sortedSessions,
-          primarySortValue: getSortValue(sortedSessions[0], sortKey),
+          sessions: flattenedSessions,
+          branches: sortedBranches.map(({ primarySortValue: _p, ...rest }) => rest),
+          primarySortValue,
         };
       })
       .filter(Boolean) as Array<RepositoryGroup & { primarySortValue: number }>;
@@ -186,7 +220,7 @@ export function SessionList({
       group.sessions.some((session) => session.path === selectedSessionPath),
     );
     if (!stillVisible) {
-      const existsInMemory = sessionAssets.some((session) => session.path === selectedSessionPath);
+      const existsInMemory = accessibleAssets.some((session) => session.path === selectedSessionPath);
       if (existsInMemory) {
         logDebug('viewer.explorer', 'Selected session hidden by filters', {
           selectedSessionPath,
@@ -209,7 +243,7 @@ export function SessionList({
     onSelectionChange,
     searchText,
     selectedSessionPath,
-    sessionAssets,
+    accessibleAssets,
     sizePreset,
     sortDir,
     sortKey,
@@ -221,7 +255,7 @@ export function SessionList({
   }, [filteredGroups]);
 
   useEffect(() => {
-    if (sessionAssets.length > 0 && filteredSessionCount === 0) {
+    if (accessibleAssets.length > 0 && filteredSessionCount === 0) {
       const filterModel = buildFilterModel({
         searchText,
         sizePreset,
@@ -232,11 +266,11 @@ export function SessionList({
       });
       logError('viewer.explorer', 'Filters produced zero sessions while memory still populated', {
         filterModel,
-        totalSessions: sessionAssets.length,
+        totalSessions: accessibleAssets.length,
         groupSamples: repositoryGroups.slice(0, 5).map((group) => group.id),
       });
     }
-  }, [filteredSessionCount, manualMaxBytes, manualMinBytes, repositoryGroups, searchText, sessionAssets.length, sizePreset, sortDir, sortKey]);
+  }, [accessibleAssets.length, filteredSessionCount, manualMaxBytes, manualMinBytes, repositoryGroups, searchText, sizePreset, sortDir, sortKey]);
 
   const toggleRepo = (group: RepositoryGroup) => {
     const isExpanded = expandedGroupIds.includes(group.id);
@@ -247,7 +281,7 @@ export function SessionList({
     logDebug('viewer.explorer', 'Toggled repository group', {
       groupId: group.id,
       repoName: group.repoName,
-      branchName: group.branchName,
+      branchCount: group.branches.length,
       previousOpenState: isExpanded,
       nextOpenState: !isExpanded,
     });
@@ -272,7 +306,7 @@ export function SessionList({
   };
 
   const hasResults = filteredGroups.length > 0;
-  const datasetEmpty = sessionAssets.length === 0;
+  const datasetEmpty = accessibleAssets.length === 0;
 
   return (
     <section className="space-y-4 rounded-xl border border-border/80 bg-background/50 p-4 shadow-sm">
@@ -280,7 +314,7 @@ export function SessionList({
         <div className="flex-1 space-y-2">
           <p className="text-sm font-semibold">Session filters</p>
           <p className="text-xs text-muted-foreground">
-            Showing {formatCount(filteredSessionCount)} of {formatCount(sessionAssets.length)} sessions
+            Showing {formatCount(filteredSessionCount)} of {formatCount(accessibleAssets.length)} sessions
           </p>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2 top-2.5 size-4 text-muted-foreground" />
@@ -289,7 +323,7 @@ export function SessionList({
               aria-label="Search sessions"
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
-              placeholder="Search repo, branch, filename, or tag"
+              placeholder="Search repo, branch, file label, tag, or year"
               className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
@@ -448,10 +482,7 @@ export function SessionList({
                       <TooltipContent>
                         <p className="text-xs font-semibold">{repo.label}</p>
                         <p className="text-xs opacity-80">Repo: {repo.repoName}</p>
-                        <p className="text-xs opacity-80">Branch: {repo.branchName}</p>
-                        {repo.commit ? (
-                          <p className="text-xs opacity-80">Commit: {formatCommit(repo.commit)}</p>
-                        ) : null}
+                        <p className="text-xs opacity-80">Branches: {describeBranches(repo.branches)}</p>
                         <p className="text-xs opacity-80">Total size: {formatBytes(repo.totalSize)}</p>
                         <p className="text-xs opacity-80">Last updated: {formatDate(repo.lastUpdated)}</p>
                       </TooltipContent>
@@ -470,23 +501,33 @@ export function SessionList({
                 </button>
 
                 {isExpanded ? (
-                  <div className="mt-3" id={`${sectionId}-sessions`}>
+                  <div className="mt-3 space-y-4" id={`${sectionId}-sessions`}>
                     {loadingRepoId === repo.id ? (
                       <div className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-4 text-xs text-muted-foreground">
                         <Loader className="size-4" aria-label="Loading sessions" />
                         Preparing session list…
                       </div>
                     ) : (
-                      <SessionRepoVirtualList
-                        sessions={repo.sessions}
-                        snapshotTimestamp={snapshotTimestamp}
-                        onSessionOpen={(session) => {
-                          onSelectionChange?.(session.path);
-                          return onSessionOpen?.(session);
-                        }}
-                        loadingSessionPath={loadingSessionPath}
-                        selectedSessionPath={selectedSessionPath}
-                      />
+                      repo.branches.map((branch) => (
+                        <div key={branch.id} className="space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide">Branch {branch.name}</p>
+                            <span className="text-xs text-muted-foreground">
+                              {formatCount(branch.sessions.length)} {branch.sessions.length === 1 ? 'session' : 'sessions'}
+                            </span>
+                          </div>
+                          <SessionRepoVirtualList
+                            sessions={branch.sessions}
+                            snapshotTimestamp={snapshotTimestamp}
+                            onSessionOpen={(session) => {
+                              onSelectionChange?.(session.path);
+                              return onSessionOpen?.(session);
+                            }}
+                            loadingSessionPath={loadingSessionPath}
+                            selectedSessionPath={selectedSessionPath}
+                          />
+                        </div>
+                      ))
                     )}
                   </div>
                 ) : null}
@@ -500,45 +541,78 @@ export function SessionList({
 }
 
 function aggregateByRepository(sessionAssets: DiscoveredSessionAsset[]): RepositoryGroup[] {
-  const map = new Map<string, RepositoryGroup>();
+  type RepoAccumulator = {
+    group: RepositoryGroup;
+    branches: Map<string, BranchGroup>;
+  };
+  const map = new Map<string, RepoAccumulator>();
   for (const asset of sessionAssets) {
-    const repoName = asset.repoMeta?.repo ?? asset.repoLabel ?? formatRepositoryLabel(asset.path);
-    const branchName = asset.repoMeta?.branch ?? 'unknown';
-    const commit = asset.repoMeta?.commit;
-    const label = `${repoName ?? 'Session repo'} • ${branchName}`;
-    const slug = slugify(`${repoName ?? 'session'}-${branchName}`);
-    const existing = map.get(slug);
-    if (existing) {
-      existing.sessions.push(asset);
-      existing.totalSize += asset.size ?? 0;
-      existing.lastUpdated = Math.max(existing.lastUpdated ?? 0, asset.sortKey ?? 0) || existing.lastUpdated;
-      if (!existing.repoMeta && asset.repoMeta) {
-        existing.repoMeta = asset.repoMeta;
-      }
-    } else {
-      map.set(slug, {
-        id: slug,
-        label,
-        repoName: repoName ?? 'Unknown repo',
-        branchName,
-        commit,
-        sessions: [asset],
-        totalSize: asset.size ?? 0,
-        lastUpdated: asset.sortKey,
-        repoMeta: asset.repoMeta,
-      });
+    const repoName = cleanRepoName(asset.repoName);
+    const repoKey = repoName.toLowerCase();
+    let accumulator = map.get(repoKey);
+    if (!accumulator) {
+      const id = slugify(repoName);
+      accumulator = {
+        group: {
+          id,
+          label: repoName,
+          repoName,
+          sessions: [],
+          totalSize: 0,
+          lastUpdated: asset.sortKey,
+          repoMeta: asset.repoMeta,
+          branches: [],
+        },
+        branches: new Map(),
+      };
+      map.set(repoKey, accumulator);
     }
+    const repo = accumulator.group;
+    repo.sessions.push(asset);
+    repo.totalSize += asset.size ?? 0;
+    repo.lastUpdated = Math.max(repo.lastUpdated ?? 0, asset.sortKey ?? 0) || repo.lastUpdated;
+    if (!repo.repoMeta && asset.repoMeta) {
+      repo.repoMeta = asset.repoMeta;
+    }
+
+    const branchName = asset.branch && asset.branch !== 'unknown' ? asset.branch : 'Unknown';
+    const branchKey = branchName.toLowerCase();
+    let branch = accumulator.branches.get(branchKey);
+    if (!branch) {
+      branch = {
+        id: `${repo.id}-${slugify(branchName)}`,
+        name: branchName,
+        sessions: [],
+        totalSize: 0,
+        lastUpdated: asset.sortKey,
+      };
+      accumulator.branches.set(branchKey, branch);
+    }
+    branch.sessions.push(asset);
+    branch.totalSize += asset.size ?? 0;
+    branch.lastUpdated = Math.max(branch.lastUpdated ?? 0, asset.sortKey ?? 0) || branch.lastUpdated;
   }
 
-  return Array.from(map.values());
+  return Array.from(map.values()).map(({ group, branches }) => {
+    const sortedBranches = Array.from(branches.values()).sort(
+      (a, b) => (b.lastUpdated ?? 0) - (a.lastUpdated ?? 0) || a.name.localeCompare(b.name)
+    );
+    return {
+      ...group,
+      branches: sortedBranches,
+    };
+  });
 }
 
 function matchesSearchText(query: string, group: RepositoryGroup, session: DiscoveredSessionAsset) {
+  const branchNames = group.branches.map((branch) => branch.name).join(' ');
   const haystack = [
     group.repoName,
-    group.branchName,
-    group.commit,
+    branchNames,
     session.repoLabel,
+    session.repoName,
+    session.branch,
+    session.displayLabel,
     session.path,
     session.tags?.join(' '),
   ]
@@ -546,6 +620,16 @@ function matchesSearchText(query: string, group: RepositoryGroup, session: Disco
     .join(' ')
     .toLowerCase();
   return haystack.includes(query);
+}
+
+function describeBranches(branches: BranchGroup[]) {
+  if (!branches.length) return 'Unknown';
+  const names = branches.map((branch) => branch.name);
+  if (names.length <= 3) {
+    return names.join(', ');
+  }
+  const preview = names.slice(0, 3).join(', ');
+  return `${preview} +${names.length - 3}`;
 }
 
 function sortSessions(sessions: DiscoveredSessionAsset[], sortKey: SortKey, sortDir: SortDirection) {
@@ -599,27 +683,6 @@ function buildFilterModel({
     repoFilter: null,
     branchFilter: null,
   };
-}
-
-function formatRepositoryLabel(path: string) {
-  const normalized = path.replace(/\\/g, '/');
-  const segments = normalized.split('/');
-  const sessionsIndex = segments.indexOf('sessions');
-  const afterSessions = sessionsIndex >= 0 ? segments.slice(sessionsIndex + 1) : segments;
-  const candidate = afterSessions[0] ?? segments[segments.length - 1] ?? 'Session';
-  const trimmed = candidate.replace(/\.(jsonl|ndjson|json)$/i, '');
-  const words = trimmed
-    .replace(/[-_]+/g, ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 3);
-  const label = words.join(' ');
-  return label ? capitalizeWords(label) : 'Session Repo';
-}
-
-function capitalizeWords(value: string) {
-  return value.replace(/\b([a-z])/gi, (match) => match.toUpperCase());
 }
 
 function slugify(value: string) {
@@ -751,7 +814,24 @@ function SessionCard({
   isLoading?: boolean;
   isSelected?: boolean;
 }) {
-  const displayName = formatSessionTitle(session.path);
+  const displayName = session.displayLabel;
+  const repoLabel = session.repoLabel ?? session.repoName;
+  const branchName = session.repoMeta?.branch ?? session.branch;
+  const repoDisplay = session.repoName && session.repoName !== 'unknown-repo' ? session.repoName : null;
+  const branchDisplay = branchName && branchName !== 'unknown' ? branchName : null;
+  const sessionId = extractSessionId(displayName) ?? extractSessionId(session.path);
+
+  const handleCopySessionId = async () => {
+    if (!sessionId || typeof navigator === 'undefined' || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(sessionId);
+      toast.success('Copied session ID', { description: sessionId });
+      logInfo('viewer.explorer', 'Copied session id', { path: session.path, sessionId });
+    } catch (error) {
+      toast.error('Failed to copy session ID');
+      logError('viewer.explorer', 'Copy session id failed', error instanceof Error ? error : new Error('unknown error'));
+    }
+  };
   return (
     <div
       className={cn(
@@ -763,18 +843,18 @@ function SessionCard({
       <div className="relative z-10 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            {session.repoLabel ? (
+            {repoLabel ? (
               <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
-                {session.repoLabel}
+                {repoLabel}
               </p>
             ) : null}
-            {session.repoMeta?.repo ? (
-              <p className="truncate text-[11px] text-muted-foreground">{session.repoMeta.repo}</p>
+            {repoDisplay ? (
+              <p className="truncate text-[11px] text-muted-foreground">{repoDisplay}</p>
             ) : null}
-            {session.repoMeta?.branch || session.repoMeta?.commit ? (
+            {(branchDisplay || session.repoMeta?.commit) ? (
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {session.repoMeta?.branch ? `Branch ${session.repoMeta.branch}` : null}
-                {session.repoMeta?.branch && session.repoMeta?.commit ? ' · ' : ''}
+                {branchDisplay ? `Branch ${branchDisplay}` : null}
+                {branchDisplay && session.repoMeta?.commit ? ' · ' : ''}
                 {session.repoMeta?.commit ? `Commit ${formatCommit(session.repoMeta.commit)}` : null}
               </p>
             ) : null}
@@ -799,6 +879,17 @@ function SessionCard({
           ))}
           {session.tags && session.tags.length > 3 ? <span>+{session.tags.length - 3}</span> : null}
           <div className="ml-auto flex items-center gap-2">
+            {sessionId ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleCopySessionId}
+              >
+                <Copy className="mr-1 size-4" />
+                Copy ID
+              </Button>
+            ) : null}
             {onSessionOpen ? (
               <Button
                 type="button"
@@ -825,12 +916,27 @@ function SessionCard({
   );
 }
 
-function formatSessionTitle(path: string) {
-  const segments = path.replace(/\\/g, '/').split('/');
-  const filename = segments.pop() ?? path;
-  return filename || path;
-}
-
 function formatCommit(commit: string) {
   return commit.length > 8 ? commit.slice(0, 8) : commit;
+}
+
+function extractSessionId(label?: string | null) {
+  if (!label) return null;
+  const match = label.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  return match ? match[0] : null;
+}
+
+function cleanRepoName(name?: string | null) {
+  if (!name) return 'Unknown repo';
+  const normalized = name.trim();
+  if (!normalized || normalized.toLowerCase() === 'src') {
+    return 'Unknown repo';
+  }
+  if (/^\d+$/.test(normalized)) {
+    return 'Unknown repo';
+  }
+  if (/^[0-9a-f-]{6,}$/i.test(normalized) && !normalized.includes('/')) {
+    return 'Unknown repo';
+  }
+  return normalized;
 }

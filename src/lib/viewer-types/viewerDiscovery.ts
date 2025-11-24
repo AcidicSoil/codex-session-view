@@ -1,8 +1,9 @@
 import type { RepoMetadata } from '~/lib/repo-metadata';
+import { fallbackRepositoryLabelFromPath } from '~/lib/repository';
 
 export type SessionAssetSource = 'bundled' | 'external' | 'upload';
 
-export interface DiscoveredSessionAsset {
+export interface SessionAssetInput {
   path: string;
   url: string;
   sortKey?: number;
@@ -11,6 +12,13 @@ export interface DiscoveredSessionAsset {
   repoLabel?: string;
   repoMeta?: RepoMetadata;
   source: SessionAssetSource;
+}
+
+export interface DiscoveredSessionAsset extends SessionAssetInput {
+  repoName: string;
+  displayLabel: string;
+  branch: string;
+  groupYear: number;
 }
 
 export interface DiscoveryStats {
@@ -48,6 +56,7 @@ export interface SessionUploadView {
   url: string;
   repoLabel?: string;
   repoMeta?: RepoMetadata;
+  source: SessionAssetSource;
 }
 
 export function mergeSessionAssets(...lists: DiscoveredSessionAsset[][]) {
@@ -65,7 +74,7 @@ export function sortSessionAssets(assets: DiscoveredSessionAsset[]) {
 }
 
 export function uploadRecordToAsset(record: SessionUploadView): DiscoveredSessionAsset {
-  return {
+  return createDiscoveredSessionAsset({
     path: `uploads/${record.originalName}`,
     url: record.url,
     sortKey: Date.parse(record.storedAt),
@@ -73,6 +82,54 @@ export function uploadRecordToAsset(record: SessionUploadView): DiscoveredSessio
     tags: ['upload'],
     repoLabel: record.repoLabel,
     repoMeta: record.repoMeta,
-    source: 'upload',
+    source: record.source,
+  });
+}
+
+export function createDiscoveredSessionAsset(asset: SessionAssetInput): DiscoveredSessionAsset {
+  const repoName = deriveRepoName(asset);
+  const displayLabel = deriveDisplayLabel(asset.path);
+  const branch = deriveBranch(asset);
+  const groupYear = deriveGroupYear(asset.sortKey, asset.path);
+  return {
+    ...asset,
+    repoName,
+    displayLabel,
+    branch,
+    groupYear,
   };
+}
+
+function deriveRepoName(asset: SessionAssetInput) {
+  const candidate = asset.repoMeta?.repo ?? asset.repoLabel ?? fallbackRepositoryLabelFromPath(asset.path) ?? 'unknown-repo';
+  return candidate.trim() || 'unknown-repo';
+}
+
+function deriveDisplayLabel(path: string) {
+  const normalized = path.replace(/\\/g, '/');
+  const filename = normalized.split('/').pop() ?? path;
+  const withoutExtension = filename.replace(/\.(jsonl|ndjson|json)$/i, '');
+  return withoutExtension || filename || path;
+}
+
+function deriveBranch(asset: SessionAssetInput) {
+  const branch = asset.repoMeta?.branch?.trim();
+  return branch && branch.length > 0 ? branch : 'unknown';
+}
+
+function deriveGroupYear(sortKey: number | undefined, path: string) {
+  if (typeof sortKey === 'number' && Number.isFinite(sortKey) && sortKey > 0) {
+    const year = new Date(sortKey).getUTCFullYear();
+    if (!Number.isNaN(year)) {
+      return year;
+    }
+  }
+  const match = path.match(/(20\d{2}|19\d{2})/);
+  if (match) {
+    const parsed = Number(match[1]);
+    if (parsed >= 1900 && parsed <= 2100) {
+      return parsed;
+    }
+  }
+  return new Date().getUTCFullYear();
 }
