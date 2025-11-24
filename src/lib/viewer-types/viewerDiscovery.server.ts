@@ -113,7 +113,9 @@ export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot>
     '!/src/**/*.test.{ts,tsx,js,jsx}',
     '!/src/**/*.spec.{ts,tsx,js,jsx}',
     '!/src/**/*.stories.{ts,tsx,js,jsx}',
-  ]);
+  ], {
+    as: 'url',
+  });
   const docAssets = import.meta.glob(['/README*'], {
     eager: true,
     query: '?url',

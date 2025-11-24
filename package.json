@@ -16,7 +16,7 @@
     "lint:fix": "oxlint --fix",
     "rules:apply": "ruler apply --nested",
     "prepare": "ruler apply --nested",
-    "code:src": "codefetch --include-dir src --exclude-dir .ruler,.cursor -o src.md",
+    "code": "codefetch --include-dir src --exclude-dir .ruler,.cursor -o src.md",
     "code:comp": "codefetch --include-dir src/components --exclude-dir .ruler,.cursor -o components.md",
     "code:routes": "codefetch --include-dir src/routes --exclude-dir .ruler,.cursor -o routes.md",
     "code:hooks": "codefetch --include-dir src/hooks --exclude-dir .ruler,.cursor -o hooks.md",
