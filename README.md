@@ -87,7 +87,7 @@ src/
 └── server/                     # server functions + persistence
 ```
 
-The viewer route’s loader (`src/features/viewer/viewer.loader.ts`) calls a dedicated server function that performs all filesystem discovery before `ViewerPage` renders. The loader never depends on search params or client filters, so revalidations always hit the server function and never drop the discovered sessions. Repo/branch grouping, search text, size ranges, ASC/DESC toggles, and expand state all live in client state inside `DiscoverySection`, ensuring fast, in-memory filtering without retriggering the loader.
+For loader flow, discovery strategy, and virtualization invariants see [`docs/viewer-architecture.md`](docs/viewer-architecture.md).
 
 ## 🎯 Core Technologies
 
@@ -100,38 +100,9 @@ The viewer route’s loader (`src/features/viewer/viewer.loader.ts`) calls a ded
 | **Browser Echo** | Client-side logging | [Docs](https://github.com/browser-echo/browser-echo) |
 | **Unplugin Icons** | Icon optimization | [Docs](https://github.com/antfu/unplugin-icons) |
 
-## 🔧 Configuration
+## 🔧 Configuration & Technical Notes
 
-### Session metadata requirements
-
-To group sessions correctly, the viewer looks for repository info in this order:
-
-1. `repository_url` or `repo_url` field on the session meta line.
-2. `git.repo` / `git.remote` from the captured session header.
-3. `repoLabel` (if provided by your capture tooling).
-4. The parent folder of `cwd` (e.g., `/path/to/<repo>/src` → `<repo>`).
-
-If none of those exist, the session is grouped under **Unknown repo**. To avoid fallback heuristics, update your capture pipeline to emit `repository_url` or `repoLabel` in the first line of each session file.
-
-### Adding shadcn/ui Components
-
-```bash
-# Add new components
-npx shadcn@latest add button
-npx shadcn@latest add card
-npx shadcn@latest add input
-```
-
-### Tailwind CSS
-
-- Uses Tailwind CSS v4 with modern CSS-first configuration
-- Configured in `app.config.ts`
-- Global styles in `src/app/styles/`
-
-### TypeScript
-
-- **Path aliases**: `@` resolves to the root `./` directory
-- **Route files**: Must use `.tsx` extension
+Developer-focused details—including session metadata heuristics, shadcn/ui usage, Tailwind configuration, TypeScript aliases, and the timeline virtualization rules—live in [`docs/viewer-architecture.md`](docs/viewer-architecture.md) to keep this README concise.
 
 ## 🚀 Deployment
 
@@ -156,4 +127,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <div align="center">
   <p>Built with ❤️ using modern React tools</p>
 </div>
-- **Session metadata friendly:** Honors `repository_url`, `git.repo`, and `cwd` fallbacks so uploads stay grouped by their canonical repo/branch.

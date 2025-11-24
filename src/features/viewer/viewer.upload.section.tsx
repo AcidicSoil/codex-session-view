@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
 import { DropZone } from '~/components/viewer/DropZone'
 import { TimelineWithFilters } from '~/components/viewer/TimelineWithFilters'
-import { ChatDock } from '~/components/viewer/ChatDock'
 import { Switch } from '~/components/ui/switch'
 import { Button } from '~/components/ui/button'
 import type { FileLoaderHook } from '~/hooks/useFileLoader'
@@ -89,65 +88,61 @@ export function UploadSection({ loader, onUploadsPersisted }: UploadSectionProps
   const hasEvents = loader.state.events.length > 0
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Switch
-                id="persist-toggle"
-                checked={loader.persist}
-                onCheckedChange={(value) => {
-                  logInfo('viewer.persist', `Toggled persist to ${value}`)
-                  loader.setPersist(value)
-                }}
-              />
-              <label htmlFor="persist-toggle">Persist session</label>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (isEjecting) return
-                setIsEjecting(true)
-                logInfo('viewer.session', 'Ejecting current session')
-                loader.reset()
-                toast.success('Session cleared')
-                setTimeout(() => setIsEjecting(false), 150)
+    <section className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="persist-toggle"
+              checked={loader.persist}
+              onCheckedChange={(value) => {
+                logInfo('viewer.persist', `Toggled persist to ${value}`)
+                loader.setPersist(value)
               }}
-              disabled={!hasEvents || isEjecting}
-            >
-              {isEjecting ? 'Ejecting…' : 'Eject session'}
-            </Button>
-          </div>
-          <div className="flex justify-start">
-            <DropZone
-              onFile={handleFile}
-              onFilesSelected={handleFolderSelection}
-              acceptExtensions={['.jsonl', '.ndjson', '.txt']}
-              isPending={dropZonePending}
-              statusLabel={dropZoneStatus}
-              meta={meta}
             />
+            <label htmlFor="persist-toggle">Persist session</label>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (isEjecting) return
+              setIsEjecting(true)
+              logInfo('viewer.session', 'Ejecting current session')
+              loader.reset()
+              toast.success('Session cleared')
+              setTimeout(() => setIsEjecting(false), 150)
+            }}
+            disabled={!hasEvents || isEjecting}
+          >
+            {isEjecting ? 'Ejecting…' : 'Eject session'}
+          </Button>
         </div>
-
-        <div className="rounded-2xl border p-4">
-          <div className="mb-4">
-            <p className="text-sm font-semibold">Timeline</p>
-            <p className="text-xs text-muted-foreground">Animated list of parsed events.</p>
-          </div>
-          {loader.state.phase === 'parsing' ? (
-            <p className="text-sm text-muted-foreground">Streaming events… large sessions may take a moment.</p>
-          ) : hasEvents ? (
-            <TimelineWithFilters events={loader.state.events} />
-          ) : (
-            <p className="text-sm text-muted-foreground">Load a session to see its timeline here.</p>
-          )}
+        <div className="flex justify-start">
+          <DropZone
+            onFile={handleFile}
+            onFilesSelected={handleFolderSelection}
+            acceptExtensions={['.jsonl', '.ndjson', '.txt']}
+            isPending={dropZonePending}
+            statusLabel={dropZoneStatus}
+            meta={meta}
+          />
         </div>
       </div>
 
-      <ChatDock />
+      <div className="rounded-2xl border p-4">
+        <div className="mb-4">
+          <p className="text-sm font-semibold">Timeline</p>
+          <p className="text-xs text-muted-foreground">Animated list of parsed events.</p>
+        </div>
+        {loader.state.phase === 'parsing' ? (
+          <p className="text-sm text-muted-foreground">Streaming events… large sessions may take a moment.</p>
+        ) : hasEvents ? (
+          <TimelineWithFilters events={loader.state.events} />
+        ) : (
+          <p className="text-sm text-muted-foreground">Load a session to see its timeline here.</p>
+        )}
+      </div>
     </section>
   )
 }
