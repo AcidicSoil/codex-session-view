@@ -2,6 +2,7 @@ import { ClientOnly } from '@tanstack/react-router'
 import { useFileLoader } from '~/hooks/useFileLoader'
 import { DiscoverySection, useViewerDiscovery } from './viewer.discovery.section'
 import { UploadSection } from './viewer.upload.section'
+import { ChatDock } from '~/components/viewer/ChatDock'
 
 export function ViewerPage() {
   return (
@@ -22,8 +23,9 @@ function ViewerClient() {
         <p className="text-muted-foreground">Drop in a session to stream its timeline, then iterate with the chat dock.</p>
       </section>
 
-      <DiscoverySection {...discovery} />
       <UploadSection loader={loader} onUploadsPersisted={(assets) => discovery.appendSessionAssets(assets, 'upload')} />
+      <DiscoverySection {...discovery} />
+      <ChatDock />
     </main>
   );
 }

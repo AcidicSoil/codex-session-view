@@ -1,0 +1,34 @@
+# Viewer Architecture & Implementation Notes
+
+This document captures the technical details that would otherwise bloat the top-level README. It covers how the viewer route is composed, what guarantees the virtualized timeline provides, and the configuration heuristics that keep uploads organized.
+
+## Route + Loader Flow
+
+- `src/routes/(site)/viewer/index.tsx` renders `ViewerPage`, which is backed by `src/features/viewer/viewer.loader.ts`.
+- The loader calls a dedicated server function that performs filesystem discovery before render. Because the loader ignores client search params, every revalidation always re-hits the server function and never discards the discovered sessions.
+- Repo/branch grouping, search text, size ranges, ASC/DESC toggles, and expand state all live in client state inside `DiscoverySection`, ensuring instant, in-memory filtering without retriggering the loader.
+
+## Virtualized Timeline Invariants
+
+- `TimelineView` precomputes cumulative offsets from measured row heights. The first rendered item must be the last offset less than or equal to the viewport’s top; otherwise tall rows disappear mid-scroll. The helper `findLastOffsetBeforeOrEqual` enforces that rule for both the start and end indices.
+- Measurements come from `Row`’s `useLayoutEffect`. Estimated heights only seed the offsets until a row is measured—don’t rely on them for logic.
+- Programmatic scrolls (`scrollToIndex`) jump directly to the measured offset, so keep offsets up to date if you introduce new animations or height adjustments.
+
+## Session Metadata Heuristics
+
+To group sessions correctly, the viewer looks for repository info in this order:
+
+1. `repository_url` or `repo_url` field on the session meta line.
+2. `git.repo` / `git.remote` from the captured session header.
+3. `repoLabel` (if provided by your capture tooling).
+4. The parent folder of `cwd` (e.g., `/path/to/<repo>/src` → `<repo>`).
+
+If none of those exist, the session is grouped under **Unknown repo**. To avoid fallback heuristics, update your capture pipeline to emit `repository_url` or `repoLabel` in the first line of each session file.
+
+## UI Toolkit & Configuration Notes
+
+- **shadcn/ui**: use `npx shadcn@latest add <component>` to pull in primitives (e.g., button, card, input). Components live under `src/components/kibo-ui/` to match existing conventions.
+- **Tailwind CSS v4**: configured via `app.config.ts`; global styles live in `src/app/styles/`. Treat it as CSS-first—utility classes come directly from Tailwind’s new compiler.
+- **TypeScript**: Route files must be `.tsx`. Aliases: `@` resolves to the repo root and `~` resolves to `./src`, matching the TanStack Start defaults.
+
+Keeping these details collected here prevents the README from drifting into implementation minutiae while still giving contributors a single reference for deeper technical context.

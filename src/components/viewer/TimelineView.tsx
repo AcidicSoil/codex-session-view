@@ -28,17 +28,18 @@ function useRafThrottle(fn: () => void) {
   }, [fn]);
 }
 
-function lowerBound(prefix: ReadonlyArray<number>, target: number) {
+export function findLastOffsetBeforeOrEqual(prefix: ReadonlyArray<number>, target: number) {
+  if (prefix.length === 0) return -1;
   let lo = 0;
   let hi = prefix.length - 1;
-  let ans = prefix.length;
+  let ans = 0;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if ((prefix[mid] ?? 0) >= target) {
+    if ((prefix[mid] ?? 0) <= target) {
       ans = mid;
-      hi = mid - 1;
-    } else {
       lo = mid + 1;
+    } else {
+      hi = mid - 1;
     }
   }
   return ans;
@@ -84,14 +85,16 @@ export function TimelineView<T>({
   });
 
   const start = useMemo(() => {
+    if (items.length === 0) return 0;
     const target = Math.max(0, scrollTop - overscanPx);
-    const idx = lowerBound(offsets, target);
+    const idx = findLastOffsetBeforeOrEqual(offsets, target);
     return Math.max(0, Math.min(idx, items.length - 1));
   }, [offsets, scrollTop, overscanPx, items.length]);
 
   const end = useMemo(() => {
+    if (items.length === 0) return 0;
     const target = Math.min(totalHeight, scrollTop + height + overscanPx);
-    const idx = lowerBound(offsets, target);
+    const idx = findLastOffsetBeforeOrEqual(offsets, target);
     return Math.max(start, Math.min(items.length - 1, idx));
   }, [offsets, totalHeight, scrollTop, height, overscanPx, items.length, start]);
 
