@@ -10,7 +10,7 @@
 ---
 
 <p>
-<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/README-demo.gif" alt="demo" />
+<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/README-demo_v3.gif" alt="demo" />
 </p>
 
 ## Overview
