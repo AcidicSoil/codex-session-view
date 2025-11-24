@@ -3,6 +3,9 @@ import { useFileLoader } from '~/hooks/useFileLoader'
 import { DiscoverySection, useViewerDiscovery } from './viewer.discovery.section'
 import { UploadSection } from './viewer.upload.section'
 import { ChatDock } from '~/components/viewer/ChatDock'
+import type { TimelineEvent } from '~/components/viewer/AnimatedTimelineList'
+import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery'
+import { logInfo } from '~/lib/logger'
 
 export function ViewerPage() {
   return (
@@ -15,6 +18,18 @@ export function ViewerPage() {
 function ViewerClient() {
   const loader = useFileLoader();
   const discovery = useViewerDiscovery({ loader });
+  const handleAddTimelineEventToChat = (event: TimelineEvent, index: number) => {
+    logInfo('viewer.chatdock', 'Timeline event add-to-chat requested', {
+      eventType: event.type,
+      index,
+    });
+  };
+  const handleAddSessionToChat = (asset: DiscoveredSessionAsset) => {
+    logInfo('viewer.chatdock', 'Session add-to-chat requested', {
+      path: asset.path,
+      repo: asset.repoLabel ?? asset.repoName,
+    });
+  };
   return (
     <main className="container mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10">
       <section className="space-y-3">
@@ -23,8 +38,12 @@ function ViewerClient() {
         <p className="text-muted-foreground">Drop in a session to stream its timeline, then iterate with the chat dock.</p>
       </section>
 
-      <UploadSection loader={loader} onUploadsPersisted={(assets) => discovery.appendSessionAssets(assets, 'upload')} />
-      <DiscoverySection {...discovery} />
+      <UploadSection
+        loader={loader}
+        onUploadsPersisted={(assets) => discovery.appendSessionAssets(assets, 'upload')}
+        onAddTimelineEventToChat={handleAddTimelineEventToChat}
+      />
+      <DiscoverySection {...discovery} onAddSessionToChat={handleAddSessionToChat} />
       <ChatDock />
     </main>
   );

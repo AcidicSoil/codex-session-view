@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode, MouseEvent } from 'react'
 import { motion } from 'motion/react'
 import { BorderBeam } from '~/components/ui/border-beam'
+import { ShimmerButton } from '~/components/ui/shimmer-button'
 import {
   Snippet,
   SnippetCopyButton,
@@ -35,6 +36,7 @@ interface AnimatedTimelineListProps {
   onSelect?: (event: TimelineEvent, index: number) => void
   searchQuery?: string
   activeMatchIndex?: number | null
+  onAddEventToChat?: (event: TimelineEvent, index: number) => void
 }
 
 const SNIPPET_LENGTH = 100
@@ -43,7 +45,7 @@ const SNIPPET_LENGTH = 100
  * Virtualized, animated timeline list used by the viewer. Rendering an empty
  * list is safe – callers should decide when to show empty-state messaging.
  */
-export function AnimatedTimelineList({ events, className, onSelect, searchQuery, activeMatchIndex }: AnimatedTimelineListProps) {
+export function AnimatedTimelineList({ events, className, onSelect, searchQuery, activeMatchIndex, onAddEventToChat }: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [scrollTarget, setScrollTarget] = useState<number | null>(null)
   const [gradients, setGradients] = useState({ top: 0, bottom: 0 })
@@ -102,7 +104,7 @@ export function AnimatedTimelineList({ events, className, onSelect, searchQuery,
                 return next
               })
               onSelect?.(item.event, item.index)
-            }, searchQuery)}
+            }, searchQuery, onAddEventToChat)}
           </motion.div>
         )}
         scrollToIndex={scrollTarget}
@@ -158,7 +160,19 @@ function buildEventSignature(event: TimelineEvent) {
   }
 }
 
-function renderTimelineItem(event: TimelineEvent, index: number, expanded: boolean, toggle: () => void, searchQuery?: string) {
+function renderTimelineItem(
+  event: TimelineEvent,
+  index: number,
+  expanded: boolean,
+  toggle: () => void,
+  searchQuery?: string,
+  onAddEventToChat?: (event: TimelineEvent, index: number) => void,
+) {
+  const handleAddToChat = (mouseEvent: MouseEvent<HTMLButtonElement>) => {
+    mouseEvent.preventDefault()
+    mouseEvent.stopPropagation()
+    onAddEventToChat?.(event, index)
+  }
   return (
     <div
       className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30 p-4 cursor-pointer"
@@ -179,9 +193,20 @@ function renderTimelineItem(event: TimelineEvent, index: number, expanded: boole
             <p className="text-sm font-semibold text-white">{buildLabel(event, index)}</p>
             <p className="text-xs text-muted-foreground">{buildMetaLine(event)}</p>
           </div>
-          <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {event.type}
-          </span>
+          <div className="flex flex-col items-end gap-2">
+            <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {event.type}
+            </span>
+            {event.type === 'Message' ? (
+              <ShimmerButton
+                type="button"
+                className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide"
+                onClick={handleAddToChat}
+              >
+                Add to chat
+              </ShimmerButton>
+            ) : null}
+          </div>
         </div>
         {expanded ? (
           <div className="rounded-lg border border-white/5 bg-black/60 p-3 text-sm text-slate-100">

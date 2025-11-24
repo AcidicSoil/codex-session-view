@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { motion } from 'motion/react';
 import { ArrowDownUp, Copy, Search, SlidersHorizontal } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
+import { ShimmerButton } from '~/components/ui/shimmer-button';
 import { Loader } from '~/components/ui/loader';
 import {
   DropdownMenu,
@@ -38,6 +39,8 @@ interface RepositoryGroup {
   lastUpdated?: number;
   repoMeta?: RepoMetadata;
   branches: BranchGroup[];
+  branchCount: number;
+  hasUnknownBranch: boolean;
 }
 
 export interface SessionListProps {
@@ -47,6 +50,7 @@ export interface SessionListProps {
   loadingSessionPath?: string | null;
   selectedSessionPath?: string | null;
   onSelectionChange?: (path: string | null) => void;
+  onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void;
 }
 
 const sessionCountIntensity = {
@@ -74,6 +78,7 @@ export function SessionList({
   loadingSessionPath,
   selectedSessionPath,
   onSelectionChange,
+  onAddSessionToChat,
 }: SessionListProps) {
   const [searchText, setSearchText] = useState('');
   const [sizePreset, setSizePreset] = useState<SizePresetId>('any');
@@ -170,10 +175,17 @@ export function SessionList({
         if (!sortedBranches.length) return null;
         const flattenedSessions = sortedBranches.flatMap((branch) => branch.sessions);
         const primarySortValue = sortedBranches[0]?.primarySortValue ?? getSortValue(flattenedSessions[0], sortKey);
+        const filteredNamedBranches = sortedBranches.filter(
+          (branch) => branch.name && branch.name.trim().length > 0 && branch.name.toLowerCase() !== 'unknown'
+        );
+        const branchCount = filteredNamedBranches.length;
+        const hasUnknownBranch = sortedBranches.some((branch) => branch.name.toLowerCase() === 'unknown');
         return {
           ...group,
           sessions: flattenedSessions,
           branches: sortedBranches.map(({ primarySortValue: _p, ...rest }) => rest),
+          branchCount,
+          hasUnknownBranch,
           primarySortValue,
         };
       })
@@ -281,7 +293,7 @@ export function SessionList({
     logDebug('viewer.explorer', 'Toggled repository group', {
       groupId: group.id,
       repoName: group.repoName,
-      branchCount: group.branches.length,
+      branchCount: group.branchCount,
       previousOpenState: isExpanded,
       nextOpenState: !isExpanded,
     });
@@ -482,13 +494,20 @@ export function SessionList({
                       <TooltipContent>
                         <p className="text-xs font-semibold">{repo.label}</p>
                         <p className="text-xs opacity-80">Repo: {repo.repoName}</p>
-                        <p className="text-xs opacity-80">Branches: {describeBranches(repo.branches)}</p>
+                        <p className="text-xs opacity-80">
+                          Branches: {describeBranches(repo.branches)} ({repo.branchCount}
+                          {repo.hasUnknownBranch ? '*' : ''})
+                        </p>
                         <p className="text-xs opacity-80">Total size: {formatBytes(repo.totalSize)}</p>
                         <p className="text-xs opacity-80">Last updated: {formatDate(repo.lastUpdated)}</p>
                       </TooltipContent>
                     </Tooltip>
                     <span className="text-xs font-semibold">
                       {formatCount(repo.sessions.length)} {repo.sessions.length === 1 ? 'session' : 'sessions'}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Branches {formatCount(repo.branchCount)}
+                      {repo.hasUnknownBranch ? '*' : ''}
                     </span>
                     <span className="text-[10px] uppercase tracking-wide">
                       {isExpanded ? 'Hide' : 'Expand'}
@@ -525,6 +544,7 @@ export function SessionList({
                             }}
                             loadingSessionPath={loadingSessionPath}
                             selectedSessionPath={selectedSessionPath}
+                            onAddSessionToChat={onAddSessionToChat}
                           />
                         </div>
                       ))
@@ -597,9 +617,16 @@ function aggregateByRepository(sessionAssets: DiscoveredSessionAsset[]): Reposit
     const sortedBranches = Array.from(branches.values()).sort(
       (a, b) => (b.lastUpdated ?? 0) - (a.lastUpdated ?? 0) || a.name.localeCompare(b.name)
     );
+    const namedBranches = sortedBranches.filter(
+      (branch) => branch.name && branch.name.trim().length > 0 && branch.name.toLowerCase() !== 'unknown'
+    );
+    const branchCount = namedBranches.length;
+    const hasUnknownBranch = sortedBranches.some((branch) => branch.name.toLowerCase() === 'unknown');
     return {
       ...group,
       branches: sortedBranches,
+      branchCount,
+      hasUnknownBranch,
     };
   });
 }
@@ -741,12 +768,14 @@ function SessionRepoVirtualList({
   onSessionOpen,
   loadingSessionPath,
   selectedSessionPath,
+  onAddSessionToChat,
 }: {
   sessions: DiscoveredSessionAsset[];
   snapshotTimestamp: number;
   onSessionOpen?: (asset: DiscoveredSessionAsset) => Promise<void> | void;
   loadingSessionPath?: string | null;
   selectedSessionPath?: string | null;
+  onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void;
 }) {
   const items = useMemo<SessionTimelineItem[]>(
     () => sessions.map((session, index) => ({ session, index })),
@@ -783,6 +812,7 @@ function SessionRepoVirtualList({
               onSessionOpen={onSessionOpen}
               isLoading={loadingSessionPath === item.session.path}
               isSelected={selectedSessionPath === item.session.path}
+              onAddToChat={onAddSessionToChat}
             />
           </motion.div>
         )}
@@ -807,12 +837,14 @@ function SessionCard({
   onSessionOpen,
   isLoading,
   isSelected,
+  onAddToChat,
 }: {
   session: DiscoveredSessionAsset;
   snapshotTimestamp: number;
   onSessionOpen?: (asset: DiscoveredSessionAsset) => Promise<void> | void;
   isLoading?: boolean;
   isSelected?: boolean;
+  onAddToChat?: (asset: DiscoveredSessionAsset) => void;
 }) {
   const displayName = session.displayLabel;
   const repoLabel = session.repoLabel ?? session.repoName;
@@ -832,6 +864,12 @@ function SessionCard({
       logError('viewer.explorer', 'Copy session id failed', error instanceof Error ? error : new Error('unknown error'));
     }
   };
+  const handleAddToChat = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onAddToChat?.(session);
+  };
+
   return (
     <div
       className={cn(
@@ -895,6 +933,13 @@ function SessionCard({
                 Copy ID
               </Button>
             ) : null}
+            <ShimmerButton
+              type="button"
+              className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide"
+              onClick={handleAddToChat}
+            >
+              Add to chat
+            </ShimmerButton>
             {onSessionOpen ? (
               <Button
                 type="button"

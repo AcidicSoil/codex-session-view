@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { DropZone } from '~/components/viewer/DropZone'
 import { TimelineWithFilters } from '~/components/viewer/TimelineWithFilters'
+import type { TimelineEvent } from '~/components/viewer/AnimatedTimelineList'
 import { Switch } from '~/components/ui/switch'
 import { Button } from '~/components/ui/button'
 import type { FileLoaderHook } from '~/hooks/useFileLoader'
@@ -14,9 +15,10 @@ import { uploadRecordToAsset } from '~/lib/viewerDiscovery'
 interface UploadSectionProps {
   loader: FileLoaderHook
   onUploadsPersisted?: (assets: DiscoveredSessionAsset[]) => void
+  onAddTimelineEventToChat?: (event: TimelineEvent, index: number) => void
 }
 
-export function UploadSection({ loader, onUploadsPersisted }: UploadSectionProps) {
+export function UploadSection({ loader, onUploadsPersisted, onAddTimelineEventToChat }: UploadSectionProps) {
   const [isEjecting, setIsEjecting] = useState(false)
   const [isPersistingUpload, setIsPersistingUpload] = useState(false)
 
@@ -138,7 +140,7 @@ export function UploadSection({ loader, onUploadsPersisted }: UploadSectionProps
         {loader.state.phase === 'parsing' ? (
           <p className="text-sm text-muted-foreground">Streaming events… large sessions may take a moment.</p>
         ) : hasEvents ? (
-          <TimelineWithFilters events={loader.state.events} />
+          <TimelineWithFilters events={loader.state.events} onAddEventToChat={onAddTimelineEventToChat} />
         ) : (
           <p className="text-sm text-muted-foreground">Load a session to see its timeline here.</p>
         )}

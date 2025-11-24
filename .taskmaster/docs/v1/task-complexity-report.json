@@ -1,0 +1,109 @@
+{
+	"meta": {
+		"generatedAt": "2025-11-24T16:49:38.898Z",
+		"tasksAnalyzed": 12,
+		"totalTasks": 12,
+		"analysisCount": 12,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": true
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Establish Foundational AI Configuration and Logging",
+			"complexityScore": 2,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down the task of creating foundational config and logging into three parts: 1. Implement the `ai-config.ts` module to load environment variables into a typed object. 2. Add validation logic to `getAiConfig` to ensure required variables are present and throw errors if not. 3. Implement the simple `logInfo` and `logError` functions in `src/lib/observability/logging.ts`.",
+			"reasoning": "This is a foundational, greenfield task with low technical complexity. The codebase analysis shows no existing centralized configuration or structured logging, so this involves creating new, self-contained files. The logic for reading environment variables and basic logging is standard and well-understood, posing minimal implementation risk."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Implement AI Provider and Model Registry",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Generate subtasks for building the AI provider registry. Subtasks should cover: 1. Initializing `createProviderRegistry` in `providers.ts`. 2. Configuring the OpenAI-compatible provider using config from Task 1. 3. Implementing and exporting the `resolveLanguageModel`, `resolveEmbeddingModel`, and other resolver functions. 4. Adding robust error handling for unknown provider/model IDs.",
+			"reasoning": "This task introduces a key abstraction layer for AI models. While it is greenfield work, it requires a solid understanding of the Vercel AI SDK's provider patterns, including middleware and custom providers. The complexity lies in designing an extensible registry that correctly decouples model definitions from their usage sites, which is more involved than a simple config file."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Implement AGENTS.md Loader and Parser",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Create subtasks for the AGENTS.md loader/parser. Focus on: 1. Implementing the file discovery logic to find the correct AGENTS.md file(s). 2. Implementing the core Markdown parsing logic to extract sections and rules. 3. Normalizing the parsed data into the final structured TypeScript object. 4. Adding an in-memory caching mechanism based on repository and path.",
+			"reasoning": "This task involves multiple distinct challenges: file system logic (resolving paths), robust parsing of a semi-structured format (Markdown), and performance optimization (caching). Codebase analysis confirms this is entirely new. The parsing logic, in particular, can be brittle and requires careful implementation and extensive testing to handle variations and malformed content."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Define and Persist Alignment Events",
+			"complexityScore": 4,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down the task of persisting alignment events. The subtasks should be: 1. Define the `AlignmentEvent` TypeScript type and corresponding database schema. 2. Implement the `createAlignmentEvent` function to persist a single event. 3. Implement the `listAlignmentEvents` function, including support for filtering and pagination.",
+			"reasoning": "This is a standard data persistence task. The complexity is moderate, involving schema definition, implementing repository patterns for creating and querying data, and handling query parameters for filtering and pagination. Analysis suggests no existing schema, so this is new work, but it follows well-established patterns for database interaction. Ensuring it's non-blocking adds a small architectural consideration."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Build the Core Chat Orchestrator",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Generate subtasks for the core chat orchestrator. The breakdown should include: 1. Create the `streamChat` function in `orchestrator.ts` that accepts a request object. 2. Integrate the `resolveModel` function from the provider registry to dynamically select the AI model. 3. Implement robust error handling and return a proper streaming response using `streamText` from the Vercel AI SDK.",
+			"reasoning": "Although the core logic using `streamText` is concise, this task's complexity comes from its centrality to the architecture. This new orchestrator will be the main hub for all AI chat interactions. Getting the interface and error handling right is critical for future extensibility (e.g., tool usage). It's a lynchpin component that connects the provider registry to the server endpoint."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Implement Codex Session Context Attachment Pipeline",
+			"complexityScore": 5,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down the implementation of the session context pipeline. Subtasks should cover: 1. Creating the `buildSessionContext` function to extract and normalize key data from a `CodexSession` object. 2. Implementing `createContextPrompt` to transform the normalized context into a final string prompt. 3. Adding logic to manage prompt size, ensuring it adheres to model-specific token limits.",
+			"reasoning": "This task's complexity is not in the code's structure but in its logic (prompt engineering). It requires careful thought to distill a complex session object into a concise and effective context for an LLM. The challenge lies in balancing information richness with strict token limits and defining effective heuristics for summarizing content, which is more of a product/design challenge than a pure engineering one."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Implement AGENTS Alignment Linter",
+			"complexityScore": 7,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Create subtasks for building the AGENTS alignment linter. The plan should include: 1. Scaffolding the `lintMessage` function and its types. 2. Implementing the core deterministic linting logic for at least two rule types (e.g., forbidden commands, file path mentions). 3. Implementing the `buildRemediation` function to generate user-facing correction prompts. 4. Writing comprehensive unit tests for various pass/warn/fail scenarios.",
+			"reasoning": "This task involves creating a new, complex business logic engine from scratch. The primary difficulty lies in designing and implementing the rule-matching heuristics, which must be robust against variations in user input. The need to generate helpful remediation prompts adds another layer of complexity. The testing surface for this module is large, requiring many permutations to be validated."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Integrate Linter with Alignment Event Logging",
+			"complexityScore": 3,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "Generate subtasks for integrating the linter with event logging. Subtasks should be: 1. Identify the correct place in the chat processing pipeline to invoke the `lintMessage` function. 2. Add an asynchronous, non-blocking call to `createAlignmentEvent` after the linter runs, ensuring the lint result is correctly mapped to the event schema.",
+			"reasoning": "This is a low-complexity 'glue' task. The codebase analysis confirms it connects two new, purpose-built modules (Task 4 and Task 7). The implementation will be a small number of lines. The main consideration, which is straightforward to implement, is ensuring the database call is asynchronous and does not block the primary chat response flow."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Wire Session Context into Codex Viewer Route Loader",
+			"complexityScore": 4,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break down the task of updating the `codex-session-viewer` route loader. The subtasks should be: 1. Modify the existing loader to call `loadAgentsRules` to fetch the ruleset. 2. Add a call to `buildSessionContext` to process the session data. 3. Ensure both the ruleset and session context are returned from the loader and made available to the route component.",
+			"reasoning": "This is a refactoring and integration task. Codebase analysis shows an existing `codex-session-viewer.route.tsx` file that needs modification. Complexity is moderate because it alters the data-loading pipeline for a key UI view, but the heavy lifting is done by functions from Task 3 and Task 6. The main work is orchestrating these calls within the existing TanStack Start `loader` pattern."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Refactor ChatDock UI to Use the AI Orchestrator",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Generate subtasks for the `ChatDock` refactoring. Focus on a step-by-step migration: 1. Create a new server-side function that is exposed to the client and calls the `streamChat` orchestrator. 2. Implement a client-side hook (e.g., using TanStack Query's `useMutation`) to call this new server function. 3. Remove the old, direct AI SDK call and related state management from `ChatDock.tsx`. 4. Integrate the new hook into the component's message submission flow. 5. Wire up the streaming response from the hook to the UI to render messages as they arrive.",
+			"reasoning": "This task is a significant and high-risk refactoring of a core interactive UI component. Codebase analysis confirms `ChatDock.tsx` has ad-hoc logic that needs to be replaced. The complexity is high due to the need to rewire the entire client-server communication for chat, manage streaming state updates within React, and integrate with a new server function pattern, all while ensuring a seamless user experience."
+		},
+		{
+			"taskId": 11,
+			"taskTitle": "Implement Inline Alignment Notifications in UI",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Create subtasks for implementing inline alignment notifications. This should include: 1. Building the `AlignmentNotification.tsx` React component to display warnings and suggestions. 2. Creating a new lightweight server function that takes a message and returns an `AlignmentResult` from the linter. 3. Modifying `ChatDock` to call this server function after a message is sent. 4. Adding logic to `ChatDock` to conditionally render the `AlignmentNotification` component based on the linter's response.",
+			"reasoning": "This is a full-stack feature that involves greenfield work on both the frontend and backend. It requires creating a new React component, a new server endpoint, and modifying the recently-refactored `ChatDock` to orchestrate the asynchronous linting call and conditional rendering. The complexity comes from coordinating these new frontend and backend pieces and designing the user interaction flow."
+		},
+		{
+			"taskId": 12,
+			"taskTitle": "Build the Alignment Log Viewer Page",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Generate subtasks for the Alignment Log Viewer page. The subtasks should be: 1. Create the new route file and loader at `/routes/agents/alignment-log.route.tsx`. 2. Implement the loader logic to parse search params and call `listAlignmentEvents`. 3. Build the UI for filtering events (e.g., by repo, status, date range). 4. Implement the UI to display the list of alignment events in a table.",
+			"reasoning": "This is a standard, self-contained, full-stack feature. Codebase analysis confirms it's a new route, minimizing risk to existing code. The task involves creating a route loader to fetch data (using the function from Task 4) and building a standard UI with filters and a data table. The complexity is moderate and representative of a typical CRUD-style page implementation."
+		}
+	]
+}
