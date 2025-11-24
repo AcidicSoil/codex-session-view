@@ -28,6 +28,11 @@ function unwrapMeta(result: MetaParseResult): SessionMetaParsed | undefined {
   return undefined
 }
 
+function parseMetaFromLine(line: string | undefined): SessionMetaParsed | undefined {
+  if (!line) return undefined
+  return unwrapMeta(parseSessionMetaLine(line))
+}
+
 export function buildRepoDetailsFromMeta(meta?: SessionMetaParsed | null): RepoDetails {
   if (!meta) return {}
   const repoLabelCandidates = gatherRepoLabelCandidates(meta)
@@ -112,8 +117,17 @@ function isMeaningfulLabel(value?: string | null) {
 }
 
 export function deriveRepoDetailsFromLine(line: string | undefined): RepoDetails {
-  if (!line) return {}
-  const meta = unwrapMeta(parseSessionMetaLine(line))
+  const meta = parseMetaFromLine(line)
   if (!meta) return {}
   return buildRepoDetailsFromMeta(meta)
+}
+
+export function deriveSessionTimestampMs(line: string | undefined): number | undefined {
+  const meta = parseMetaFromLine(line)
+  if (!meta?.timestamp) return undefined
+  const parsed = Date.parse(meta.timestamp)
+  if (!Number.isFinite(parsed)) {
+    return undefined
+  }
+  return parsed
 }

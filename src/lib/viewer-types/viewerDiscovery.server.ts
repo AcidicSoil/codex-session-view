@@ -1,4 +1,4 @@
-import { deriveRepoDetailsFromLine } from '~/lib/repo-metadata';
+import { deriveRepoDetailsFromLine, deriveSessionTimestampMs, type RepoDetails } from '~/lib/repo-metadata';
 import {
   sortSessionAssets,
   uploadRecordToAsset,
@@ -169,6 +169,7 @@ async function synchronizeBundledSessions(
         absolutePath,
         repoLabel: repoDetails.repoLabel,
         repoMeta: repoDetails.repoMeta,
+        sessionTimestampMs: repoDetails.sessionTimestampMs,
         source: 'bundled',
       });
     }),
@@ -200,6 +201,7 @@ async function synchronizeExternalSessions(
           absolutePath,
           repoLabel: repoDetails.repoLabel,
           repoMeta: repoDetails.repoMeta,
+          sessionTimestampMs: repoDetails.sessionTimestampMs,
           source: 'external',
         });
       }),
@@ -274,11 +276,16 @@ function resolveWorkspacePath(relativePath: string, deps: NodeDeps | null) {
   return deps.path.resolve(process.cwd(), relativePath.replace(/^\//, ''));
 }
 
-async function readRepoDetailsFromFile(absolutePath: string | undefined, deps: NodeDeps | null) {
+type RepoDetailsWithTimestamp = RepoDetails & { sessionTimestampMs?: number };
+
+async function readRepoDetailsFromFile(absolutePath: string | undefined, deps: NodeDeps | null): Promise<RepoDetailsWithTimestamp> {
   if (!absolutePath || !deps) return {};
   try {
     const firstLine = await readFirstLine(absolutePath, deps);
-    return deriveRepoDetailsFromLine(firstLine);
+    return {
+      ...deriveRepoDetailsFromLine(firstLine),
+      sessionTimestampMs: deriveSessionTimestampMs(firstLine),
+    };
   } catch {
     return {};
   }

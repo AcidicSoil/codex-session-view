@@ -863,6 +863,11 @@ function SessionCard({
           </div>
           <div className="text-right text-xs text-muted-foreground">
             <p>{formatBytes(session.size)}</p>
+            {session.lastModifiedIso ? (
+              <p className="font-mono text-[10px] uppercase tracking-tight text-muted-foreground" aria-label="Last modified timestamp">
+                {session.lastModifiedIso}
+              </p>
+            ) : null}
             <p>{formatRelativeTime(session.sortKey, snapshotTimestamp)}</p>
             {isSelected ? (
               <span className="mt-1 inline-flex rounded-full border border-primary/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">

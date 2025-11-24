@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs'
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import type { SessionAssetSource } from '~/lib/viewerDiscovery'
-import { deriveRepoDetailsFromLine, type RepoMetadata } from '~/lib/repo-metadata'
+import { deriveRepoDetailsFromLine, deriveSessionTimestampMs, type RepoMetadata } from '~/lib/repo-metadata'
 
 interface SessionUploadRecord {
   id: string
@@ -14,6 +14,8 @@ interface SessionUploadRecord {
   source: SessionAssetSource
   sourcePath?: string
   sourceUpdatedAt?: number
+  lastModifiedMs?: number
+  lastModifiedIso?: string
 }
 
 export interface SessionUploadSummary {
@@ -25,6 +27,8 @@ export interface SessionUploadSummary {
   repoLabel?: string
   repoMeta?: RepoMetadata
   source: SessionAssetSource
+  lastModifiedMs?: number
+  lastModifiedIso?: string
 }
 
 const sessionUploadsCollection = createCollection(
@@ -36,6 +40,7 @@ const sessionUploadsCollection = createCollection(
 
 export async function saveSessionUpload(originalName: string, content: string): Promise<SessionUploadSummary> {
   const repoDetails = deriveRepoDetailsFromContent(content)
+  const lastModifiedMs = resolveLastModifiedMs(deriveSessionTimestampFromContent(content))
   const record: SessionUploadRecord = {
     id: createUploadId(),
     originalName,
@@ -45,6 +50,8 @@ export async function saveSessionUpload(originalName: string, content: string): 
     repoLabel: repoDetails.repoLabel,
     repoMeta: repoDetails.repoMeta,
     source: 'upload',
+    lastModifiedMs,
+    lastModifiedIso: new Date(lastModifiedMs).toISOString(),
   }
   await sessionUploadsCollection.insert(record)
   return toRecordView(record)
@@ -63,6 +70,8 @@ export async function getSessionUploadContent(id: string) {
 function toRecordView(record: SessionUploadRecord): SessionUploadSummary {
   const needsRepoDetails = !record.repoLabel || !record.repoMeta
   const repoDetails = needsRepoDetails ? deriveRepoDetailsFromContent(record.content) : {}
+  const lastModifiedMs = resolveLastModifiedMs(record.lastModifiedMs, Date.parse(record.storedAt))
+  const lastModifiedIso = record.lastModifiedIso ?? new Date(lastModifiedMs).toISOString()
   return {
     id: record.id,
     originalName: record.originalName,
@@ -72,6 +81,8 @@ function toRecordView(record: SessionUploadRecord): SessionUploadSummary {
     repoLabel: record.repoLabel ?? repoDetails.repoLabel,
     repoMeta: record.repoMeta ?? repoDetails.repoMeta,
     source: record.source,
+    lastModifiedMs,
+    lastModifiedIso,
   }
 }
 
@@ -81,17 +92,26 @@ export async function ensureSessionUploadForFile(options: {
   repoLabel?: string
   repoMeta?: RepoMetadata
   source: Extract<SessionAssetSource, 'bundled' | 'external'>
+  sessionTimestampMs?: number
 }): Promise<SessionUploadSummary> {
   const normalizedPath = normalizeAbsolutePath(options.absolutePath)
   const stat = await fs.stat(options.absolutePath)
   const updatedAt = stat.mtimeMs
+  const canonicalLastModifiedMs = resolveLastModifiedMs(options.sessionTimestampMs, updatedAt)
+  const canonicalLastModifiedIso = new Date(canonicalLastModifiedMs).toISOString()
   const existing = findRecordBySource(normalizedPath, options.source)
   if (existing && existing.sourceUpdatedAt === updatedAt) {
     const needsMetadataUpdate = (!!options.repoLabel && !existing.repoLabel) || (!!options.repoMeta && !existing.repoMeta)
-    if (needsMetadataUpdate) {
+    const needsTimestampUpdate =
+      existing.lastModifiedMs !== canonicalLastModifiedMs || existing.lastModifiedIso !== canonicalLastModifiedIso
+    if (needsMetadataUpdate || needsTimestampUpdate) {
       await sessionUploadsCollection.update(existing.id, (draft) => {
         draft.repoLabel = draft.repoLabel ?? options.repoLabel
         draft.repoMeta = draft.repoMeta ?? options.repoMeta
+        if (needsTimestampUpdate) {
+          draft.lastModifiedMs = canonicalLastModifiedMs
+          draft.lastModifiedIso = canonicalLastModifiedIso
+        }
       })
       const refreshed = sessionUploadsCollection.get(existing.id)
       if (refreshed) {
@@ -114,6 +134,8 @@ export async function ensureSessionUploadForFile(options: {
       draft.source = options.source
       draft.sourcePath = normalizedPath
       draft.sourceUpdatedAt = updatedAt
+      draft.lastModifiedMs = canonicalLastModifiedMs
+      draft.lastModifiedIso = canonicalLastModifiedIso
     })
     const refreshed = sessionUploadsCollection.get(existing.id)
     if (!refreshed) {
@@ -133,6 +155,8 @@ export async function ensureSessionUploadForFile(options: {
     source: options.source,
     sourcePath: normalizedPath,
     sourceUpdatedAt: updatedAt,
+    lastModifiedMs: canonicalLastModifiedMs,
+    lastModifiedIso: canonicalLastModifiedIso,
   }
   await sessionUploadsCollection.insert(record)
   return toRecordView(record)
@@ -159,6 +183,31 @@ function deriveRepoDetailsFromContent(content: string) {
   const firstLine = content.split(/\r?\n/, 1)[0] ?? ''
   if (!firstLine) return {}
   return deriveRepoDetailsFromLine(firstLine)
+}
+
+function deriveSessionTimestampFromContent(content: string) {
+  const firstLine = content.split(/\r?\n/, 1)[0] ?? ''
+  if (!firstLine) return undefined
+  return deriveSessionTimestampMs(firstLine)
+}
+
+function resolveLastModifiedMs(preferred?: number, fallback?: number) {
+  const normalizedPreferred = normalizeTimestamp(preferred)
+  if (typeof normalizedPreferred === 'number') {
+    return normalizedPreferred
+  }
+  const normalizedFallback = normalizeTimestamp(fallback)
+  if (typeof normalizedFallback === 'number') {
+    return normalizedFallback
+  }
+  return Date.now()
+}
+
+function normalizeTimestamp(value: number | undefined) {
+  if (typeof value !== 'number') return undefined
+  if (!Number.isFinite(value)) return undefined
+  const rounded = Math.round(value)
+  return Number.isFinite(rounded) ? rounded : undefined
 }
 
 function normalizeAbsolutePath(path: string) {

@@ -12,6 +12,7 @@ export interface SessionAssetInput {
   repoLabel?: string;
   repoMeta?: RepoMetadata;
   source: SessionAssetSource;
+  lastModifiedIso?: string;
 }
 
 export interface DiscoveredSessionAsset extends SessionAssetInput {
@@ -57,6 +58,8 @@ export interface SessionUploadView {
   repoLabel?: string;
   repoMeta?: RepoMetadata;
   source: SessionAssetSource;
+  lastModifiedMs?: number;
+  lastModifiedIso?: string;
 }
 
 export function mergeSessionAssets(...lists: DiscoveredSessionAsset[][]) {
@@ -74,16 +77,26 @@ export function sortSessionAssets(assets: DiscoveredSessionAsset[]) {
 }
 
 export function uploadRecordToAsset(record: SessionUploadView): DiscoveredSessionAsset {
+  const normalizedSortKey = normalizeSortKey(record.lastModifiedMs, record.storedAt);
   return createDiscoveredSessionAsset({
     path: `uploads/${record.originalName}`,
     url: record.url,
-    sortKey: Date.parse(record.storedAt),
+    sortKey: normalizedSortKey,
     size: record.size,
     tags: ['upload'],
     repoLabel: record.repoLabel,
     repoMeta: record.repoMeta,
     source: record.source,
+    lastModifiedIso: record.lastModifiedIso ?? (typeof normalizedSortKey === 'number' ? new Date(normalizedSortKey).toISOString() : undefined),
   });
+}
+
+function normalizeSortKey(lastModifiedMs: number | undefined, storedAt: string) {
+  if (typeof lastModifiedMs === 'number' && Number.isFinite(lastModifiedMs)) {
+    return lastModifiedMs;
+  }
+  const parsed = Date.parse(storedAt);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 export function createDiscoveredSessionAsset(asset: SessionAssetInput): DiscoveredSessionAsset {
