@@ -66,14 +66,16 @@ describe("SessionList", () => {
     expect(container.querySelectorAll("mark").length).toBeGreaterThan(0)
   })
 
-  it("applies size presets and highlights repo headers", async () => {
+  it("applies advanced size filters via the sheet", async () => {
     const user = userEvent.setup()
     render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
-    await user.click(screen.getByRole("button", { name: /Size: any/i }))
-    await user.click(screen.getByRole("menuitemcheckbox", { name: /> 1 MB/i }))
+    await user.click(screen.getByRole("button", { name: /Filters/i }))
+    const minInput = await screen.findByLabelText(/Minimum size/i, { selector: 'input' })
+    await user.clear(minInput)
+    await user.type(minInput, "1")
 
-    expect(screen.getByText(/Alpha/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Alpha/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/Beta/i)).not.toBeInTheDocument()
   })
 

@@ -1,18 +1,29 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { motion } from 'motion/react';
-import { ArrowDownUp, Copy, Search, SlidersHorizontal } from 'lucide-react';
+import { Copy, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { ShimmerButton } from '~/components/ui/shimmer-button';
 import { Loader } from '~/components/ui/loader';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
+import { Input } from '~/components/ui/input';
+import { InputGroup, InputGroupText } from '~/components/ui/input-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '~/components/ui/sheet';
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import type { RepoMetadata } from '~/lib/repo-metadata';
 import { cn } from '~/lib/utils';
@@ -61,17 +72,37 @@ const sessionCountIntensity = {
   high: 'bg-sky-100 text-sky-900 dark:bg-sky-500/20 dark:text-sky-50',
 } as const;
 
-const SIZE_PRESETS = {
-  any: { id: 'any', label: 'Size: any', minBytes: undefined },
-  'over-512kb': { id: 'over-512kb', label: '> 512 KB', minBytes: 512 * 1024 },
-  'over-1mb': { id: 'over-1mb', label: '> 1 MB', minBytes: 1024 * 1024 },
-  'over-10mb': { id: 'over-10mb', label: '> 10 MB', minBytes: 10 * 1024 * 1024 },
-} as const;
-
-type SizePresetId = keyof typeof SIZE_PRESETS;
 type SizeUnit = 'KB' | 'MB';
 type SortKey = 'timestamp' | 'size';
 type SortDirection = 'asc' | 'desc';
+
+interface SessionExplorerFilterState {
+  searchText: string;
+  sortKey: SortKey;
+  sortDir: SortDirection;
+  sizeMinValue: string;
+  sizeMinUnit: SizeUnit;
+  sizeMaxValue: string;
+  sizeMaxUnit: SizeUnit;
+  timestampFrom: string;
+  timestampTo: string;
+}
+
+const defaultFilterState: SessionExplorerFilterState = {
+  searchText: '',
+  sortKey: 'timestamp',
+  sortDir: 'desc',
+  sizeMinValue: '',
+  sizeMinUnit: 'MB',
+  sizeMaxValue: '',
+  sizeMaxUnit: 'MB',
+  timestampFrom: '',
+  timestampTo: '',
+};
+
+type FilterBadgeKey = 'size' | 'timestamp';
+
+const SIZE_UNITS: SizeUnit[] = ['KB', 'MB'];
 
 export function SessionList({
   sessionAssets,
@@ -82,39 +113,39 @@ export function SessionList({
   onSelectionChange,
   onAddSessionToChat,
 }: SessionListProps) {
-  const [searchText, setSearchText] = useState('');
-  const [sizePreset, setSizePreset] = useState<SizePresetId>('any');
-  const [manualMinValue, setManualMinValue] = useState('');
-  const [manualMaxValue, setManualMaxValue] = useState('');
-  const [manualMinUnit, setManualMinUnit] = useState<SizeUnit>('MB');
-  const [manualMaxUnit, setManualMaxUnit] = useState<SizeUnit>('MB');
-  const [sortKey, setSortKey] = useState<SortKey>('timestamp');
-  const [sortDir, setSortDir] = useState<SortDirection>('desc');
+  const [filters, setFilters] = useState<SessionExplorerFilterState>(defaultFilterState);
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
   const [loadingRepoId, setLoadingRepoId] = useState<string | null>(null);
-  const searchMatchers = useMemo(() => buildSearchMatchers(searchText), [searchText]);
+  const searchMatchers = useMemo(() => buildSearchMatchers(filters.searchText), [filters.searchText]);
   const filterLogRef = useRef<{ modelKey: string; count: number }>({ modelKey: '', count: sessionAssets.length });
   const viewModelLogRef = useRef<{ total: number; groups: number } | null>(null);
-
-  const manualMinBytes = toBytes(manualMinValue, manualMinUnit);
-  const manualMaxBytes = toBytes(manualMaxValue, manualMaxUnit);
-  const presetMinBytes = SIZE_PRESETS[sizePreset].minBytes;
-  const hasManualRange = manualMinBytes !== undefined || manualMaxBytes !== undefined;
-  const effectiveMinBytes = hasManualRange ? manualMinBytes : presetMinBytes;
-  const effectiveMaxBytes = hasManualRange ? manualMaxBytes : undefined;
+  const sizeMinBytes = toBytes(filters.sizeMinValue, filters.sizeMinUnit);
+  const sizeMaxBytes = toBytes(filters.sizeMaxValue, filters.sizeMaxUnit);
+  const timestampFromMs = toTimestampMs(filters.timestampFrom);
+  const timestampToMs = toTimestampMs(filters.timestampTo);
+  const { sortKey, sortDir } = filters;
+  const updateFilter = <K extends keyof SessionExplorerFilterState>(key: K, value: SessionExplorerFilterState[K]) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
 
   useEffect(() => {
-    if (
-      manualMinBytes !== undefined &&
-      manualMaxBytes !== undefined &&
-      manualMinBytes > manualMaxBytes
-    ) {
+    if (sizeMinBytes !== undefined && sizeMaxBytes !== undefined && sizeMinBytes > sizeMaxBytes) {
       logWarn('viewer.filters', 'Manual size range invalid', {
-        manualMinBytes,
-        manualMaxBytes,
+        sizeMinBytes,
+        sizeMaxBytes,
       });
     }
-  }, [manualMinBytes, manualMaxBytes]);
+  }, [sizeMinBytes, sizeMaxBytes]);
+
+  useEffect(() => {
+    if (timestampFromMs && timestampToMs && timestampFromMs > timestampToMs) {
+      logWarn('viewer.filters', 'Timestamp range invalid', {
+        timestampFromMs,
+        timestampToMs,
+      });
+    }
+  }, [timestampFromMs, timestampToMs]);
 
   const accessibleAssets = useMemo(
     () => sessionAssets.filter((asset) => typeof asset.url === 'string' && asset.url.includes('/api/uploads/')),
@@ -141,8 +172,10 @@ export function SessionList({
   }, [accessibleAssets.length, repositoryGroups]);
 
   const { groups: filteredGroups, filteredSessionCount } = useMemo(() => {
-    const min = typeof effectiveMinBytes === 'number' ? effectiveMinBytes : undefined;
-    const max = typeof effectiveMaxBytes === 'number' ? effectiveMaxBytes : undefined;
+    const min = typeof sizeMinBytes === 'number' ? sizeMinBytes : undefined;
+    const max = typeof sizeMaxBytes === 'number' ? sizeMaxBytes : undefined;
+    const from = typeof timestampFromMs === 'number' ? timestampFromMs : undefined;
+    const to = typeof timestampToMs === 'number' ? timestampToMs : undefined;
     const groups = repositoryGroups
       .map((group) => {
         const filteredBranches = group.branches
@@ -155,7 +188,11 @@ export function SessionList({
               const size = session.size ?? 0;
               const meetsMin = min === undefined || size >= min;
               const meetsMax = max === undefined || size <= max;
-              return meetsMin && meetsMax;
+              if (!meetsMin || !meetsMax) return false;
+              const sessionTimestamp = session.sortKey ?? 0;
+              const meetsFrom = from === undefined || sessionTimestamp >= from;
+              const meetsTo = to === undefined || sessionTimestamp <= to;
+              return meetsFrom && meetsTo;
             });
             if (!filteredSessions.length) return null;
             const sortedSessions = sortSessions(filteredSessions, sortKey, sortDir);
@@ -204,16 +241,14 @@ export function SessionList({
 
     const total = sortedGroups.reduce((count, group) => count + group.sessions.length, 0);
     return { groups: sortedGroups, filteredSessionCount: total };
-  }, [repositoryGroups, searchMatchers, effectiveMinBytes, effectiveMaxBytes, sortKey, sortDir]);
+  }, [repositoryGroups, searchMatchers, sizeMinBytes, sizeMaxBytes, sortKey, sortDir, timestampFromMs, timestampToMs]);
 
   useEffect(() => {
-    const filterModel = buildFilterModel({
-      searchText,
-      sizePreset,
-      manualMinBytes,
-      manualMaxBytes,
-      sortKey,
-      sortDir,
+    const filterModel = buildFilterModel(filters, {
+      sizeMinBytes,
+      sizeMaxBytes,
+      timestampFromMs,
+      timestampToMs,
     });
     const modelKey = JSON.stringify(filterModel);
     if (filterLogRef.current.modelKey === modelKey && filterLogRef.current.count === filteredSessionCount) {
@@ -226,7 +261,7 @@ export function SessionList({
       navigation: 'local-state',
     });
     filterLogRef.current = { modelKey, count: filteredSessionCount };
-  }, [filteredSessionCount, manualMaxBytes, manualMinBytes, searchText, sizePreset, sortDir, sortKey]);
+  }, [filteredSessionCount, filters, sizeMaxBytes, sizeMinBytes, timestampFromMs, timestampToMs]);
 
   useEffect(() => {
     if (!selectedSessionPath) return;
@@ -238,13 +273,11 @@ export function SessionList({
       if (existsInMemory) {
         logDebug('viewer.explorer', 'Selected session hidden by filters', {
           selectedSessionPath,
-          filterModel: buildFilterModel({
-            searchText,
-            sizePreset,
-            manualMinBytes,
-            manualMaxBytes,
-            sortKey,
-            sortDir,
+          filterModel: buildFilterModel(filters, {
+            sizeMinBytes,
+            sizeMaxBytes,
+            timestampFromMs,
+            timestampToMs,
           }),
         });
         onSelectionChange?.(null);
@@ -252,15 +285,14 @@ export function SessionList({
     }
   }, [
     filteredGroups,
-    manualMaxBytes,
-    manualMinBytes,
+    sizeMaxBytes,
+    sizeMinBytes,
     onSelectionChange,
-    searchText,
+    filters,
     selectedSessionPath,
     accessibleAssets,
-    sizePreset,
-    sortDir,
-    sortKey,
+    timestampFromMs,
+    timestampToMs,
   ]);
 
   useEffect(() => {
@@ -270,13 +302,11 @@ export function SessionList({
 
   useEffect(() => {
     if (accessibleAssets.length > 0 && filteredSessionCount === 0) {
-      const filterModel = buildFilterModel({
-        searchText,
-        sizePreset,
-        manualMinBytes,
-        manualMaxBytes,
-        sortKey,
-        sortDir,
+      const filterModel = buildFilterModel(filters, {
+        sizeMinBytes,
+        sizeMaxBytes,
+        timestampFromMs,
+        timestampToMs,
       });
       logError('viewer.explorer', 'Filters produced zero sessions while memory still populated', {
         filterModel,
@@ -284,7 +314,7 @@ export function SessionList({
         groupSamples: repositoryGroups.slice(0, 5).map((group) => group.id),
       });
     }
-  }, [accessibleAssets.length, filteredSessionCount, manualMaxBytes, manualMinBytes, repositoryGroups, searchText, sizePreset, sortDir, sortKey]);
+  }, [accessibleAssets.length, filteredSessionCount, filters, repositoryGroups, sizeMaxBytes, sizeMinBytes, timestampFromMs, timestampToMs]);
 
   const toggleRepo = (group: RepositoryGroup) => {
     const isExpanded = expandedGroupIds.includes(group.id);
@@ -309,139 +339,107 @@ export function SessionList({
   };
 
   const resetFilters = () => {
-    setSearchText('');
-    setSizePreset('any');
-    setManualMinValue('');
-    setManualMaxValue('');
-    setSortKey('timestamp');
-    setSortDir('desc');
+    setFilters({ ...defaultFilterState });
     setExpandedGroupIds([]);
+    setIsFilterSheetOpen(false);
     onSelectionChange?.(null);
+  };
+
+  const activeBadges = useMemo(() => buildActiveFilterBadges(filters), [filters]);
+  const handleBadgeClear = (badgeKey: FilterBadgeKey) => {
+    setFilters((prev) => {
+      if (badgeKey === 'size') {
+        return { ...prev, sizeMinValue: '', sizeMaxValue: '' };
+      }
+      if (badgeKey === 'timestamp') {
+        return { ...prev, timestampFrom: '', timestampTo: '' };
+      }
+      return prev;
+    });
   };
 
   const hasResults = filteredGroups.length > 0;
   const datasetEmpty = accessibleAssets.length === 0;
 
   return (
-    <section className="space-y-4 rounded-xl border border-border/80 bg-background/50 p-4 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex-1 space-y-2">
+    <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+      <section className="space-y-4 rounded-xl border border-border/80 bg-background/50 p-4 shadow-sm">
+        <div className="space-y-2">
           <p className="text-sm font-semibold">Session filters</p>
           <p className="text-xs text-muted-foreground">
             Showing {formatCount(filteredSessionCount)} of {formatCount(accessibleAssets.length)} sessions
           </p>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2 top-2.5 size-4 text-muted-foreground" />
-            <input
-              type="search"
-              aria-label="Search sessions"
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-              placeholder="Search repo, branch, file label, tag, or year"
-              className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
+        <div className="space-y-2">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex-1">
+              <InputGroup>
+                <InputGroupText>
+                  <Search className="size-4" />
+                </InputGroupText>
+                <Input
+                  type="search"
+                  aria-label="Search sessions"
+                  value={filters.searchText}
+                  onChange={(event) => updateFilter('searchText', event.target.value)}
+                  placeholder="Search repo, branch, file label, tag, or year"
+                  className="border-0 focus-visible:ring-0"
+                />
+              </InputGroup>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Select value={filters.sortKey} onValueChange={(value: SortKey) => updateFilter('sortKey', value)}>
+                <SelectTrigger aria-label="Sort by" className="w-32">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="timestamp">Timestamp</SelectItem>
+                  <SelectItem value="size">Size</SelectItem>
+                </SelectContent>
+              </Select>
+              <ToggleGroup
+                type="single"
+                value={filters.sortDir}
+                onValueChange={(value) => value && updateFilter('sortDir', value as SortDirection)}
+                aria-label="Sort direction"
+                className="flex"
+              >
+                <ToggleGroupItem value="asc" aria-label="Sort ascending" className="text-xs">
+                  ↑ ASC
+                </ToggleGroupItem>
+                <ToggleGroupItem value="desc" aria-label="Sort descending" className="text-xs">
+                  ↓ DESC
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <Button type="button" className="gap-2" onClick={() => setIsFilterSheetOpen(true)}>
                 <SlidersHorizontal className="size-4" />
-                {SIZE_PRESETS[sizePreset].label}
+                Filters
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64">
-              <DropdownMenuLabel>Size presets</DropdownMenuLabel>
-              {Object.values(SIZE_PRESETS).map((preset) => (
-                <DropdownMenuCheckboxItem
-                  key={preset.id}
-                  checked={sizePreset === preset.id}
-                  onCheckedChange={() => setSizePreset(preset.id)}
-                >
-                  {preset.label}
-                </DropdownMenuCheckboxItem>
+              <Button type="button" variant="ghost" onClick={resetFilters}>
+                Reset
+              </Button>
+            </div>
+          </div>
+          {activeBadges.length ? (
+            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible" data-testid="active-filter-badges">
+              {activeBadges.map((badge) => (
+                <Badge key={badge.key} variant="secondary" className="flex items-center gap-2 whitespace-nowrap">
+                  {badge.label}
+                  <button
+                    type="button"
+                    aria-label={`Clear ${badge.description}`}
+                    onClick={() => handleBadgeClear(badge.key)}
+                    className="rounded-full p-0.5 text-muted-foreground transition hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </Badge>
               ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <div className="flex flex-col gap-2 rounded-md border border-border/60 px-3 py-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <span>Min</span>
-              <input
-                type="number"
-                min={0}
-                value={manualMinValue}
-                onChange={(event) => setManualMinValue(event.target.value)}
-                aria-label="Minimum size"
-                className="h-7 w-16 rounded border border-border/60 bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-              <select
-                value={manualMinUnit}
-                onChange={(event) => setManualMinUnit(event.target.value as SizeUnit)}
-                className="h-7 rounded border border-border/60 bg-background px-1 text-xs"
-              >
-                <option value="KB">KB</option>
-                <option value="MB">MB</option>
-              </select>
             </div>
-            <div className="flex items-center gap-2">
-              <span>Max</span>
-              <input
-                type="number"
-                min={0}
-                value={manualMaxValue}
-                onChange={(event) => setManualMaxValue(event.target.value)}
-                aria-label="Maximum size"
-                className="h-7 w-16 rounded border border-border/60 bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-              <select
-                value={manualMaxUnit}
-                onChange={(event) => setManualMaxUnit(event.target.value as SizeUnit)}
-                className="h-7 rounded border border-border/60 bg-background px-1 text-xs"
-              >
-                <option value="KB">KB</option>
-                <option value="MB">MB</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant={sortKey === 'timestamp' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setSortKey('timestamp')}
-            >
-              Timestamp
-            </Button>
-            <Button
-              type="button"
-              variant={sortKey === 'size' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setSortKey('size')}
-            >
-              Size
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-              className="flex items-center gap-1"
-            >
-              <ArrowDownUp className="size-4" />
-              {sortDir === 'asc' ? 'ASC' : 'DESC'}
-            </Button>
-          </div>
-          <button
-            type="button"
-            className="text-xs font-semibold text-muted-foreground underline-offset-4 hover:underline"
-            onClick={resetFilters}
-          >
-            Reset
-          </button>
+          ) : null}
         </div>
-      </div>
 
-      <div className="space-y-3" aria-live="polite">
+        <div className="space-y-3" aria-live="polite">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Session repositories
@@ -568,7 +566,112 @@ export function SessionList({
           })
         )}
       </div>
-    </section>
+      </section>
+      <SheetContent side="right" className="w-full space-y-6 overflow-y-auto sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>Advanced filters</SheetTitle>
+          <SheetDescription>Configure the v1 advanced filters (size range & timestamp range).</SheetDescription>
+        </SheetHeader>
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <p className="text-sm font-semibold">Size range</p>
+            <p className="text-xs text-muted-foreground">Limit sessions by minimum and maximum file size.</p>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground" htmlFor="filter-size-min">
+                  Minimum size
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="filter-size-min"
+                    type="number"
+                    min={0}
+                    value={filters.sizeMinValue}
+                    onChange={(event) => updateFilter('sizeMinValue', event.target.value)}
+                    placeholder="e.g. 10"
+                  />
+                  <Select value={filters.sizeMinUnit} onValueChange={(value: SizeUnit) => updateFilter('sizeMinUnit', value)}>
+                    <SelectTrigger aria-label="Minimum size unit" className="w-[90px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      {SIZE_UNITS.map((unit) => (
+                        <SelectItem key={unit} value={unit}>
+                          {unit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground" htmlFor="filter-size-max">
+                  Maximum size
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="filter-size-max"
+                    type="number"
+                    min={0}
+                    value={filters.sizeMaxValue}
+                    onChange={(event) => updateFilter('sizeMaxValue', event.target.value)}
+                    placeholder="e.g. 100"
+                  />
+                  <Select value={filters.sizeMaxUnit} onValueChange={(value: SizeUnit) => updateFilter('sizeMaxUnit', value)}>
+                    <SelectTrigger aria-label="Maximum size unit" className="w-[90px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      {SIZE_UNITS.map((unit) => (
+                        <SelectItem key={unit} value={unit}>
+                          {unit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <p className="text-sm font-semibold">Timestamp range</p>
+            <p className="text-xs text-muted-foreground">Filter sessions by when they were last updated.</p>
+            <div className="grid gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground" htmlFor="filter-ts-from">
+                  Start (UTC)
+                </label>
+                <Input
+                  id="filter-ts-from"
+                  type="datetime-local"
+                  value={filters.timestampFrom}
+                  onChange={(event) => updateFilter('timestampFrom', event.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground" htmlFor="filter-ts-to">
+                  End (UTC)
+                </label>
+                <Input
+                  id="filter-ts-to"
+                  type="datetime-local"
+                  value={filters.timestampTo}
+                  onChange={(event) => updateFilter('timestampTo', event.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <SheetFooter>
+          <Button variant="ghost" onClick={resetFilters}>
+            Reset all
+          </Button>
+          <Button variant="secondary" onClick={() => setIsFilterSheetOpen(false)}>
+            Close
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -698,31 +801,42 @@ function toBytes(value: string, unit: SizeUnit) {
   return parsed * multiplier;
 }
 
-function buildFilterModel({
-  searchText,
-  sizePreset,
-  manualMinBytes,
-  manualMaxBytes,
-  sortKey,
-  sortDir,
-}: {
-  searchText: string;
-  sizePreset: SizePresetId;
-  manualMinBytes?: number;
-  manualMaxBytes?: number;
-  sortKey: SortKey;
-  sortDir: SortDirection;
-}) {
+function toTimestampMs(value: string) {
+  if (!value.trim()) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function buildFilterModel(
+  state: SessionExplorerFilterState,
+  derived: { sizeMinBytes?: number; sizeMaxBytes?: number; timestampFromMs?: number; timestampToMs?: number },
+) {
   return {
-    textQuery: searchText.trim() || null,
-    sizePreset,
-    sizeMinBytes: manualMinBytes ?? SIZE_PRESETS[sizePreset].minBytes ?? null,
-    sizeMaxBytes: manualMaxBytes ?? null,
-    sortKey,
-    sortOrder: sortDir,
+    textQuery: state.searchText.trim() || null,
+    sizeMinBytes: derived.sizeMinBytes ?? null,
+    sizeMaxBytes: derived.sizeMaxBytes ?? null,
+    timestampFrom: derived.timestampFromMs ?? null,
+    timestampTo: derived.timestampToMs ?? null,
+    sortKey: state.sortKey,
+    sortOrder: state.sortDir,
     repoFilter: null,
     branchFilter: null,
   };
+}
+
+function buildActiveFilterBadges(state: SessionExplorerFilterState) {
+  const badges: Array<{ key: FilterBadgeKey; label: string; description: string }> = [];
+  if (state.sizeMinValue.trim() || state.sizeMaxValue.trim()) {
+    const minLabel = state.sizeMinValue.trim() ? `${state.sizeMinValue} ${state.sizeMinUnit}` : '0';
+    const maxLabel = state.sizeMaxValue.trim() ? `${state.sizeMaxValue} ${state.sizeMaxUnit}` : '∞';
+    badges.push({ key: 'size', label: `Size: ${minLabel} – ${maxLabel}`, description: 'size filter' });
+  }
+  if (state.timestampFrom.trim() || state.timestampTo.trim()) {
+    const fromLabel = state.timestampFrom ? formatDateTime(state.timestampFrom, { fallback: 'Any' }) : 'Any';
+    const toLabel = state.timestampTo ? formatDateTime(state.timestampTo, { fallback: 'Any' }) : 'Any';
+    badges.push({ key: 'timestamp', label: `Updated: ${fromLabel} → ${toLabel}`, description: 'timestamp filter' });
+  }
+  return badges;
 }
 
 function slugify(value: string) {

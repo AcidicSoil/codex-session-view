@@ -10,6 +10,10 @@
 
 ## component candidates
 
+[syntax highlighted code](https://www.shadcn.io/ai/code-block?utm_source=chatgpt.com)
+
+[code block](https://www.shadcn.io/components/code/code-block?utm_source=chatgpt.com)
+
 ? maybe
 [session-explorer](https://magicui.design/docs/components/pulsating-button)
 
@@ -62,6 +66,33 @@ Input (+ Input Group for the search icon), Select for “Sort by…”, Toggle G
 * Button: [https://ui.shadcn.com/docs/components/button](https://ui.shadcn.com/docs/components/button)
 * Sheet: [https://ui.shadcn.com/docs/components/sheet](https://ui.shadcn.com/docs/components/sheet)
 * Badge: [https://ui.shadcn.com/docs/components/badge](https://ui.shadcn.com/docs/components/badge)
+
+
+```
+
+---
+
+## 4
+
+```md
+
+Components index: https://ui.shadcn.com/docs/components
+
+Card:        https://ui.shadcn.com/docs/components/card
+Resizable:   https://ui.shadcn.com/docs/components/resizable
+ScrollArea:  https://ui.shadcn.com/docs/components/scroll-area
+
+Input:       https://ui.shadcn.com/docs/components/input
+Select:      https://ui.shadcn.com/docs/components/select
+Popover:     https://ui.shadcn.com/docs/components/popover
+Command:     https://ui.shadcn.com/docs/components/command
+Tabs:        https://ui.shadcn.com/docs/components/tabs
+
+Accordion:   https://ui.shadcn.com/docs/components/accordion
+Collapsible: https://ui.shadcn.com/docs/components/collapsible
+
+Badge:       https://ui.shadcn.com/docs/components/badge
+Separator:   https://ui.shadcn.com/docs/components/separator
 
 
 ```
