@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { motion } from 'motion/react';
-import { Copy, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Copy, Maximize2, Minimize2, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { ShimmerButton } from '~/components/ui/shimmer-button';
 import { Loader } from '~/components/ui/loader';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
@@ -24,6 +25,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '~/components/ui/sheet';
+import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import type { RepoMetadata } from '~/lib/repo-metadata';
 import { cn } from '~/lib/utils';
@@ -34,6 +36,19 @@ import { logDebug, logError, logInfo, logWarn } from '~/lib/logger';
 import { toast } from 'sonner';
 import { HighlightedText } from '~/components/ui/highlighted-text';
 import { buildSearchMatchers, matchesSearchMatchers, type SearchMatcher } from '~/utils/search';
+import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '~/components/ui/command';
+import { ScrollArea } from '~/components/ui/scroll-area';
+import { Separator } from '~/components/ui/separator';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '~/components/ui/accordion';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '~/components/ui/resizable';
 
 interface BranchGroup {
   id: string;
@@ -104,6 +119,8 @@ type FilterBadgeKey = 'size' | 'timestamp';
 
 const SIZE_UNITS: SizeUnit[] = ['KB', 'MB'];
 
+type SessionPreset = 'all' | 'recent' | 'heavy';
+
 export function SessionList({
   sessionAssets,
   snapshotTimestamp,
@@ -117,7 +134,58 @@ export function SessionList({
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
   const [loadingRepoId, setLoadingRepoId] = useState<string | null>(null);
+  const [sessionPreset, setSessionPreset] = useState<SessionPreset>('all');
+  const [isQuickFilterOpen, setIsQuickFilterOpen] = useState(false);
+  const [isExplorerExpanded, setIsExplorerExpanded] = useState(false);
   const searchMatchers = useMemo(() => buildSearchMatchers(filters.searchText), [filters.searchText]);
+  const quickFilterOptions = useMemo(
+    () => [
+      {
+        key: 'week',
+        label: 'Updated last 7 days',
+        description: 'Shows sessions refreshed this week',
+        apply: () => {
+          const fromIso = toLocalDateTimeInput(snapshotTimestamp - 1000 * 60 * 60 * 24 * 7);
+          setFilters((prev) => ({
+            ...prev,
+            timestampFrom: fromIso,
+            timestampTo: '',
+          }));
+          setSessionPreset('recent');
+        },
+      },
+      {
+        key: 'compact',
+        label: 'Smaller than 5 MB',
+        description: 'Useful when scanning quick traces',
+        apply: () => {
+          setFilters((prev) => ({
+            ...prev,
+            sizeMinValue: '',
+            sizeMaxValue: '5',
+            sizeMaxUnit: 'MB',
+          }));
+          setSessionPreset('all');
+        },
+      },
+      {
+        key: 'clear',
+        label: 'Clear quick filters',
+        description: 'Reset preset overrides',
+        apply: () => {
+          setFilters((prev) => ({
+            ...prev,
+            sizeMinValue: '',
+            sizeMaxValue: '',
+            timestampFrom: '',
+            timestampTo: '',
+          }));
+          setSessionPreset('all');
+        },
+      },
+    ],
+    [snapshotTimestamp],
+  );
   const filterLogRef = useRef<{ modelKey: string; count: number }>({ modelKey: '', count: sessionAssets.length });
   const viewModelLogRef = useRef<{ total: number; groups: number } | null>(null);
   const sizeMinBytes = toBytes(filters.sizeMinValue, filters.sizeMinUnit);
@@ -127,6 +195,36 @@ export function SessionList({
   const { sortKey, sortDir } = filters;
   const updateFilter = <K extends keyof SessionExplorerFilterState>(key: K, value: SessionExplorerFilterState[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+  const applyPreset = (value: SessionPreset) => {
+    setSessionPreset(value);
+    if (value === 'all') {
+      setFilters((prev) => ({
+        ...prev,
+        timestampFrom: '',
+        timestampTo: '',
+        sizeMinValue: '',
+        sizeMaxValue: '',
+      }));
+      return;
+    }
+    if (value === 'recent') {
+      const fromIso = toLocalDateTimeInput(snapshotTimestamp - 1000 * 60 * 60 * 24 * 2);
+      setFilters((prev) => ({
+        ...prev,
+        timestampFrom: fromIso,
+        timestampTo: '',
+      }));
+      return;
+    }
+    if (value === 'heavy') {
+      setFilters((prev) => ({
+        ...prev,
+        sizeMinValue: '25',
+        sizeMinUnit: 'MB',
+        sizeMaxValue: '',
+      }));
+    }
   };
 
   useEffect(() => {
@@ -316,25 +414,40 @@ export function SessionList({
     }
   }, [accessibleAssets.length, filteredSessionCount, filters, repositoryGroups, sizeMaxBytes, sizeMinBytes, timestampFromMs, timestampToMs]);
 
-  const toggleRepo = (group: RepositoryGroup) => {
-    const isExpanded = expandedGroupIds.includes(group.id);
-    const next = isExpanded
-      ? expandedGroupIds.filter((id) => id !== group.id)
-      : [...expandedGroupIds, group.id];
-    setExpandedGroupIds(next);
+  const handleRepoToggle = (group: RepositoryGroup, shouldExpand: boolean) => {
     logDebug('viewer.explorer', 'Toggled repository group', {
       groupId: group.id,
       repoName: group.repoName,
       branchCount: group.branchCount,
-      previousOpenState: isExpanded,
-      nextOpenState: !isExpanded,
+      previousOpenState: !shouldExpand,
+      nextOpenState: shouldExpand,
     });
-    if (!isExpanded) {
+    if (shouldExpand) {
       setLoadingRepoId(group.id);
       const simulatedDelay = group.sessions.length > 20 ? 400 : group.sessions.length > 8 ? 260 : 160;
       setTimeout(() => {
         setLoadingRepoId((current) => (current === group.id ? null : current));
       }, simulatedDelay);
+    } else {
+      setLoadingRepoId((current) => (current === group.id ? null : current));
+    }
+  };
+
+  const handleAccordionChange = (nextValue: string[]) => {
+    setExpandedGroupIds(nextValue);
+    const added = nextValue.find((id) => !expandedGroupIds.includes(id));
+    if (added) {
+      const target = filteredGroups.find((group) => group.id === added);
+      if (target) {
+        handleRepoToggle(target, true);
+      }
+    }
+    const removed = expandedGroupIds.find((id) => !nextValue.includes(id));
+    if (removed) {
+      const target = filteredGroups.find((group) => group.id === removed);
+      if (target) {
+        handleRepoToggle(target, false);
+      }
     }
   };
 
@@ -342,6 +455,7 @@ export function SessionList({
     setFilters({ ...defaultFilterState });
     setExpandedGroupIds([]);
     setIsFilterSheetOpen(false);
+    setSessionPreset('all');
     onSelectionChange?.(null);
   };
 
@@ -363,210 +477,289 @@ export function SessionList({
 
   return (
     <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
-      <section className="space-y-4 rounded-xl border border-border/80 bg-background/50 p-4 shadow-sm">
-        <div className="space-y-2">
-          <p className="text-sm font-semibold">Session filters</p>
-          <p className="text-xs text-muted-foreground">
-            Showing {formatCount(filteredSessionCount)} of {formatCount(accessibleAssets.length)} sessions
-          </p>
-        </div>
-        <div className="space-y-2">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex-1">
-              <InputGroup>
-                <InputGroupText>
-                  <Search className="size-4" />
-                </InputGroupText>
-                <Input
-                  type="search"
-                  aria-label="Search sessions"
-                  value={filters.searchText}
-                  onChange={(event) => updateFilter('searchText', event.target.value)}
-                  placeholder="Search repo, branch, file label, tag, or year"
-                  className="border-0 focus-visible:ring-0"
-                />
-              </InputGroup>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Select value={filters.sortKey} onValueChange={(value: SortKey) => updateFilter('sortKey', value)}>
-                <SelectTrigger aria-label="Sort by" className="w-32">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  <SelectItem value="timestamp">Timestamp</SelectItem>
-                  <SelectItem value="size">Size</SelectItem>
-                </SelectContent>
-              </Select>
-              <ToggleGroup
-                type="single"
-                value={filters.sortDir}
-                onValueChange={(value) => value && updateFilter('sortDir', value as SortDirection)}
-                aria-label="Sort direction"
-                className="flex"
-              >
-                <ToggleGroupItem value="asc" aria-label="Sort ascending" className="text-xs">
-                  ↑ ASC
-                </ToggleGroupItem>
-                <ToggleGroupItem value="desc" aria-label="Sort descending" className="text-xs">
-                  ↓ DESC
-                </ToggleGroupItem>
-              </ToggleGroup>
-              <Button type="button" className="gap-2" onClick={() => setIsFilterSheetOpen(true)}>
-                <SlidersHorizontal className="size-4" />
-                Filters
-              </Button>
-              <Button type="button" variant="ghost" onClick={resetFilters}>
-                Reset
-              </Button>
-            </div>
-          </div>
-          {activeBadges.length ? (
-            <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible" data-testid="active-filter-badges">
-              {activeBadges.map((badge) => (
-                <Badge key={badge.key} variant="secondary" className="flex items-center gap-2 whitespace-nowrap">
-                  {badge.label}
-                  <button
-                    type="button"
-                    aria-label={`Clear ${badge.description}`}
-                    onClick={() => handleBadgeClear(badge.key)}
-                    className="rounded-full p-0.5 text-muted-foreground transition hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="space-y-3" aria-live="polite">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Session repositories
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {formatCount(filteredGroups.length)} grouped results
-          </p>
-        </div>
-        {!hasResults ? (
-          <div className="rounded-lg border border-dashed border-border p-6 text-center">
-            <p className="text-sm font-semibold">
-              {datasetEmpty ? 'No session logs discovered yet.' : 'No repositories match the selected filters.'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {datasetEmpty
-                ? 'Drop JSONL exports or point the viewer to a sessions directory to populate this view.'
-                : 'Adjust or clear filters to explore all session logs.'}
-            </p>
-          </div>
-        ) : (
-          filteredGroups.map((repo) => {
-            const isExpanded = expandedGroupIds.includes(repo.id);
-            const intentClass = getSessionChipIntent(repo.sessions.length);
-            const sectionId = `repo-${repo.id}`;
-            return (
-              <article
-                key={repo.id}
-                className="rounded-2xl border border-border/80 bg-muted/5 p-4 transition hover:border-foreground/40"
-              >
-                <button
-                  type="button"
-                  aria-expanded={isExpanded}
-                  aria-controls={`${sectionId}-sessions`}
-                  aria-label={`Toggle ${repo.label} repository`}
-                  onClick={() => toggleRepo(repo)}
-                  className={cn(
-                    'flex w-full flex-col gap-3 rounded-xl border border-transparent px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center sm:justify-between',
-                    intentClass,
-                    isExpanded && 'ring-2 ring-offset-1 ring-offset-background'
-                  )}
-                >
+      <div className="w-full">
+        <Card
+          className={cn(
+            'gap-0 overflow-hidden p-0 transition-[height] duration-300',
+            isExplorerExpanded ? 'min-h-[520px] h-[80vh] max-h-[95vh]' : 'min-h-[420px] h-[65vh] max-h-[80vh]',
+          )}
+        >
+          <ResizablePanelGroup direction="vertical" className="flex h-full flex-col">
+            <ResizablePanel defaultSize={40} minSize={30} maxSize={50} className="overflow-y-auto">
+              <CardHeader className="space-y-4 border-b border-border/80 px-6 py-5">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg font-semibold">Session explorer</CardTitle>
+                    <CardDescription>
+                      Discover JSONL session logs grouped by repository and branch.
+                    </CardDescription>
+                  </div>
+                  <CardAction className="flex flex-col items-end gap-2">
+                    <Badge variant="secondary" className="text-[10px] font-semibold uppercase tracking-wide">
+                      {formatCount(filteredSessionCount)} / {formatCount(accessibleAssets.length)} sessions
+                    </Badge>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="gap-2 text-[12px]"
+                      onClick={() => setIsExplorerExpanded((prev) => !prev)}
+                    >
+                      {isExplorerExpanded ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+                      {isExplorerExpanded ? 'Compact view' : 'Expand view'}
+                    </Button>
+                  </CardAction>
+                </div>
+                <Tabs value={sessionPreset} onValueChange={(value) => applyPreset(value as SessionPreset)} className="w-full">
+                  <TabsList>
+                    <TabsTrigger value="all">All</TabsTrigger>
+                    <TabsTrigger value="recent">Recent</TabsTrigger>
+                    <TabsTrigger value="heavy">Large</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex-1">
+                    <InputGroup>
+                      <InputGroupText>
+                        <Search className="size-4" />
+                      </InputGroupText>
+                      <Input
+                        type="search"
+                        aria-label="Search sessions"
+                        value={filters.searchText}
+                        onChange={(event) => updateFilter('searchText', event.target.value)}
+                        placeholder="Search repo, branch, file label, tag, or year"
+                        className="border-0 focus-visible:ring-0"
+                      />
+                    </InputGroup>
+                  </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge
-                          variant="outline"
-                          className="cursor-default text-xs font-semibold uppercase tracking-wide"
+                    <Select value={filters.sortKey} onValueChange={(value: SortKey) => updateFilter('sortKey', value)}>
+                      <SelectTrigger aria-label="Sort by" className="w-32">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent align="end">
+                        <SelectItem value="timestamp">Timestamp</SelectItem>
+                        <SelectItem value="size">Size</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <ToggleGroup
+                      type="single"
+                      value={filters.sortDir}
+                      onValueChange={(value) => value && updateFilter('sortDir', value as SortDirection)}
+                      aria-label="Sort direction"
+                      className="flex"
+                    >
+                      <ToggleGroupItem value="asc" aria-label="Sort ascending" className="text-xs">
+                        ↑ ASC
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="desc" aria-label="Sort descending" className="text-xs">
+                        ↓ DESC
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                    <Popover open={isQuickFilterOpen} onOpenChange={setIsQuickFilterOpen}>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" className="gap-2">
+                          <SlidersHorizontal className="size-4" />
+                          Quick filters
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-72 p-0">
+                        <Command>
+                          <CommandInput placeholder="Search presets..." />
+                          <CommandList>
+                            <CommandEmpty>No presets available.</CommandEmpty>
+                            <CommandGroup heading="Presets">
+                              {quickFilterOptions.map((option) => (
+                                <CommandItem
+                                  key={option.key}
+                                  value={option.key}
+                                  onSelect={() => {
+                                    option.apply();
+                                    setIsQuickFilterOpen(false);
+                                  }}
+                                >
+                                  <div className="space-y-0.5">
+                                    <p className="text-sm font-medium">{option.label}</p>
+                                    <p className="text-xs text-muted-foreground">{option.description}</p>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <Button type="button" variant="secondary" className="gap-2" onClick={() => setIsFilterSheetOpen(true)}>
+                      Advanced
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={resetFilters}>
+                      Reset
+                    </Button>
+                  </div>
+                </div>
+                {activeBadges.length ? (
+                  <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible" data-testid="active-filter-badges">
+                    {activeBadges.map((badge) => (
+                      <Badge key={badge.key} variant="secondary" className="flex items-center gap-2 whitespace-nowrap">
+                        {badge.label}
+                        <button
+                          type="button"
+                          aria-label={`Clear ${badge.description}`}
+                          onClick={() => handleBadgeClear(badge.key)}
+                          className="rounded-full p-0.5 text-muted-foreground transition hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
-                          <HighlightedText text={repo.label} matchers={searchMatchers} />
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <HighlightedText as="p" className="text-xs font-semibold" text={repo.label} matchers={searchMatchers} />
-                        <p className="text-xs opacity-80">
-                          Repo:{' '}
-                          <HighlightedText text={repo.repoName} matchers={searchMatchers} />
-                        </p>
-                        <p className="text-xs opacity-80">
-                          Branches:{' '}
-                          <HighlightedText
-                            text={`${describeBranches(repo.branches)} (${repo.branchCount}${repo.hasUnknownBranch ? '*' : ''})`}
-                            matchers={searchMatchers}
-                          />
-                        </p>
-                        <p className="text-xs opacity-80">Total size: {formatBytes(repo.totalSize)}</p>
-                        <p className="text-xs opacity-80">Last updated: {formatDate(repo.lastUpdated)}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <span className="text-xs font-semibold">
-                      {formatCount(repo.sessions.length)} {repo.sessions.length === 1 ? 'session' : 'sessions'}
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-border/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Branches {formatCount(repo.branchCount)}
-                      {repo.hasUnknownBranch ? '*' : ''}
-                    </span>
-                    <span className="text-[10px] uppercase tracking-wide">
-                      {isExpanded ? 'Hide' : 'Expand'}
-                    </span>
-                  </div>
-                  <div className="text-right text-xs text-muted-foreground">
-                    <p>{formatBytes(repo.totalSize)}</p>
-                    <p>Updated {formatRelativeTime(repo.lastUpdated, snapshotTimestamp)}</p>
-                  </div>
-                </button>
-
-                {isExpanded ? (
-                  <div className="mt-3 space-y-4" id={`${sectionId}-sessions`}>
-                    {loadingRepoId === repo.id ? (
-                      <div className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-4 text-xs text-muted-foreground">
-                        <Loader className="size-4" aria-label="Loading sessions" />
-                        Preparing session list…
-                      </div>
-                    ) : (
-                      repo.branches.map((branch) => (
-                        <div key={branch.id} className="space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide">
-                          Branch{' '}
-                          <HighlightedText text={branch.name} matchers={searchMatchers} />
-                        </p>
-                        <span className="text-xs text-muted-foreground">
-                          {formatCount(branch.sessions.length)} {branch.sessions.length === 1 ? 'session' : 'sessions'}
-                        </span>
-                      </div>
-                          <SessionRepoVirtualList
-                            sessions={branch.sessions}
-                            snapshotTimestamp={snapshotTimestamp}
-                            onSessionOpen={(session) => {
-                              onSelectionChange?.(session.path);
-                              return onSessionOpen?.(session);
-                            }}
-                            loadingSessionPath={loadingSessionPath}
-                            selectedSessionPath={selectedSessionPath}
-                            onAddSessionToChat={onAddSessionToChat}
-                            searchMatchers={searchMatchers}
-                          />
-                        </div>
-                      ))
-                    )}
+                          <X className="size-3" />
+                        </button>
+                      </Badge>
+                    ))}
                   </div>
                 ) : null}
-              </article>
-            );
-          })
-        )}
+              </CardHeader>
+            </ResizablePanel>
+            <ResizableHandle className="mx-6 my-1 h-2 rounded-full bg-border/70" />
+            <ResizablePanel defaultSize={60} minSize={40} className="overflow-hidden">
+              <CardContent className="flex h-full flex-col overflow-hidden px-0">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Session repositories
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatCount(filteredGroups.length)} grouped results
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Snapshot {formatDateTime(snapshotTimestamp, { fallback: 'N/A' })}
+                  </Badge>
+                </div>
+                <Separator className="mx-6 my-3" />
+                <ScrollArea className="flex-1 px-6 pb-6">
+                  <div className="space-y-4 pr-2" aria-live="polite">
+                    {!hasResults ? (
+                      <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 p-6 text-center">
+                        <p className="text-sm font-semibold">
+                          {datasetEmpty ? 'No session logs discovered yet.' : 'No repositories match the selected filters.'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {datasetEmpty
+                            ? 'Drop JSONL exports or point the viewer to a sessions directory to populate this view.'
+                            : 'Adjust or clear filters to explore all session logs.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <Accordion
+                        type="multiple"
+                        value={expandedGroupIds}
+                        onValueChange={(value) => handleAccordionChange(Array.isArray(value) ? value : [value])}
+                        className="space-y-4"
+                      >
+                        {filteredGroups.map((repo, index) => {
+                          const intentClass = getSessionChipIntent(repo.sessions.length);
+                          return (
+                            <div key={repo.id}>
+                              <AccordionItem value={repo.id} className="border-0">
+                                <AccordionTrigger
+                                  aria-label={`Toggle ${repo.label} repository`}
+                                  className={cn(
+                                    'rounded-2xl border border-transparent px-4 py-3 text-left transition-colors hover:no-underline focus-visible:ring-2 focus-visible:ring-ring',
+                                    intentClass,
+                                    'data-[state=open]:shadow-sm',
+                                  )}
+                                >
+                                  <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge
+                                            variant="outline"
+                                            className="cursor-default text-xs font-semibold uppercase tracking-wide"
+                                          >
+                                            <HighlightedText text={repo.label} matchers={searchMatchers} />
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <HighlightedText as="p" className="text-xs font-semibold" text={repo.label} matchers={searchMatchers} />
+                                          <p className="text-xs opacity-80">
+                                            Repo: <HighlightedText text={repo.repoName} matchers={searchMatchers} />
+                                          </p>
+                                          <p className="text-xs opacity-80">
+                                            Branches:{' '}
+                                            <HighlightedText
+                                              text={`${describeBranches(repo.branches)} (${repo.branchCount}${repo.hasUnknownBranch ? '*' : ''})`}
+                                              matchers={searchMatchers}
+                                            />
+                                          </p>
+                                          <p className="text-xs opacity-80">Total size: {formatBytes(repo.totalSize)}</p>
+                                          <p className="text-xs opacity-80">Last updated: {formatDate(repo.lastUpdated)}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                      <Badge variant="secondary" className="text-[10px] font-semibold uppercase tracking-wide">
+                                        {formatCount(repo.sessions.length)} {repo.sessions.length === 1 ? 'session' : 'sessions'}
+                                      </Badge>
+                                      <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">
+                                        Branches {formatCount(repo.branchCount)}
+                                        {repo.hasUnknownBranch ? '*' : ''}
+                                      </Badge>
+                                    </div>
+                                    <div className="text-right text-xs text-muted-foreground">
+                                      <p>{formatBytes(repo.totalSize)}</p>
+                                      <p>Updated {formatRelativeTime(repo.lastUpdated, snapshotTimestamp)}</p>
+                                    </div>
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-4 rounded-2xl border border-border/80 bg-muted/20 px-4 py-4">
+                                    {loadingRepoId === repo.id ? (
+                                      <div className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-4 text-xs text-muted-foreground">
+                                        <Loader className="size-4" aria-label="Loading sessions" />
+                                        Preparing session list…
+                                      </div>
+                                    ) : (
+                                      repo.branches.map((branch, branchIndex) => (
+                                        <div key={branch.id} className="space-y-2">
+                                          <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <p className="text-xs font-semibold uppercase tracking-wide">
+                                              Branch <HighlightedText text={branch.name} matchers={searchMatchers} />
+                                            </p>
+                                            <span className="text-xs text-muted-foreground">
+                                              {formatCount(branch.sessions.length)} {branch.sessions.length === 1 ? 'session' : 'sessions'}
+                                            </span>
+                                          </div>
+                                          <SessionRepoVirtualList
+                                            sessions={branch.sessions}
+                                            snapshotTimestamp={snapshotTimestamp}
+                                            onSessionOpen={(session) => {
+                                              onSelectionChange?.(session.path);
+                                              return onSessionOpen?.(session);
+                                            }}
+                                            loadingSessionPath={loadingSessionPath}
+                                            selectedSessionPath={selectedSessionPath}
+                                            onAddSessionToChat={onAddSessionToChat}
+                                            searchMatchers={searchMatchers}
+                                          />
+                                          {branchIndex < repo.branches.length - 1 ? (
+                                            <Separator className="my-1 opacity-40" />
+                                          ) : null}
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                              {index < filteredGroups.length - 1 ? <Separator className="my-2 opacity-50" /> : null}
+                            </div>
+                          );
+                        })}
+                      </Accordion>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </Card>
       </div>
-      </section>
       <SheetContent side="right" className="w-full space-y-6 overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Advanced filters</SheetTitle>
@@ -805,6 +998,14 @@ function toTimestampMs(value: string) {
   if (!value.trim()) return undefined;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function toLocalDateTimeInput(ms: number) {
+  if (!Number.isFinite(ms)) return '';
+  const date = new Date(ms);
+  const offsetMinutes = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offsetMinutes * 60 * 1000);
+  return local.toISOString().slice(0, 16);
 }
 
 function buildFilterModel(

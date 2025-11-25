@@ -39,6 +39,7 @@ interface AnimatedTimelineListProps {
   activeMatchIndex?: number | null
   onAddEventToChat?: (event: TimelineEvent, index: number) => void
   searchMatchers?: SearchMatcher[]
+  getDisplayNumber?: (event: TimelineEvent, index: number) => number | null | undefined
 }
 
 const SNIPPET_LENGTH = 100
@@ -47,7 +48,16 @@ const SNIPPET_LENGTH = 100
  * Virtualized, animated timeline list used by the viewer. Rendering an empty
  * list is safe – callers should decide when to show empty-state messaging.
  */
-export function AnimatedTimelineList({ events, className, onSelect, searchQuery, activeMatchIndex, onAddEventToChat, searchMatchers }: AnimatedTimelineListProps) {
+export function AnimatedTimelineList({
+  events,
+  className,
+  onSelect,
+  searchQuery,
+  activeMatchIndex,
+  onAddEventToChat,
+  searchMatchers,
+  getDisplayNumber,
+}: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [scrollTarget, setScrollTarget] = useState<number | null>(null)
   const [gradients, setGradients] = useState({ top: 0, bottom: 0 })
@@ -106,7 +116,7 @@ export function AnimatedTimelineList({ events, className, onSelect, searchQuery,
                 return next
               })
               onSelect?.(item.event, item.index)
-            }, searchQuery, onAddEventToChat, searchMatchers)}
+            }, searchQuery, onAddEventToChat, searchMatchers, getDisplayNumber)}
           </motion.div>
         )}
         scrollToIndex={scrollTarget}
@@ -170,12 +180,19 @@ function renderTimelineItem(
   searchQuery?: string,
   onAddEventToChat?: (event: TimelineEvent, index: number) => void,
   searchMatchers?: SearchMatcher[],
+  getDisplayNumber?: (event: TimelineEvent, index: number) => number | null | undefined,
 ) {
   const handleAddToChat = (mouseEvent: MouseEvent<HTMLButtonElement>) => {
     mouseEvent.preventDefault()
     mouseEvent.stopPropagation()
     onAddEventToChat?.(event, index)
   }
+  const timestampLabel = event.at ? formatTimestamp(event.at) : null
+  const resolvedDisplayNumber = getDisplayNumber?.(event, index)
+  const labelNumber =
+    typeof resolvedDisplayNumber === 'number' && Number.isFinite(resolvedDisplayNumber)
+      ? resolvedDisplayNumber
+      : index + 1
   return (
     <div
       className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30 p-4 cursor-pointer"
@@ -193,13 +210,24 @@ function renderTimelineItem(
       <div className="relative z-10 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <HighlightedText text={buildLabel(event, index)} matchers={searchMatchers} className="text-sm font-semibold text-white" />
+            <HighlightedText
+              text={buildLabel(event, labelNumber)}
+              matchers={searchMatchers}
+              className="text-sm font-semibold text-white"
+            />
             <HighlightedText text={buildMetaLine(event)} matchers={searchMatchers} className="text-xs text-muted-foreground" />
           </div>
           <div className="flex flex-col items-end gap-2">
-            <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {event.type}
-            </span>
+            <div className="flex items-center gap-2">
+              {timestampLabel ? (
+                <span className="rounded-full border border-white/5 bg-white/5 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {timestampLabel}
+                </span>
+              ) : null}
+              <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {event.type}
+              </span>
+            </div>
             {event.type === 'Message' ? (
               <ShimmerButton
                 type="button"
@@ -221,12 +249,10 @@ function renderTimelineItem(
   )
 }
 
-function buildLabel(event: TimelineEvent, index: number) {
-  const prefix = `#${index + 1}`
-  const formatted = event.at ? formatTimestamp(event.at) : ''
-  const stamp = formatted ? ` · ${formatted}` : ''
+function buildLabel(event: TimelineEvent, displayNumber: number) {
+  const prefix = `#${displayNumber}`
   const summary = summarizeEvent(event)
-  return `${prefix}${stamp} — ${summary}`
+  return `${prefix} — ${summary}`
 }
 
 function summarizeEvent(event: TimelineEvent) {

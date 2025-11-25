@@ -43,6 +43,13 @@ export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFi
     () => (sortOrder === 'asc' ? dedupedEvents : [...dedupedEvents].reverse()),
     [dedupedEvents, sortOrder],
   )
+  const displayNumberMap = useMemo(() => {
+    const map = new WeakMap<TimelineEvent, number>()
+    events.forEach((event, index) => {
+      map.set(event as TimelineEvent, index + 1)
+    })
+    return map
+  }, [events])
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null)
 
   const resetSearchNavigation = useCallback(() => {
@@ -111,6 +118,7 @@ export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFi
           activeMatchIndex={activeSearchIndex}
           onAddEventToChat={onAddEventToChat}
           searchMatchers={searchMatchers}
+          getDisplayNumber={(event) => displayNumberMap.get(event)}
         />
       )}
     </div>

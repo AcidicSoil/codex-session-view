@@ -10,6 +10,16 @@
 
 ## component candidates
 
+---
+
+[session explorer and timeline scrollbar replacements](https://ui.aceternity.com/components/tracing-beam)
+
+[replace current tooltip with this variant](https://ui.aceternity.com/components/animated-tooltip)
+
+---
+
+[text](https://ui.aceternity.com/components/animated-modal)
+
 [syntax highlighted code](https://www.shadcn.io/ai/code-block?utm_source=chatgpt.com)
 
 [code block](https://www.shadcn.io/components/code/code-block?utm_source=chatgpt.com)
@@ -96,3 +106,50 @@ Separator:   https://ui.shadcn.com/docs/components/separator
 
 
 ```
+
+## 5
+
+---
+
+[this effect for all other misc text rendered in view outside of session explorer and timeline](https://ui.aceternity.com/components/text-generate-effect)
+
+[session explorer and timeline](https://ui.aceternity.com/components/sticky-scroll-reveal)
+
+[session explorer and timeline scrollbar replacements](https://ui.aceternity.com/components/tracing-beam)
+
+[replace current tooltip with this variant](https://ui.aceternity.com/components/animated-tooltip)
+
+[hide session explorer and timeline behind animated tabs](https://ui.aceternity.com/components/tabs)
+
+---
+
+### chatbot user text input effect
+
+[after user hits send, this effect will trigger to show effect of text leaving the input area and into the conversation history](https://ui.aceternity.com/components/placeholders-and-vanish-input)
+
+[when users text is sent from the input area to the thread it will be rendered using this effect](https://ui.aceternity.com/components/text-generate-effect)
+
+---
+
+must have components aceternity
+
+<https://ui.aceternity.com/components/navbar-menu> | Navbar Menu *
+<https://ui.aceternity.com/components/text-generate-effect> | Text Generate Effect *
+<https://ui.aceternity.com/components/wavy-background> | Wavy Background
+<https://ui.aceternity.com/components/tabs> | Animated Tabs *
+<https://ui.aceternity.com/components/multi-step-loader> | Multi Step Loader
+<https://ui.aceternity.com/components/text-generate-effect> | Text Generate Effect *
+<https://ui.aceternity.com/components/timeline> | Timeline
+<https://ui.aceternity.com/components/tailwindcss-buttons> | Tailwind CSS buttons
+<https://ui.aceternity.com/components/card-hover-effect> | Hover Effect
+<https://ui.aceternity.com/components/3d-pin> | 3D Animated Pin
+<https://ui.aceternity.com/components/svg-mask-effect> | SVG Mask Effect
+<https://ui.aceternity.com/components/vortex> | Vortex Background
+<https://ui.aceternity.com/components/sidebar> | Sidebar
+<https://ui.aceternity.com/components/moving-border> | Moving Border
+<https://ui.aceternity.com/components/infinite-moving-cards> | Infinite Moving Cards
+<https://ui.aceternity.com/components/glowing-effect> | Glowing Effect
+<https://ui.aceternity.com/components/link-preview> | Link Preview
+<https://ui.aceternity.com/components/parallax-scroll> | Parallax Grid Scroll
+
+---
