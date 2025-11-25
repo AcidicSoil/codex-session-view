@@ -218,8 +218,8 @@ function renderTimelineItem(
       tabIndex={0}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          toggle()
+          event.preventDefault();
+          toggle();
         }
       }}
     >
@@ -232,7 +232,11 @@ function renderTimelineItem(
               matchers={searchMatchers}
               className="text-sm font-semibold text-white"
             />
-            <HighlightedText text={buildMetaLine(event)} matchers={searchMatchers} className="text-xs text-muted-foreground" />
+            <HighlightedText
+              text={buildMetaLine(event)}
+              matchers={searchMatchers}
+              className="hidden text-xs text-muted-foreground"
+            />
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
@@ -263,7 +267,7 @@ function renderTimelineItem(
         ) : null}
       </div>
     </div>
-  )
+  );
 }
 
 function buildLabel(event: TimelineEvent, displayNumber: number) {
@@ -521,7 +525,7 @@ function DetailText({
 }
 
 function EmptyDetail({ message }: { message: string }) {
-  return <p className="text-xs text-muted-foreground">{message}</p>
+  return <p className="text-xs text-muted-foreground">{message}</p>;
 }
 
 function extractMessageText(content: MessageEvent['content'] | undefined) {

@@ -51,6 +51,7 @@ session-id.md
 .TODO/
 .gemini/
 **/.archived/**
+.taskmaster/
 #screenshots/
 #**/*screenshot*.png/**
 

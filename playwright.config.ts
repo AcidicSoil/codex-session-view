@@ -19,7 +19,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001/viewer',
     trace: 'on-first-retry',
   },
 
@@ -61,8 +61,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'pnpm preview',
-    url: 'http://127.0.0.1:4173',
+    command: 'pnpm dev',
+    url: 'http://localhost:3001/viewer',
     reuseExistingServer: true,
   },
 });
