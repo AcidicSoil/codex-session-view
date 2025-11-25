@@ -14,6 +14,12 @@ This document captures the technical details that would otherwise bloat the top-
 - Measurements come from `Row`’s `useLayoutEffect`. Estimated heights only seed the offsets until a row is measured—don’t rely on them for logic.
 - Programmatic scrolls (`scrollToIndex`) jump directly to the measured offset, so keep offsets up to date if you introduce new animations or height adjustments.
 
+## Search Highlighting Defaults
+
+- Both the timeline (`AnimatedTimelineList`) and the session explorer (`SessionList`) now parse the search box text into tokens or regex literals, require every matcher to hit, and share the same `HighlightedText` wrapper for rendering matches.
+- Highlight spans are rendered inline via `<mark>` with MagicUI-inspired styling to keep accessibility intact while avoiding hydration flicker; `findHighlightRanges` enforces limits so virtualized lists keep scrolling under 5 ms.
+- When we eventually add a user-facing settings surface, expose a toggle that pipes through to `HighlightedText` so advanced users can disable the markup without touching the filter semantics.
+
 ## Session Metadata Heuristics
 
 To group sessions correctly, the viewer looks for repository info in this order:

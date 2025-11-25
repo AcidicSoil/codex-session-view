@@ -2,12 +2,13 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { SessionList } from "~/components/viewer/SessionList"
-import type { DiscoveredSessionAsset } from "~/lib/viewerDiscovery"
+import { createDiscoveredSessionAsset } from "~/lib/viewerDiscovery"
+import type { SessionAssetInput } from "~/lib/viewerDiscovery"
 
-const sampleSessions: DiscoveredSessionAsset[] = [
+const sampleInputs: SessionAssetInput[] = [
   {
     path: "sessions/alpha/run-a.jsonl",
-    url: "/sessions/alpha/run-a.jsonl",
+    url: "/api/uploads/sessions/alpha/run-a.jsonl",
     sortKey: Date.UTC(2024, 0, 20),
     size: 2_400_000,
     tags: ["alpha"],
@@ -17,7 +18,7 @@ const sampleSessions: DiscoveredSessionAsset[] = [
   },
   {
     path: "sessions/beta/run-a.jsonl",
-    url: "/sessions/beta/run-a.jsonl",
+    url: "/api/uploads/sessions/beta/run-a.jsonl",
     sortKey: Date.UTC(2024, 0, 10),
     size: 80_000,
     repoLabel: "Beta",
@@ -26,7 +27,7 @@ const sampleSessions: DiscoveredSessionAsset[] = [
   },
   {
     path: "sessions/beta/run-b.jsonl",
-    url: "/sessions/beta/run-b.jsonl",
+    url: "/api/uploads/sessions/beta/run-b.jsonl",
     sortKey: Date.UTC(2023, 11, 10),
     size: 70_000,
     tags: ["upload"],
@@ -36,18 +37,33 @@ const sampleSessions: DiscoveredSessionAsset[] = [
   },
 ]
 
+const sampleSessions = sampleInputs.map((entry) => createDiscoveredSessionAsset(entry))
+
+const textContentMatcher = (pattern: RegExp) =>
+  (_: string, node?: Element | null) => Boolean(node?.textContent && pattern.test(node.textContent))
+
 describe("SessionList", () => {
   it("filters repositories with search input", async () => {
     const user = userEvent.setup()
     render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
-    expect(screen.getByText(/example\/alpha/i)).toBeInTheDocument()
-    expect(screen.getByText(/example\/beta/i)).toBeInTheDocument()
+    expect(screen.getAllByText(textContentMatcher(/example\/alpha/i)).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(textContentMatcher(/example\/beta/i)).length).toBeGreaterThan(0)
 
     await user.type(screen.getByPlaceholderText(/search repo/i), "beta")
 
-    expect(screen.queryByText(/example\/alpha/i)).not.toBeInTheDocument()
-    expect(screen.getByText(/example\/beta/i)).toBeInTheDocument()
+    expect(screen.queryAllByText(textContentMatcher(/example\/alpha/i))).toHaveLength(0)
+    expect(screen.getAllByText(textContentMatcher(/example\/beta/i)).length).toBeGreaterThan(0)
+  })
+
+  it("supports regex tokens and renders highlights", async () => {
+    const user = userEvent.setup()
+    const { container } = render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
+
+    await user.type(screen.getByPlaceholderText(/search repo/i), "/beta/i")
+
+    expect(screen.queryByText(textContentMatcher(/example\/alpha/i))).not.toBeInTheDocument()
+    expect(container.querySelectorAll("mark").length).toBeGreaterThan(0)
   })
 
   it("applies size presets and highlights repo headers", async () => {
@@ -65,7 +81,7 @@ describe("SessionList", () => {
     const user = userEvent.setup()
     render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
-    await user.click(screen.getByRole("button", { name: /Toggle example\/alpha • main repository/i }))
+    await user.click(screen.getByRole("button", { name: /Toggle example\/alpha repository/i }))
     const matches = await screen.findAllByText(/run-a\.jsonl/i)
     expect(matches.length).toBeGreaterThan(0)
   })
@@ -80,7 +96,7 @@ describe("SessionList", () => {
         onSessionOpen={handleOpen}
       />,
     )
-    await user.click(screen.getByRole("button", { name: /Toggle example\/alpha • main repository/i }))
+    await user.click(screen.getByRole("button", { name: /Toggle example\/alpha repository/i }))
     const loadButton = await screen.findByRole('button', { name: /Load session/i })
     await user.click(loadButton)
     expect(handleOpen).toHaveBeenCalled()

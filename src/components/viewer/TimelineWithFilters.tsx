@@ -11,6 +11,7 @@ import {
   type TimelineFilterValue,
 } from '~/components/viewer/TimelineFilters'
 import { dedupeTimelineEvents } from '~/components/viewer/AnimatedTimelineList'
+import { buildSearchMatchers, matchesSearchMatchers, type SearchMatcher } from '~/utils/search'
 
 interface TimelineWithFiltersProps {
   /**
@@ -27,10 +28,11 @@ export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFi
   const [roleFilter, setRoleFilter] = useState<RoleQuickFilter>('all')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [searchQuery, setSearchQuery] = useState('')
+  const searchMatchers = useMemo(() => buildSearchMatchers(searchQuery), [searchQuery])
 
   const searchMatches = useMemo(
-    () => applyTimelineSearch(events, searchQuery),
-    [events, searchQuery],
+    () => applyTimelineSearch(events, searchMatchers),
+    [events, searchMatchers],
   )
   const filteredEvents = useMemo(
     () => applyTimelineFilters(searchMatches, { filters, quickFilter, roleFilter }),
@@ -49,7 +51,7 @@ export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFi
 
   useEffect(() => {
     resetSearchNavigation()
-  }, [searchQuery, resetSearchNavigation])
+  }, [searchMatchers, resetSearchNavigation])
 
   useEffect(() => {
     if (orderedEvents.length === 0) {
@@ -66,14 +68,14 @@ export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFi
   }, [orderedEvents.length, resetSearchNavigation])
 
   const handleSearchNext = useCallback(() => {
-    if (!searchQuery.trim()) return
+    if (!searchMatchers.length) return
     if (!orderedEvents.length) return
     setActiveSearchIndex((current) => {
       if (current == null) return 0
       const nextIndex = (current + 1) % orderedEvents.length
       return nextIndex
     })
-  }, [orderedEvents.length, searchQuery])
+  }, [orderedEvents.length, searchMatchers])
 
   const hasSourceEvents = events.length > 0
   const hasFilteredEvents = filteredEvents.length > 0
@@ -108,15 +110,15 @@ export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFi
           searchQuery={searchQuery}
           activeMatchIndex={activeSearchIndex}
           onAddEventToChat={onAddEventToChat}
+          searchMatchers={searchMatchers}
         />
       )}
     </div>
   )
 }
 
-export function applyTimelineSearch(events: readonly ResponseItem[], query: string) {
-  const normalized = query.trim().toLowerCase()
-  if (!normalized) return events
+export function applyTimelineSearch(events: readonly ResponseItem[], matchers: SearchMatcher[]) {
+  if (!matchers.length) return events
 
   return events.filter((event) => {
     const anyEvent = event as any
@@ -180,8 +182,8 @@ export function applyTimelineSearch(events: readonly ResponseItem[], query: stri
       parts.push(JSON.stringify(anyEvent))
     } catch {}
 
-    const haystack = parts.join(' ').toLowerCase()
-    if (!haystack) return false
-    return haystack.includes(normalized)
+    const haystack = parts.join(' ')
+    if (!haystack.trim()) return false
+    return matchesSearchMatchers(haystack, matchers)
   })
 }

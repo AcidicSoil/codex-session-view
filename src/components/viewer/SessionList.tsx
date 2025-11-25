@@ -21,6 +21,8 @@ import { BorderBeam } from '~/components/ui/border-beam';
 import { TimelineView } from '~/components/viewer/TimelineView';
 import { logDebug, logError, logInfo, logWarn } from '~/lib/logger';
 import { toast } from 'sonner';
+import { HighlightedText } from '~/components/ui/highlighted-text';
+import { buildSearchMatchers, matchesSearchMatchers, type SearchMatcher } from '~/utils/search';
 
 interface BranchGroup {
   id: string;
@@ -90,6 +92,7 @@ export function SessionList({
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
   const [loadingRepoId, setLoadingRepoId] = useState<string | null>(null);
+  const searchMatchers = useMemo(() => buildSearchMatchers(searchText), [searchText]);
   const filterLogRef = useRef<{ modelKey: string; count: number }>({ modelKey: '', count: sessionAssets.length });
   const viewModelLogRef = useRef<{ total: number; groups: number } | null>(null);
 
@@ -138,7 +141,6 @@ export function SessionList({
   }, [accessibleAssets.length, repositoryGroups]);
 
   const { groups: filteredGroups, filteredSessionCount } = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
     const min = typeof effectiveMinBytes === 'number' ? effectiveMinBytes : undefined;
     const max = typeof effectiveMaxBytes === 'number' ? effectiveMaxBytes : undefined;
     const groups = repositoryGroups
@@ -146,8 +148,8 @@ export function SessionList({
         const filteredBranches = group.branches
           .map((branch) => {
             const filteredSessions = branch.sessions.filter((session) => {
-              const matchesSearch = query
-                ? matchesSearchText(query, group, session)
+              const matchesSearch = searchMatchers.length
+                ? matchesSearchText(searchMatchers, group, session)
                 : true;
               if (!matchesSearch) return false;
               const size = session.size ?? 0;
@@ -202,7 +204,7 @@ export function SessionList({
 
     const total = sortedGroups.reduce((count, group) => count + group.sessions.length, 0);
     return { groups: sortedGroups, filteredSessionCount: total };
-  }, [repositoryGroups, searchText, effectiveMinBytes, effectiveMaxBytes, sortKey, sortDir]);
+  }, [repositoryGroups, searchMatchers, effectiveMinBytes, effectiveMaxBytes, sortKey, sortDir]);
 
   useEffect(() => {
     const filterModel = buildFilterModel({
@@ -488,15 +490,21 @@ export function SessionList({
                           variant="outline"
                           className="cursor-default text-xs font-semibold uppercase tracking-wide"
                         >
-                          {repo.label}
+                          <HighlightedText text={repo.label} matchers={searchMatchers} />
                         </Badge>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className="text-xs font-semibold">{repo.label}</p>
-                        <p className="text-xs opacity-80">Repo: {repo.repoName}</p>
+                        <HighlightedText as="p" className="text-xs font-semibold" text={repo.label} matchers={searchMatchers} />
                         <p className="text-xs opacity-80">
-                          Branches: {describeBranches(repo.branches)} ({repo.branchCount}
-                          {repo.hasUnknownBranch ? '*' : ''})
+                          Repo:{' '}
+                          <HighlightedText text={repo.repoName} matchers={searchMatchers} />
+                        </p>
+                        <p className="text-xs opacity-80">
+                          Branches:{' '}
+                          <HighlightedText
+                            text={`${describeBranches(repo.branches)} (${repo.branchCount}${repo.hasUnknownBranch ? '*' : ''})`}
+                            matchers={searchMatchers}
+                          />
                         </p>
                         <p className="text-xs opacity-80">Total size: {formatBytes(repo.totalSize)}</p>
                         <p className="text-xs opacity-80">Last updated: {formatDate(repo.lastUpdated)}</p>
@@ -529,12 +537,15 @@ export function SessionList({
                     ) : (
                       repo.branches.map((branch) => (
                         <div key={branch.id} className="space-y-2">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide">Branch {branch.name}</p>
-                            <span className="text-xs text-muted-foreground">
-                              {formatCount(branch.sessions.length)} {branch.sessions.length === 1 ? 'session' : 'sessions'}
-                            </span>
-                          </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide">
+                          Branch{' '}
+                          <HighlightedText text={branch.name} matchers={searchMatchers} />
+                        </p>
+                        <span className="text-xs text-muted-foreground">
+                          {formatCount(branch.sessions.length)} {branch.sessions.length === 1 ? 'session' : 'sessions'}
+                        </span>
+                      </div>
                           <SessionRepoVirtualList
                             sessions={branch.sessions}
                             snapshotTimestamp={snapshotTimestamp}
@@ -545,6 +556,7 @@ export function SessionList({
                             loadingSessionPath={loadingSessionPath}
                             selectedSessionPath={selectedSessionPath}
                             onAddSessionToChat={onAddSessionToChat}
+                            searchMatchers={searchMatchers}
                           />
                         </div>
                       ))
@@ -631,7 +643,8 @@ function aggregateByRepository(sessionAssets: DiscoveredSessionAsset[]): Reposit
   });
 }
 
-function matchesSearchText(query: string, group: RepositoryGroup, session: DiscoveredSessionAsset) {
+function matchesSearchText(matchers: SearchMatcher[], group: RepositoryGroup, session: DiscoveredSessionAsset) {
+  if (!matchers.length) return true;
   const branchNames = group.branches.map((branch) => branch.name).join(' ');
   const haystack = [
     group.repoName,
@@ -644,9 +657,9 @@ function matchesSearchText(query: string, group: RepositoryGroup, session: Disco
     session.tags?.join(' '),
   ]
     .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-  return haystack.includes(query);
+    .join(' ');
+  if (!haystack.trim()) return false;
+  return matchesSearchMatchers(haystack, matchers);
 }
 
 function describeBranches(branches: BranchGroup[]) {
@@ -769,6 +782,7 @@ function SessionRepoVirtualList({
   loadingSessionPath,
   selectedSessionPath,
   onAddSessionToChat,
+  searchMatchers,
 }: {
   sessions: DiscoveredSessionAsset[];
   snapshotTimestamp: number;
@@ -776,6 +790,7 @@ function SessionRepoVirtualList({
   loadingSessionPath?: string | null;
   selectedSessionPath?: string | null;
   onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void;
+  searchMatchers?: SearchMatcher[];
 }) {
   const items = useMemo<SessionTimelineItem[]>(
     () => sessions.map((session, index) => ({ session, index })),
@@ -813,6 +828,7 @@ function SessionRepoVirtualList({
               isLoading={loadingSessionPath === item.session.path}
               isSelected={selectedSessionPath === item.session.path}
               onAddToChat={onAddSessionToChat}
+              searchMatchers={searchMatchers}
             />
           </motion.div>
         )}
@@ -838,6 +854,7 @@ function SessionCard({
   isLoading,
   isSelected,
   onAddToChat,
+  searchMatchers,
 }: {
   session: DiscoveredSessionAsset;
   snapshotTimestamp: number;
@@ -845,6 +862,7 @@ function SessionCard({
   isLoading?: boolean;
   isSelected?: boolean;
   onAddToChat?: (asset: DiscoveredSessionAsset) => void;
+  searchMatchers?: SearchMatcher[];
 }) {
   const displayName = session.displayLabel;
   const repoLabel = session.repoLabel ?? session.repoName;
@@ -852,6 +870,9 @@ function SessionCard({
   const repoDisplay = session.repoName && session.repoName !== 'unknown-repo' ? session.repoName : null;
   const branchDisplay = branchName && branchName !== 'unknown' ? branchName : null;
   const sessionId = extractSessionId(displayName) ?? extractSessionId(session.path);
+  const branchLine = branchDisplay ? `Branch ${branchDisplay}` : '';
+  const commitLine = session.repoMeta?.commit ? `Commit ${formatCommit(session.repoMeta.commit)}` : '';
+  const branchMeta = [branchLine, commitLine].filter(Boolean).join(' · ');
 
   const handleCopySessionId = async () => {
     if (!sessionId || typeof navigator === 'undefined' || !navigator.clipboard) return;
@@ -882,22 +903,41 @@ function SessionCard({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             {repoLabel ? (
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
-                {repoLabel}
-              </p>
+              <HighlightedText
+                as="p"
+                className="text-[11px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300"
+                text={repoLabel}
+                matchers={searchMatchers}
+              />
             ) : null}
             {repoDisplay ? (
-              <p className="truncate text-[11px] text-muted-foreground">{repoDisplay}</p>
+              <HighlightedText
+                as="p"
+                className="truncate text-[11px] text-muted-foreground"
+                text={repoDisplay}
+                matchers={searchMatchers}
+              />
             ) : null}
-            {(branchDisplay || session.repoMeta?.commit) ? (
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {branchDisplay ? `Branch ${branchDisplay}` : null}
-                {branchDisplay && session.repoMeta?.commit ? ' · ' : ''}
-                {session.repoMeta?.commit ? `Commit ${formatCommit(session.repoMeta.commit)}` : null}
-              </p>
+            {branchMeta ? (
+              <HighlightedText
+                as="p"
+                className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                text={branchMeta}
+                matchers={searchMatchers}
+              />
             ) : null}
-            <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
-            <p className="truncate text-xs text-muted-foreground">{session.path}</p>
+            <HighlightedText
+              as="p"
+              className="truncate text-sm font-semibold text-foreground"
+              text={displayName}
+              matchers={searchMatchers}
+            />
+            <HighlightedText
+              as="p"
+              className="truncate text-xs text-muted-foreground"
+              text={session.path}
+              matchers={searchMatchers}
+            />
           </div>
           <div className="text-right text-xs text-muted-foreground">
             <p>{formatBytes(session.size)}</p>
@@ -917,7 +957,7 @@ function SessionCard({
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
           {session.tags?.slice(0, 3).map((tag) => (
             <span key={`${session.path}-${tag}`} className="rounded-full border border-border/70 px-2 py-0.5">
-              {tag}
+              <HighlightedText text={tag} matchers={searchMatchers} />
             </span>
           ))}
           {session.tags && session.tags.length > 3 ? <span>+{session.tags.length - 3}</span> : null}

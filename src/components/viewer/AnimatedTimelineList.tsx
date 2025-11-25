@@ -26,7 +26,8 @@ import type { ResponseItemParsed } from '~/lib/session-parser'
 import { TimelineView } from '~/components/viewer/TimelineView'
 import { eventKey } from '~/utils/event-key'
 import { formatClockTime } from '~/utils/intl'
-import { createSearchMatcher } from '~/utils/search'
+import type { SearchMatcher } from '~/utils/search'
+import { HighlightedText } from '~/components/ui/highlighted-text'
 
 export type TimelineEvent = ResponseItem | ResponseItemParsed
 
@@ -37,6 +38,7 @@ interface AnimatedTimelineListProps {
   searchQuery?: string
   activeMatchIndex?: number | null
   onAddEventToChat?: (event: TimelineEvent, index: number) => void
+  searchMatchers?: SearchMatcher[]
 }
 
 const SNIPPET_LENGTH = 100
@@ -45,7 +47,7 @@ const SNIPPET_LENGTH = 100
  * Virtualized, animated timeline list used by the viewer. Rendering an empty
  * list is safe – callers should decide when to show empty-state messaging.
  */
-export function AnimatedTimelineList({ events, className, onSelect, searchQuery, activeMatchIndex, onAddEventToChat }: AnimatedTimelineListProps) {
+export function AnimatedTimelineList({ events, className, onSelect, searchQuery, activeMatchIndex, onAddEventToChat, searchMatchers }: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [scrollTarget, setScrollTarget] = useState<number | null>(null)
   const [gradients, setGradients] = useState({ top: 0, bottom: 0 })
@@ -104,7 +106,7 @@ export function AnimatedTimelineList({ events, className, onSelect, searchQuery,
                 return next
               })
               onSelect?.(item.event, item.index)
-            }, searchQuery, onAddEventToChat)}
+            }, searchQuery, onAddEventToChat, searchMatchers)}
           </motion.div>
         )}
         scrollToIndex={scrollTarget}
@@ -167,6 +169,7 @@ function renderTimelineItem(
   toggle: () => void,
   searchQuery?: string,
   onAddEventToChat?: (event: TimelineEvent, index: number) => void,
+  searchMatchers?: SearchMatcher[],
 ) {
   const handleAddToChat = (mouseEvent: MouseEvent<HTMLButtonElement>) => {
     mouseEvent.preventDefault()
@@ -190,8 +193,8 @@ function renderTimelineItem(
       <div className="relative z-10 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-white">{buildLabel(event, index)}</p>
-            <p className="text-xs text-muted-foreground">{buildMetaLine(event)}</p>
+            <HighlightedText text={buildLabel(event, index)} matchers={searchMatchers} className="text-sm font-semibold text-white" />
+            <HighlightedText text={buildMetaLine(event)} matchers={searchMatchers} className="text-xs text-muted-foreground" />
           </div>
           <div className="flex flex-col items-end gap-2">
             <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -210,7 +213,7 @@ function renderTimelineItem(
         </div>
         {expanded ? (
           <div className="rounded-lg border border-white/5 bg-black/60 p-3 text-sm text-slate-100">
-            {renderEventDetail(event, searchQuery)}
+            {renderEventDetail(event, searchQuery, searchMatchers)}
           </div>
         ) : null}
       </div>
@@ -285,19 +288,19 @@ function buildMetaLine(event: TimelineEvent) {
   return value && value.length > 0 ? value : 'Event'
 }
 
-function renderEventDetail(event: TimelineEvent, searchQuery?: string) {
+function renderEventDetail(event: TimelineEvent, searchQuery?: string, matchers?: SearchMatcher[]) {
   switch (event.type) {
     case 'Message': {
       const text = extractMessageText(event.content)
       return text ? (
-        <DetailText value={text} label="Content" highlightQuery={searchQuery} />
+        <DetailText value={text} label="Content" highlightQuery={searchQuery} matchers={matchers} />
       ) : (
         <EmptyDetail message="No message content." />
       )
     }
     case 'Reasoning':
       return event.content ? (
-        <DetailText value={event.content} label="Trace" highlightQuery={searchQuery} />
+        <DetailText value={event.content} label="Trace" highlightQuery={searchQuery} matchers={matchers} />
       ) : (
         <EmptyDetail message="No reasoning trace." />
       )
@@ -339,6 +342,7 @@ function renderEventDetail(event: TimelineEvent, searchQuery?: string) {
               format={event.stdoutFormat === 'code' ? 'code' : 'text'}
               language={event.stdoutFormat === 'code' ? 'diff' : undefined}
               highlightQuery={searchQuery}
+              matchers={matchers}
             />
           ) : null}
           {stderr ? (
@@ -348,6 +352,7 @@ function renderEventDetail(event: TimelineEvent, searchQuery?: string) {
               format={event.stderrFormat === 'code' ? 'code' : 'text'}
               language={event.stderrFormat === 'code' ? 'diff' : undefined}
               highlightQuery={searchQuery}
+              matchers={matchers}
             />
           ) : null}
           {!command && !stdout && !stderr ? <EmptyDetail message="No captured output." /> : null}
@@ -355,7 +360,11 @@ function renderEventDetail(event: TimelineEvent, searchQuery?: string) {
       )
     }
     case 'WebSearchCall':
-      return event.query ? <DetailText value={event.query} label="Query" highlightQuery={searchQuery} /> : <EmptyDetail message="No query string." />
+      return event.query ? (
+        <DetailText value={event.query} label="Query" highlightQuery={searchQuery} matchers={matchers} />
+      ) : (
+        <EmptyDetail message="No query string." />
+      )
     case 'CustomToolCall':
       return (
         <div className="space-y-3">
@@ -398,12 +407,14 @@ function DetailText({
   format = "text",
   language,
   highlightQuery,
+  matchers,
 }: {
   value: string
   label: string
   format?: "text" | "code"
   language?: BundledLanguage
   highlightQuery?: string
+  matchers?: SearchMatcher[]
 }) {
   if (!value) return null
 
@@ -443,7 +454,6 @@ function DetailText({
   }
 
   const tabValue = "value"
-  const highlightedValue = renderHighlightedValue(value, highlightQuery)
 
   return (
     <div
@@ -459,45 +469,12 @@ function DetailText({
           </SnippetTabsList>
           <SnippetCopyButton value={value} aria-label={`Copy ${label.toLowerCase()}`} />
         </SnippetHeader>
-        <SnippetTabsContent value={tabValue}>{highlightedValue}</SnippetTabsContent>
+        <SnippetTabsContent value={tabValue}>
+          <HighlightedText text={value} query={highlightQuery} matchers={matchers} />
+        </SnippetTabsContent>
       </Snippet>
     </div>
   )
-}
-
-function renderHighlightedValue(value: string, query?: string): ReactNode {
-  const matcher = createSearchMatcher(query)
-  if (!matcher) return value
-
-  const segments: ReactNode[] = []
-  let lastIndex = 0
-  let highlightIndex = 0
-  let match: RegExpExecArray | null
-
-  while ((match = matcher.exec(value))) {
-    const start = match.index
-    const end = matcher.lastIndex
-    if (start > lastIndex) {
-      segments.push(value.slice(lastIndex, start))
-    }
-    const segment = value.slice(start, end)
-    segments.push(
-      <mark key={`timeline-highlight-${highlightIndex++}`} className="rounded-sm bg-amber-400/30 px-0.5 text-foreground">
-        {segment}
-      </mark>
-    )
-    lastIndex = end
-  }
-
-  if (segments.length === 0) {
-    return value
-  }
-
-  if (lastIndex < value.length) {
-    segments.push(value.slice(lastIndex))
-  }
-
-  return segments
 }
 
 function EmptyDetail({ message }: { message: string }) {

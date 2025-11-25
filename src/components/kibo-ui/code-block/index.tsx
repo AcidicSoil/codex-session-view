@@ -107,7 +107,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { cn } from "~/lib/utils";
-import { createSearchMatcher } from "~/utils/search";
+import { buildSearchMatchers, findHighlightRanges } from "~/utils/search";
 
 export type { BundledLanguage } from "shiki";
 
@@ -667,8 +667,8 @@ export const CodeBlockContent = ({
 };
 
 const applySearchHighlights = (html: string, query?: string) => {
-  const matcher = createSearchMatcher(query);
-  if (!matcher) {
+  const matchers = buildSearchMatchers(query);
+  if (!matchers.length) {
     return html;
   }
   if (typeof document === "undefined") {
@@ -686,44 +686,32 @@ const applySearchHighlights = (html: string, query?: string) => {
     current = walker.nextNode();
   }
 
-  const pattern = matcher.source;
-  const flags = matcher.flags;
-
   nodes.forEach((node) => {
     const text = node.nodeValue;
     if (!text) {
       return;
     }
 
-    const nodeMatcher = new RegExp(pattern, flags);
-    let match: RegExpExecArray | null;
-    let lastIndex = 0;
-    let hasMatch = false;
-    const fragment = document.createDocumentFragment();
-
-    while ((match = nodeMatcher.exec(text))) {
-      hasMatch = true;
-      const start = match.index;
-      const end = nodeMatcher.lastIndex;
-
-      if (start > lastIndex) {
-        fragment.appendChild(document.createTextNode(text.slice(lastIndex, start)));
-      }
-
-      const mark = document.createElement("mark");
-      mark.className = "highlighted-word";
-      mark.textContent = text.slice(start, end);
-      fragment.appendChild(mark);
-
-      lastIndex = end;
-    }
-
-    if (!hasMatch) {
+    const ranges = findHighlightRanges(text, matchers);
+    if (!ranges.length) {
       return;
     }
 
-    if (lastIndex < text.length) {
-      fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+    ranges.forEach((range) => {
+      if (range.start > cursor) {
+        fragment.appendChild(document.createTextNode(text.slice(cursor, range.start)));
+      }
+      const mark = document.createElement("mark");
+      mark.className = "highlighted-word";
+      mark.textContent = text.slice(range.start, range.end);
+      fragment.appendChild(mark);
+      cursor = range.end;
+    });
+
+    if (cursor < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(cursor)));
     }
 
     node.replaceWith(fragment);

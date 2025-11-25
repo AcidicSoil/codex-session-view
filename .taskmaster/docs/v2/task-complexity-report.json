@@ -1,0 +1,93 @@
+{
+	"meta": {
+		"generatedAt": "2025-11-24T22:04:20.554Z",
+		"tasksAnalyzed": 10,
+		"totalTasks": 10,
+		"analysisCount": 10,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": true
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Implement AI Provider Abstraction (lib/ai)",
+			"complexityScore": 4,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break this down into subtasks for setting up the Vercel AI SDK provider wrapper, creating the initial set of prompt template functions for chat and summaries, and implementing unit tests with mocks.",
+			"reasoning": "This is a greenfield module with no existing code to refactor. Complexity is moderate as it involves correctly abstracting the external Vercel AI SDK and defining a robust internal API for prompts and streaming, which is a core dependency. The SDK itself simplifies the underlying streaming logic, preventing a higher score."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Implement AGENTS.md Rules Parser (lib/agents-rules)",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Generate subtasks for setting up the markdown AST parser, implementing the logic to traverse the AST and extract rule structures, adding support for parsing metadata from HTML comments, and building the final query API with associated unit/snapshot tests.",
+			"reasoning": "This task involves using specialized libraries (`unified`/`remark`) for AST manipulation, which has a learning curve. The logic must be robust against variations in the markdown structure and requires careful parsing of embedded metadata within comments, which is more complex than parsing a simple structured file format. Snapshot testing also requires careful setup."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Define Canonical Session Model (lib/sessions)",
+			"complexityScore": 3,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Create subtasks to define the core TypeScript interfaces for `Session` and `SessionEvent`, implement corresponding Zod schemas for runtime validation, and refactor the existing viewer component at `src/routes/(site)/viewer/index.tsx` to adopt these new canonical types.",
+			"reasoning": "This is primarily a type-definition and refactoring task. The core effort of creating interfaces is low. Complexity is slightly increased by the need to refactor an existing part of the codebase (`viewer/index.tsx`) and implement runtime validation with Zod, but no complex algorithms are involved."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Implement Session Context Builder (features/chatbot/context-builder)",
+			"complexityScore": 7,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Decompose this task into creating the basic context summarization logic (bucketing events), implementing a token counting utility, developing the intelligent truncation algorithm to enforce a strict token budget, and adding a caching layer to optimize repeated builds for the same session.",
+			"reasoning": "Complexity is high due to the algorithmic challenge of creating a token-bounded context. This involves not just data mapping but also implementing prioritization and truncation logic to 'intelligently' decide what information to keep based on importance. Testing the boundary conditions of the token budget adds further complexity."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Implement Automatic Misalignment Detector (features/chatbot/misalignment-detector)",
+			"complexityScore": 8,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break this down into subtasks for: designing the main `detectMisalignments` pipeline, implementing the fast-path heuristic rule checks, integrating the AI provider for LLM-based classification of complex rules, parsing the structured response from the LLM, and unifying the results into a list of `Misalignment` objects.",
+			"reasoning": "This task has high complexity due to its role as an orchestrator for multiple other modules (`lib/ai`, `lib/agents-rules`). It involves implementing a complex hybrid logic pipeline combining deterministic heuristics with non-deterministic, prompt-based LLM classification, which is inherently challenging to design, manage, and test reliably."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Implement Artifact Generation Logic (summaries & commit-messages)",
+			"complexityScore": 4,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Generate subtasks for implementing the `generateSummary` function, the `generateCommitMessages` function, adding support for configurable commit message styles (e.g., Conventional Commits), and establishing the golden-file testing strategy for both features.",
+			"reasoning": "The complexity is moderate. While the task largely involves connecting pre-built modules (context builder, AI provider), the effort in prompt engineering to ensure high-quality output and implementing configuration options (like commit styles) is non-trivial. It's more than a simple API call wrapper, and setting up golden-file testing requires specific effort."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Implement Chatbot API Server (server/chatbot-api.server.ts)",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break this down into subtasks: implement the non-streaming `analyzeSessionServerFn` to link to artifact generation; implement the streaming `chatbotStreamServerFn` using TanStack Start and the Vercel AI SDK; integrate the context builder and misalignment detector into the streaming logic; and write integration tests for both endpoints.",
+			"reasoning": "This task is an integration nexus, connecting four separate backend modules into two distinct server endpoints (one streaming, one not). This introduces significant orchestration complexity. The use of framework-specific (`TanStack Start`) and SDK-specific (`Vercel AI SDK`) features requires specific knowledge, and robust error handling across all dependencies is critical."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Implement and Integrate ChatDock UI (components/chatbot/ChatDockPanel.tsx)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Generate subtasks for scaffolding the basic UI layout with `shadcn/ui`, integrating the Vercel AI SDK's `useChat` hook to handle state and API communication, implementing the collapsible/expandable behavior of the dock, and integrating the final component into the viewer page.",
+			"reasoning": "While the `useChat` hook and `shadcn/ui` library provide powerful abstractions that simplify the work, this is a non-trivial UI component with complex state (streaming messages, loading, errors). It requires careful integration into an existing page layout (`viewer/index.tsx`), including managing its collapsible state, which increases effort beyond a simple component."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Implement Misalignment Notification UI (MisalignmentBanner, TimelineBadges)",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break this down into subtasks: build the `MisalignmentBanner` component with data fetching; create the `MisalignmentTimelineBadges` component; integrate the badges into the existing session timeline rendering logic; and implement the cross-component communication to open the chat dock on a click.",
+			"reasoning": "The complexity score is elevated by the integration challenge. Placing badges onto an existing timeline component requires understanding and potentially modifying its rendering logic, which is more complex than creating a self-contained component. The task also requires cross-component communication (badge click -> open chat dock), which necessitates a robust state management solution."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Implement Summary and Commit Message Pop-outs",
+			"complexityScore": 3,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Create subtasks to build a generic, reusable pop-out component using `shadcn/ui` that handles async loading and display of content; implement the specific `SummaryPopout` and `CommitPopout` variations; and add the trigger buttons to the main viewer UI to launch them.",
+			"reasoning": "This task has low complexity because it follows a very common UI pattern (button opens modal which fetches data). The use of a mature component library like `shadcn/ui` for modals abstracts away most of the difficult implementation details, such as accessibility and focus management. The client-side logic is a straightforward asynchronous data fetch."
+		}
+	]
+}
