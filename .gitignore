@@ -39,7 +39,6 @@ src/routeTree.gen.ts
 **/var/**
 **/.vite/**
 **/logs/**
-playwright-report/
 .codex/
 oplink.config.mjs
 **/artifacts/**
