@@ -1,17 +1,19 @@
-import { useCallback, useState } from 'react'
-import { DropZone } from '~/components/viewer/DropZone'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { TimelineWithFilters } from '~/components/viewer/TimelineWithFilters'
 import type { TimelineEvent } from '~/components/viewer/AnimatedTimelineList'
-import { Switch } from '~/components/ui/switch'
 import { Button } from '~/components/ui/button'
 import type { FileLoaderHook } from '~/hooks/useFileLoader'
 import { persistSessionFile } from '~/server/function/sessionStore'
-import { formatCount } from '~/utils/intl'
+import { formatCount, formatDateTime } from '~/utils/intl'
 import { toast } from 'sonner'
 import { logDebug, logError, logInfo } from '~/lib/logger'
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery'
 import { uploadRecordToAsset } from '~/lib/viewerDiscovery'
 import { cn } from '~/lib/utils'
+import { SessionUploadDropzone } from '~/components/viewer/SessionUploadDropzone'
+import { TimelineTracingBeam } from '~/components/viewer/TimelineTracingBeam'
+
+const clampNumber = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 interface UploadSectionProps {
   loader: FileLoaderHook
@@ -133,14 +135,92 @@ interface UploadControlsCardProps {
 }
 
 export function UploadControlsCard({ controller, className }: UploadControlsCardProps) {
+  const acceptExtensions = useMemo(() => ['.jsonl', '.ndjson', '.txt'], [])
+  const acceptedFileTypes = useMemo(() => Array.from(new Set([...acceptExtensions, 'application/x-ndjson'])), [acceptExtensions])
+
+  const handleFilesSelected = useCallback(
+    (files: File[]) => {
+      if (!files.length) return
+      if (files.length === 1) {
+        controller.handleFile(files[0])
+      } else {
+        controller.handleFolderSelection(files)
+      }
+    },
+    [controller],
+  )
+
+  const handleFolderSelected = useCallback(
+    (files: File[]) => {
+      if (!files.length) return
+      controller.handleFolderSelection(files)
+    },
+    [controller],
+  )
+
   return (
     <div className={cn('rounded-2xl border bg-card/70 p-4 shadow-sm', className)}>
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <Switch id="persist-toggle" checked={controller.persistEnabled} onCheckedChange={controller.setPersist} />
-          <label htmlFor="persist-toggle" className="font-medium">
-            Persist session
-          </label>
+      <SessionUploadDropzone
+        acceptExtensions={acceptExtensions}
+        acceptedFileTypes={acceptedFileTypes}
+        statusLabel={controller.dropZoneStatus}
+        isPending={controller.dropZonePending}
+        onFilesSelected={handleFilesSelected}
+        onFolderSelected={handleFolderSelected}
+        className="mt-4"
+      />
+      <dl className="mt-4 space-y-2 text-xs">
+        <div className="flex items-center justify-between">
+          <dt className="text-muted-foreground">Status</dt>
+          <dd>{controller.dropZoneStatus}</dd>
+        </div>
+        {controller.meta?.timestamp ? (
+          <div className="flex items-center justify-between">
+            <dt className="text-muted-foreground">Timestamp</dt>
+            <dd>{formatDateTime(controller.meta.timestamp, { fallback: 'Unknown timestamp' })}</dd>
+          </div>
+        ) : null}
+        {controller.meta?.git?.repo ? (
+          <div className="flex items-center justify-between">
+            <dt className="text-muted-foreground">Repo</dt>
+            <dd>{controller.meta.git.repo}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </div>
+  )
+}
+
+interface UploadTimelineSectionProps {
+  controller: UploadController
+  onAddTimelineEventToChat?: (event: TimelineEvent, index: number) => void
+  className?: string
+  onFiltersRender?: (node: ReactNode | null) => void
+}
+
+export function UploadTimelineSection({ controller, onAddTimelineEventToChat, className, onFiltersRender }: UploadTimelineSectionProps) {
+  const loader = controller.loader
+  const hasEvents = loader.state.events.length > 0
+  const [timelineHeight, setTimelineHeight] = useState(720)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const updateHeight = () => {
+      const viewport = window.innerHeight || 0
+      const nextHeight = clampNumber(viewport - 320, 480, 960)
+      setTimelineHeight(nextHeight)
+    }
+    updateHeight()
+    window.addEventListener('resize', updateHeight)
+    return () => window.removeEventListener('resize', updateHeight)
+  }, [])
+
+  return (
+    <section className={cn('rounded-2xl border p-4', className)}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold">Timeline</p>
+          <p className="text-xs text-muted-foreground">Animated list of parsed events.</p>
         </div>
         <Button
           variant="outline"
@@ -151,40 +231,17 @@ export function UploadControlsCard({ controller, className }: UploadControlsCard
           {controller.isEjecting ? 'Ejecting…' : 'Eject session'}
         </Button>
       </div>
-      <DropZone
-        className="mt-4 w-full max-w-full"
-        onFile={controller.handleFile}
-        onFilesSelected={controller.handleFolderSelection}
-        acceptExtensions={['.jsonl', '.ndjson', '.txt']}
-        isPending={controller.dropZonePending}
-        statusLabel={controller.dropZoneStatus}
-        meta={controller.meta}
-        variant="compact"
-      />
-    </div>
-  )
-}
-
-interface UploadTimelineSectionProps {
-  controller: UploadController
-  onAddTimelineEventToChat?: (event: TimelineEvent, index: number) => void
-  className?: string
-}
-
-export function UploadTimelineSection({ controller, onAddTimelineEventToChat, className }: UploadTimelineSectionProps) {
-  const loader = controller.loader
-  const hasEvents = loader.state.events.length > 0
-
-  return (
-    <section className={cn('rounded-2xl border p-4', className)}>
-      <div className="mb-4">
-        <p className="text-sm font-semibold">Timeline</p>
-        <p className="text-xs text-muted-foreground">Animated list of parsed events.</p>
-      </div>
       {loader.state.phase === 'parsing' ? (
         <p className="text-sm text-muted-foreground">Streaming events… large sessions may take a moment.</p>
       ) : hasEvents ? (
-        <TimelineWithFilters events={loader.state.events} onAddEventToChat={onAddTimelineEventToChat} />
+        <TimelineTracingBeam className="mt-4">
+          <TimelineWithFilters
+            events={loader.state.events}
+            onAddEventToChat={onAddTimelineEventToChat}
+            timelineHeight={timelineHeight}
+            registerFilters={onFiltersRender}
+          />
+        </TimelineTracingBeam>
       ) : (
         <p className="text-sm text-muted-foreground">Load a session to see its timeline here.</p>
       )}

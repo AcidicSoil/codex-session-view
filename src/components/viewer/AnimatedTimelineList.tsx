@@ -40,6 +40,7 @@ interface AnimatedTimelineListProps {
   onAddEventToChat?: (event: TimelineEvent, index: number) => void
   searchMatchers?: SearchMatcher[]
   getDisplayNumber?: (event: TimelineEvent, index: number) => number | null | undefined
+  height?: number
 }
 
 const SNIPPET_LENGTH = 100
@@ -57,10 +58,12 @@ export function AnimatedTimelineList({
   onAddEventToChat,
   searchMatchers,
   getDisplayNumber,
+  height = 720,
 }: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [scrollTarget, setScrollTarget] = useState<number | null>(null)
   const [gradients, setGradients] = useState({ top: 0, bottom: 0 })
+  const [beamThumb, setBeamThumb] = useState({ top: 24, height: 140 })
   const dedupedEvents = useMemo(() => dedupeTimelineEvents(events), [events])
   const items = useMemo<{ event: TimelineEvent; index: number; key: string }[]>(
     () =>
@@ -90,13 +93,18 @@ export function AnimatedTimelineList({
     const bottomDistance = totalHeight - (scrollTop + height)
     const bottom = totalHeight <= height ? 0 : Math.min(bottomDistance / 80, 1)
     setGradients({ top, bottom })
+    const denominator = Math.max(totalHeight - height, 1)
+    const ratio = totalHeight <= height ? 0 : Math.min(Math.max(scrollTop / denominator, 0), 1)
+    const visibleRatio = totalHeight <= height ? 1 : height / totalHeight
+    const nextHeight = Math.max(height * visibleRatio * 0.6, 60)
+    setBeamThumb({ top: ratio * (height - nextHeight) + 24, height: nextHeight })
   }
 
   return (
     <div className={`relative ${className ?? ''}`}>
       <TimelineView
         items={items}
-        height={840}
+        height={height}
         estimateItemHeight={160}
         keyForIndex={(item) => item.key}
         renderItem={(item) => (
@@ -121,7 +129,16 @@ export function AnimatedTimelineList({
         )}
         scrollToIndex={scrollTarget}
         onScrollChange={handleScrollChange}
+        className="pr-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       />
+      <div className="pointer-events-none absolute inset-y-6 left-1 w-[3px] rounded-full bg-white/10">
+        <motion.span
+          aria-hidden
+          className="absolute inset-x-0 rounded-full bg-gradient-to-b from-cyan-400 via-purple-500 to-fuchsia-500"
+          style={{ top: beamThumb.top, height: beamThumb.height }}
+          transition={{ type: 'spring', stiffness: 200, damping: 30 }}
+        />
+      </div>
       <div
         className="pointer-events-none absolute inset-x-2 top-0 h-16 bg-gradient-to-b from-background to-transparent transition-opacity"
         style={{ opacity: gradients.top }}
