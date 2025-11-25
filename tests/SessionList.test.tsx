@@ -1,9 +1,20 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { SessionList } from "~/components/viewer/SessionList"
 import { createDiscoveredSessionAsset } from "~/lib/viewerDiscovery"
 import type { SessionAssetInput } from "~/lib/viewerDiscovery"
+
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+if (typeof globalThis.ResizeObserver === "undefined") {
+  // @ts-expect-error: jsdom test shim
+  globalThis.ResizeObserver = ResizeObserverStub
+}
 
 const sampleInputs: SessionAssetInput[] = [
   {
@@ -39,30 +50,36 @@ const sampleInputs: SessionAssetInput[] = [
 
 const sampleSessions = sampleInputs.map((entry) => createDiscoveredSessionAsset(entry))
 
-const textContentMatcher = (pattern: RegExp) =>
-  (_: string, node?: Element | null) => Boolean(node?.textContent && pattern.test(node.textContent))
-
 describe("SessionList", () => {
   it("filters repositories with search input", async () => {
     const user = userEvent.setup()
     render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
-    expect(screen.getAllByText(textContentMatcher(/example\/alpha/i)).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(textContentMatcher(/example\/beta/i)).length).toBeGreaterThan(0)
+    expect(screen.getByRole("button", { name: /Toggle example\/alpha repository/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Toggle example\/beta repository/i })).toBeInTheDocument()
 
-    await user.type(screen.getByPlaceholderText(/search repo/i), "beta")
+    const searchInput = screen.getByPlaceholderText(/search repo/i)
+    searchInput.focus()
+    await user.type(searchInput, "beta")
+    expect(searchInput).toHaveValue("beta")
 
-    expect(screen.queryAllByText(textContentMatcher(/example\/alpha/i))).toHaveLength(0)
-    expect(screen.getAllByText(textContentMatcher(/example\/beta/i)).length).toBeGreaterThan(0)
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /Toggle example\/alpha repository/i })).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole("button", { name: /Toggle example\/beta repository/i })).toBeInTheDocument()
   })
 
   it("supports regex tokens and renders highlights", async () => {
     const user = userEvent.setup()
     const { container } = render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
-    await user.type(screen.getByPlaceholderText(/search repo/i), "/beta/i")
+    const searchInput = screen.getByPlaceholderText(/search repo/i)
+    searchInput.focus()
+    await user.type(searchInput, "/beta/i")
 
-    expect(screen.queryByText(textContentMatcher(/example\/alpha/i))).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /Toggle example\/alpha repository/i })).not.toBeInTheDocument()
+    })
     expect(container.querySelectorAll("mark").length).toBeGreaterThan(0)
   })
 
@@ -70,7 +87,7 @@ describe("SessionList", () => {
     const user = userEvent.setup()
     render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
-    await user.click(screen.getByRole("button", { name: /Filters/i }))
+    await user.click(screen.getByRole("button", { name: /Advanced/i }))
     const minInput = await screen.findByLabelText(/Minimum size/i, { selector: 'input' })
     await user.clear(minInput)
     await user.type(minInput, "1")

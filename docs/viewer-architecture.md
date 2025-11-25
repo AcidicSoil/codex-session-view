@@ -13,6 +13,7 @@ This document captures the technical details that would otherwise bloat the top-
 - `TimelineView` precomputes cumulative offsets from measured row heights. The first rendered item must be the last offset less than or equal to the viewport’s top; otherwise tall rows disappear mid-scroll. The helper `findLastOffsetBeforeOrEqual` enforces that rule for both the start and end indices.
 - Measurements come from `Row`’s `useLayoutEffect`. Estimated heights only seed the offsets until a row is measured—don’t rely on them for logic.
 - Programmatic scrolls (`scrollToIndex`) jump directly to the measured offset, so keep offsets up to date if you introduce new animations or height adjustments.
+- Timeline numbering (the `#N — …` prefix) always reflects the event’s original chronological position, even when filters hide intermediate events or the UI toggles into descending order. The numbering metadata is derived once from the raw event stream and shared with the virtualized list so re-sorting never re-labels entries.
 
 ## Search Highlighting Defaults
 

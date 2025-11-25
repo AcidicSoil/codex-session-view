@@ -13,6 +13,7 @@ export interface DropZoneProps {
   isPending?: boolean;
   statusLabel?: string;
   meta?: SessionMetaParsed;
+  variant?: 'default' | 'compact';
 }
 
 const MIME_FALLBACK = 'application/x-ndjson';
@@ -25,6 +26,7 @@ export function DropZone({
   isPending = false,
   statusLabel,
   meta,
+  variant = 'default',
 }: DropZoneProps) {
   const [isHovering, setIsHovering] = useState(false);
   const acceptedFileTypes = useMemo(
@@ -55,11 +57,18 @@ export function DropZone({
     }
   };
 
+  const containerClasses =
+    variant === 'compact'
+      ? 'max-w-sm rounded-xl border bg-card/80 p-4'
+      : 'max-w-xl rounded-xl border bg-card/70 p-5';
+  const targetPadding = variant === 'compact' ? 'px-4 py-4' : 'px-5 py-6';
+  const helperTextClass = variant === 'compact' ? 'text-[11px]' : 'text-xs';
+
   return (
-    <div className={cn('w-full max-w-xl rounded-xl border bg-card/70 p-5', className)}>
+    <div className={cn('w-full', containerClasses, className)}>
       <div
         className={cn(
-          'space-y-4 rounded-lg border-2 border-dashed px-5 py-6 transition',
+          `space-y-4 rounded-lg border-2 border-dashed ${targetPadding} transition`,
           isHovering ? 'border-primary bg-primary/5' : 'border-border'
         )}
         onDragOver={(event) => {
@@ -74,7 +83,7 @@ export function DropZone({
         onDrop={handleDrop}
       >
         <div>
-          <p className="text-sm font-semibold">Upload session log</p>
+          <p className={cn('font-semibold', variant === 'compact' ? 'text-sm' : 'text-base')}>Upload session log</p>
           <p className="text-xs text-muted-foreground">Select or drop a .jsonl/.ndjson transcript.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -118,7 +127,7 @@ export function DropZone({
             {isPending ? 'Scanning…' : 'Upload folder'}
           </FileTrigger>
         </div>
-        <p className="text-xs text-muted-foreground">Supports .jsonl, .ndjson, or .txt exports.</p>
+        <p className={cn('text-muted-foreground', helperTextClass)}>Supports .jsonl, .ndjson, or .txt exports.</p>
       </div>
 
       {statusLabel ? (

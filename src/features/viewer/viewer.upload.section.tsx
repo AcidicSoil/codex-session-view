@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { logDebug, logError, logInfo } from '~/lib/logger'
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery'
 import { uploadRecordToAsset } from '~/lib/viewerDiscovery'
+import { cn } from '~/lib/utils'
 
 interface UploadSectionProps {
   loader: FileLoaderHook
@@ -18,7 +19,14 @@ interface UploadSectionProps {
   onAddTimelineEventToChat?: (event: TimelineEvent, index: number) => void
 }
 
-export function UploadSection({ loader, onUploadsPersisted, onAddTimelineEventToChat }: UploadSectionProps) {
+interface UploadControllerOptions {
+  loader: FileLoaderHook
+  onUploadsPersisted?: (assets: DiscoveredSessionAsset[]) => void
+}
+
+export type UploadController = ReturnType<typeof useUploadController>
+
+export function useUploadController({ loader, onUploadsPersisted }: UploadControllerOptions) {
   const [isEjecting, setIsEjecting] = useState(false)
   const [isPersistingUpload, setIsPersistingUpload] = useState(false)
 
@@ -75,7 +83,6 @@ export function UploadSection({ loader, onUploadsPersisted, onAddTimelineEventTo
     [persistUploads],
   )
 
-  const meta = loader.state.meta
   const progressLabel =
     loader.state.phase === 'parsing'
       ? `Parsing… (${formatCount(loader.progress.ok)} ok / ${formatCount(loader.progress.fail)} errors)`
@@ -86,65 +93,111 @@ export function UploadSection({ loader, onUploadsPersisted, onAddTimelineEventTo
           : 'Idle'
   const dropZonePending = loader.state.phase === 'parsing' || isPersistingUpload
   const dropZoneStatus = isPersistingUpload ? 'Caching session to ~/.codex/sessions…' : progressLabel
+  const hasEvents = loader.state.events.length > 0
 
+  const ejectSession = useCallback(() => {
+    if (isEjecting) return
+    setIsEjecting(true)
+    logInfo('viewer.session', 'Ejecting current session')
+    loader.reset()
+    toast.success('Session cleared')
+    setTimeout(() => setIsEjecting(false), 150)
+  }, [isEjecting, loader])
+
+  const setPersist = useCallback(
+    (value: boolean) => {
+      logInfo('viewer.persist', `Toggled persist to ${value}`)
+      loader.setPersist(value)
+    },
+    [loader],
+  )
+
+  return {
+    loader,
+    meta: loader.state.meta,
+    handleFile,
+    handleFolderSelection,
+    dropZonePending,
+    dropZoneStatus,
+    hasEvents,
+    isEjecting,
+    persistEnabled: loader.persist,
+    setPersist,
+    ejectSession,
+  }
+}
+
+interface UploadControlsCardProps {
+  controller: UploadController
+  className?: string
+}
+
+export function UploadControlsCard({ controller, className }: UploadControlsCardProps) {
+  return (
+    <div className={cn('rounded-2xl border bg-card/70 p-4 shadow-sm', className)}>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <Switch id="persist-toggle" checked={controller.persistEnabled} onCheckedChange={controller.setPersist} />
+          <label htmlFor="persist-toggle" className="font-medium">
+            Persist session
+          </label>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={controller.ejectSession}
+          disabled={!controller.hasEvents || controller.isEjecting}
+        >
+          {controller.isEjecting ? 'Ejecting…' : 'Eject session'}
+        </Button>
+      </div>
+      <DropZone
+        className="mt-4 w-full max-w-full"
+        onFile={controller.handleFile}
+        onFilesSelected={controller.handleFolderSelection}
+        acceptExtensions={['.jsonl', '.ndjson', '.txt']}
+        isPending={controller.dropZonePending}
+        statusLabel={controller.dropZoneStatus}
+        meta={controller.meta}
+        variant="compact"
+      />
+    </div>
+  )
+}
+
+interface UploadTimelineSectionProps {
+  controller: UploadController
+  onAddTimelineEventToChat?: (event: TimelineEvent, index: number) => void
+  className?: string
+}
+
+export function UploadTimelineSection({ controller, onAddTimelineEventToChat, className }: UploadTimelineSectionProps) {
+  const loader = controller.loader
   const hasEvents = loader.state.events.length > 0
 
   return (
-    <section className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Switch
-              id="persist-toggle"
-              checked={loader.persist}
-              onCheckedChange={(value) => {
-                logInfo('viewer.persist', `Toggled persist to ${value}`)
-                loader.setPersist(value)
-              }}
-            />
-            <label htmlFor="persist-toggle">Persist session</label>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (isEjecting) return
-              setIsEjecting(true)
-              logInfo('viewer.session', 'Ejecting current session')
-              loader.reset()
-              toast.success('Session cleared')
-              setTimeout(() => setIsEjecting(false), 150)
-            }}
-            disabled={!hasEvents || isEjecting}
-          >
-            {isEjecting ? 'Ejecting…' : 'Eject session'}
-          </Button>
-        </div>
-        <div className="flex justify-start">
-          <DropZone
-            onFile={handleFile}
-            onFilesSelected={handleFolderSelection}
-            acceptExtensions={['.jsonl', '.ndjson', '.txt']}
-            isPending={dropZonePending}
-            statusLabel={dropZoneStatus}
-            meta={meta}
-          />
-        </div>
+    <section className={cn('rounded-2xl border p-4', className)}>
+      <div className="mb-4">
+        <p className="text-sm font-semibold">Timeline</p>
+        <p className="text-xs text-muted-foreground">Animated list of parsed events.</p>
       </div>
+      {loader.state.phase === 'parsing' ? (
+        <p className="text-sm text-muted-foreground">Streaming events… large sessions may take a moment.</p>
+      ) : hasEvents ? (
+        <TimelineWithFilters events={loader.state.events} onAddEventToChat={onAddTimelineEventToChat} />
+      ) : (
+        <p className="text-sm text-muted-foreground">Load a session to see its timeline here.</p>
+      )}
+    </section>
+  )
+}
 
-      <div className="rounded-2xl border p-4">
-        <div className="mb-4">
-          <p className="text-sm font-semibold">Timeline</p>
-          <p className="text-xs text-muted-foreground">Animated list of parsed events.</p>
-        </div>
-        {loader.state.phase === 'parsing' ? (
-          <p className="text-sm text-muted-foreground">Streaming events… large sessions may take a moment.</p>
-        ) : hasEvents ? (
-          <TimelineWithFilters events={loader.state.events} onAddEventToChat={onAddTimelineEventToChat} />
-        ) : (
-          <p className="text-sm text-muted-foreground">Load a session to see its timeline here.</p>
-        )}
-      </div>
+export function UploadSection({ loader, onUploadsPersisted, onAddTimelineEventToChat }: UploadSectionProps) {
+  const controller = useUploadController({ loader, onUploadsPersisted })
+  return (
+    <section className="flex flex-col gap-6">
+      <UploadControlsCard controller={controller} />
+      <UploadTimelineSection controller={controller} onAddTimelineEventToChat={onAddTimelineEventToChat} />
     </section>
   )
 }
