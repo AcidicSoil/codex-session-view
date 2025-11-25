@@ -1,12 +1,19 @@
 import { ClientOnly } from '@tanstack/react-router'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useFileLoader } from '~/hooks/useFileLoader'
 import { DiscoverySection, useViewerDiscovery } from './viewer.discovery.section'
-import { UploadTimelineSection, useUploadController } from './viewer.upload.section'
+import { UploadControlsCard, UploadTimelineSection, useUploadController } from './viewer.upload.section'
 import { ChatDock } from '~/components/viewer/ChatDock'
 import type { TimelineEvent } from '~/components/viewer/AnimatedTimelineList'
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery'
 import { logInfo } from '~/lib/logger'
-import { ViewerSidebar } from './viewer.sidebar'
+import { WavyBackground } from '~/components/aceternity/wavy-background'
+import { AnimatedTabs } from '~/components/aceternity/animated-tabs'
+import { StickyScrollReveal, type StickySection } from '~/components/aceternity/sticky-scroll-reveal'
+import { FloatingNavbar } from '~/components/aceternity/floating-navbar'
+import { formatCount } from '~/utils/intl'
+import { ViewerFilterDropdown } from '~/components/viewer/ViewerFilterDropdown'
+import { Switch } from '~/components/ui/switch'
 
 export function ViewerPage() {
   return (
@@ -16,13 +23,17 @@ export function ViewerPage() {
   );
 }
 
-function ViewerClient() {
+export function ViewerClient() {
   const loader = useFileLoader();
   const discovery = useViewerDiscovery({ loader });
   const uploadController = useUploadController({
     loader,
     onUploadsPersisted: (assets) => discovery.appendSessionAssets(assets, 'upload'),
   });
+  const [navValue, setNavValue] = useState<'timeline' | 'explorer' | 'chat'>('timeline');
+  const [tabValue, setTabValue] = useState<'timeline' | 'explorer'>('timeline');
+  const [timelineFiltersSlot, setTimelineFiltersSlot] = useState<ReactNode | null>(null);
+  const [explorerFiltersSlot, setExplorerFiltersSlot] = useState<ReactNode | null>(null);
   const handleAddTimelineEventToChat = (event: TimelineEvent, index: number) => {
     logInfo('viewer.chatdock', 'Timeline event add-to-chat requested', {
       eventType: event.type,
@@ -35,32 +46,158 @@ function ViewerClient() {
       repo: asset.repoLabel ?? asset.repoName,
     });
   };
-  return (
-    <main className="container mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10">
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Codex Session Viewer</p>
-          <h1 className="text-3xl font-bold tracking-tight">Workspace Discovery</h1>
-          <p className="text-muted-foreground">Drop in a session to stream its timeline, then iterate with the chat dock.</p>
-        </div>
-        <ViewerSidebar controller={uploadController} />
-      </section>
+  const navItems = useMemo(
+    () => [
+      {
+        value: 'timeline',
+        label: 'Timeline',
+        description: 'Stream parsed events through the tracing beam list and jump straight into chat context.',
+        eyebrow: 'Streaming',
+        kpi: `${formatCount(loader.state.events.length)} events`,
+      },
+      {
+        value: 'explorer',
+        label: 'Session explorer',
+        description: 'Browse cached repos, branches, and snapshot metadata discovered during startup.',
+        eyebrow: 'Discovery',
+        kpi: `${formatCount(discovery.sessionAssets.length)} assets`,
+      },
+      {
+        value: 'chat',
+        label: 'Chat dock',
+        description: 'Annotate findings or draft follow-up prompts while the workspace stays in view.',
+        eyebrow: 'Co-pilot',
+        kpi: 'Live',
+      },
+    ],
+    [discovery.sessionAssets.length, loader.state.events.length],
+  );
 
-      <UploadTimelineSection controller={uploadController} onAddTimelineEventToChat={handleAddTimelineEventToChat} />
-      <DiscoverySection {...discovery} onAddSessionToChat={handleAddSessionToChat} />
-      <ChatDock />
+  const handleNavChange = useCallback(
+    (nextValue: string) => {
+      if (nextValue === 'timeline' || nextValue === 'explorer' || nextValue === 'chat') {
+        setNavValue(nextValue);
+        if (nextValue === 'timeline' || nextValue === 'explorer') {
+          setTabValue(nextValue);
+        }
+        if (typeof document !== 'undefined') {
+          const targetId = nextValue === 'chat' ? 'viewer-chat' : 'viewer-tabs';
+          document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [],
+  );
+
+  const handleTimelineFiltersRender = useCallback((node: ReactNode | null) => {
+    setTimelineFiltersSlot(node);
+  }, []);
+
+  const handleExplorerFiltersRender = useCallback((node: ReactNode | null) => {
+    setExplorerFiltersSlot(node);
+  }, []);
+
+  const timelineSections: StickySection[] = [
+    {
+      id: 'timeline-events',
+      eyebrow: 'Events',
+      title: 'Timeline tracing beam',
+      description: 'Filter, search, and send moments to chat as the tracing beam reveals activity.',
+      content: (
+        <UploadTimelineSection
+          controller={uploadController}
+          onAddTimelineEventToChat={handleAddTimelineEventToChat}
+          className="border-none bg-transparent p-0 text-foreground"
+          onFiltersRender={handleTimelineFiltersRender}
+        />
+      ),
+    },
+  ];
+
+  const explorerSections: StickySection[] = [
+    {
+      id: 'explorer-view',
+      eyebrow: 'Discovery',
+      title: 'Session explorer snapshot',
+      description: 'Branch badges, repo-level metadata, and cached uploads live inside the explorer tabs.',
+      content: (
+        <DiscoverySection
+          {...discovery}
+          onAddSessionToChat={handleAddSessionToChat}
+          onFiltersRender={handleExplorerFiltersRender}
+        />
+      ),
+    },
+  ];
+
+  const tabConfigs = [
+    {
+      value: 'timeline',
+      label: 'Timeline',
+      description: 'Upload & stream',
+      content: <StickyScrollReveal sections={timelineSections} showSidebar={false} />,
+    },
+    {
+      value: 'explorer',
+      label: 'Session explorer',
+      description: 'Snapshot browser',
+      content: <StickyScrollReveal sections={explorerSections} showSidebar={false} />,
+    },
+  ];
+
+  return (
+    <main className="min-h-screen px-4 py-10">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-8">
+        <div className="sticky top-16 z-40 flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-black/40 p-4 shadow-lg backdrop-blur-xl">
+          <FloatingNavbar items={navItems} value={navValue} onValueChange={handleNavChange} className="flex-1 min-w-[240px] bg-transparent" />
+          <div className="flex items-center gap-3">
+            <label htmlFor="persist-toggle" className="flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-white/70">
+              Persist
+              <Switch id="persist-toggle" checked={uploadController.persistEnabled} onCheckedChange={uploadController.setPersist} />
+            </label>
+            <ViewerFilterDropdown
+              timelineFilters={timelineFiltersSlot}
+              explorerFilters={explorerFiltersSlot}
+              className="shrink-0"
+            />
+          </div>
+        </div>
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:items-start">
+          <WavyBackground className="p-4 sm:p-8">
+            <div className="space-y-6">
+              <section id="viewer-tabs" className="space-y-8">
+                <AnimatedTabs tabs={tabConfigs} value={tabValue} onValueChange={(next) => {
+                  setTabValue(next as 'timeline' | 'explorer');
+                  setNavValue(next as 'timeline' | 'explorer');
+                }} />
+              </section>
+            </div>
+          </WavyBackground>
+          <div className="flex flex-col gap-6 xl:sticky xl:top-32">
+            <section>
+              <UploadControlsCard controller={uploadController} className="rounded-3xl border border-white/15 bg-background/80 p-5" />
+            </section>
+            <aside
+              id="viewer-chat"
+              className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner"
+            >
+              <ChatDock />
+            </aside>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }
 
 function ViewerSkeleton() {
   return (
-    <main className="container mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10">
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-10">
       <div className="space-y-3">
         <div className="h-4 w-32 animate-pulse rounded bg-muted" />
         <div className="h-8 w-64 animate-pulse rounded bg-muted" />
       </div>
-      <div className="h-40 animate-pulse rounded-2xl bg-muted" />
+      <div className="h-96 animate-pulse rounded-3xl bg-muted" />
     </main>
   )
 }

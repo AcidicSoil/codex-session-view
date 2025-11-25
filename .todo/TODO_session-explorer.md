@@ -109,7 +109,12 @@ Separator:   https://ui.shadcn.com/docs/components/separator
 
 ## 5
 
+We are redesigning the session explorer, timeline, and chatbot experience by moving them into a unified navbar menu shell, applying a text-generate effect to all auxiliary copy outside those core views, rendering the session explorer and timeline with a sticky scroll-reveal layout, replacing the default scrollbars with a tracing-beam style visual, swapping the current tooltip implementation for an animated-tooltip variant, and hiding/revealing the session explorer and timeline behind animated tabs so the whole surface feels like a cohesive, high-signal, motion-rich workspace rather than a set of disjoint panels.
+
 ---
+[add sticky navbar for navbar entries also](https://ui.aceternity.com/components/floating-navbar)
+
+[session explorer and timeline and chatbot in navbar component](https://ui.aceternity.com/components/navbar-menu)
 
 [this effect for all other misc text rendered in view outside of session explorer and timeline](https://ui.aceternity.com/components/text-generate-effect)
 
@@ -121,9 +126,14 @@ Separator:   https://ui.shadcn.com/docs/components/separator
 
 [hide session explorer and timeline behind animated tabs](https://ui.aceternity.com/components/tabs)
 
+* className="object-cover must be used for the demo effect"
+
+[replace current dropzone with just this](https://intentui.com/docs/components/buttons/file-trigger)
+
 ---
 
 ### chatbot user text input effect
+[chatbot output will use this effect when chatting with users](https://ui.aceternity.com/components/encrypted-text)
 
 [after user hits send, this effect will trigger to show effect of text leaving the input area and into the conversation history](https://ui.aceternity.com/components/placeholders-and-vanish-input)
 
@@ -151,5 +161,19 @@ must have components aceternity
 <https://ui.aceternity.com/components/glowing-effect> | Glowing Effect
 <https://ui.aceternity.com/components/link-preview> | Link Preview
 <https://ui.aceternity.com/components/parallax-scroll> | Parallax Grid Scroll
-
+[another text effect to add for other text areas](https://ui.aceternity.com/components/encrypted-text)
 ---
+
+## 6 session explorer and timeline backgrounds
+
+[timeline](https://ui.aceternity.com/components/dotted-glow-background)
+
+[session explorer](https://ui.aceternity.com/components/meteors)
+
+## 7 wrap timeline props with the expandable cards
+
+[timeline props when expanded triggers this effect](https://ui.aceternity.com/components/expandable-card)
+
+* props keep their original look but adopt the effect of this animation when expanded.
+
+[add sticky navbar for navbar entries](https://ui.aceternity.com/components/floating-navbar)

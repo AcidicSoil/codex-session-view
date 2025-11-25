@@ -20,9 +20,16 @@ interface TimelineWithFiltersProps {
    */
   events: readonly ResponseItem[]
   onAddEventToChat?: (event: TimelineEvent, index: number) => void
+  timelineHeight?: number
+  registerFilters?: (node: React.ReactNode | null) => void
 }
 
-export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFiltersProps) {
+export function TimelineWithFilters({
+  events,
+  onAddEventToChat,
+  timelineHeight,
+  registerFilters,
+}: TimelineWithFiltersProps) {
   const [filters, setFilters] = useState<Filter<TimelineFilterValue>[]>([])
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
   const [roleFilter, setRoleFilter] = useState<RoleQuickFilter>('all')
@@ -88,8 +95,8 @@ export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFi
   const hasFilteredEvents = filteredEvents.length > 0
   const noMatches = hasSourceEvents && !hasFilteredEvents
 
-  return (
-    <div className="space-y-4">
+  const filtersNode = useMemo(
+    () => (
       <TimelineFilters
         events={events}
         filters={filters}
@@ -107,6 +114,29 @@ export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFi
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
       />
+    ),
+    [
+      events,
+      filters,
+      quickFilter,
+      roleFilter,
+      filteredEvents.length,
+      searchMatches.length,
+      searchQuery,
+      sortOrder,
+      handleSearchNext,
+    ],
+  )
+
+  useEffect(() => {
+    if (!registerFilters) return
+    registerFilters(filtersNode)
+    return () => registerFilters(null)
+  }, [registerFilters, filtersNode])
+
+  return (
+    <div className="space-y-4">
+      {registerFilters ? null : filtersNode}
       {!hasSourceEvents ? (
         <p className="text-sm text-muted-foreground">Load or drop a session to populate the timeline.</p>
       ) : noMatches ? (
@@ -119,6 +149,7 @@ export function TimelineWithFilters({ events, onAddEventToChat }: TimelineWithFi
           onAddEventToChat={onAddEventToChat}
           searchMatchers={searchMatchers}
           getDisplayNumber={(event) => displayNumberMap.get(event)}
+          height={timelineHeight}
         />
       )}
     </div>

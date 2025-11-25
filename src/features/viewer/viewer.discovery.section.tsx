@@ -107,6 +107,7 @@ export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDi
 
 interface DiscoverySectionProps extends ViewerDiscoveryState {
   onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void
+  onFiltersRender?: (node: React.ReactNode | null) => void
 }
 
 export function DiscoverySection(props: DiscoverySectionProps) {
@@ -119,6 +120,7 @@ export function DiscoverySection(props: DiscoverySectionProps) {
     selectedSessionPath,
     setSelectedSessionPath,
     onAddSessionToChat,
+    onFiltersRender,
   } = props
   if (!snapshot) {
     return <DiscoveryUnavailable />
@@ -126,7 +128,6 @@ export function DiscoverySection(props: DiscoverySectionProps) {
   return (
     <SessionExplorerBoundary resetKey={snapshot.generatedAt}>
       <DiscoveryPanel
-        projectFiles={projectFiles}
         sessionAssets={sessionAssets}
         generatedAtMs={snapshot.generatedAt}
         onSessionOpen={onSessionOpen}
@@ -134,6 +135,7 @@ export function DiscoverySection(props: DiscoverySectionProps) {
         selectedSessionPath={selectedSessionPath}
         onSelectionChange={setSelectedSessionPath}
         onAddSessionToChat={onAddSessionToChat}
+        onFiltersRender={onFiltersRender}
       />
     </SessionExplorerBoundary>
   )

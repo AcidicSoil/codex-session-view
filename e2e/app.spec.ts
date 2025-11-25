@@ -81,4 +81,44 @@ test.describe('codex session viewer', () => {
     await expect(page.getByRole('button', { name: /Refresh logs/i })).toBeVisible();
     await expect(page.locator('pre')).toContainText(/Playwright synthetic error/, { timeout: 10_000 });
   });
+
+  test('timeline layout keeps dropzone, tracing beam, navbar, and chat dock aligned', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1200 });
+    await page.goto('/viewer');
+    const dropzone = page.getByTestId('session-upload-dropzone');
+    await expect(dropzone).toBeVisible();
+    await expect(dropzone).toHaveAttribute('aria-busy', 'false');
+    const dropzoneBox = await dropzone.boundingBox();
+    expect(dropzoneBox?.y ?? Infinity).toBeLessThan(400);
+
+    const fileInputs = page.locator('input[type="file"]');
+    await fileInputs.first().setInputFiles(sessionFixture);
+
+    const beam = page.getByTestId('timeline-tracing-beam');
+    await expect(beam).toBeVisible({ timeout: 20_000 });
+    const initialHeight = await beam.evaluate((node) => node.getBoundingClientRect().height);
+    await page.mouse.wheel(0, 600);
+    await page.waitForTimeout(300);
+    const scrolledHeight = await beam.evaluate((node) => node.getBoundingClientRect().height);
+    expect(scrolledHeight).toBeGreaterThan(initialHeight + 5);
+    await page.mouse.wheel(0, -600);
+    await page.waitForTimeout(300);
+    const restoredHeight = await beam.evaluate((node) => node.getBoundingClientRect().height);
+    expect(restoredHeight).toBeLessThan(scrolledHeight - 5);
+
+    await page.mouse.wheel(0, 800);
+    const floatingNavbar = page.getByTestId('viewer-floating-navbar');
+    await expect(floatingNavbar).toBeVisible();
+    const navBox = await floatingNavbar.boundingBox();
+    expect(navBox?.y ?? Infinity).toBeLessThan(100);
+
+    const chatBox = await page.locator('#viewer-chat').boundingBox();
+    const timelineBox = await page.locator('#viewer-tabs').boundingBox();
+    expect(chatBox).toBeTruthy();
+    expect(timelineBox).toBeTruthy();
+    const horizontalGap = (chatBox!.x ?? 0) - ((timelineBox!.x ?? 0) + (timelineBox!.width ?? 0));
+    expect(horizontalGap).toBeGreaterThan(20);
+    expect(horizontalGap).toBeLessThan(200);
+    expect(chatBox!.x ?? 0).toBeGreaterThan(40);
+  });
 });
