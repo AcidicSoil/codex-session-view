@@ -1,6 +1,6 @@
 {
 	"meta": {
-		"generatedAt": "2025-11-24T22:04:20.554Z",
+		"generatedAt": "2025-11-24T23:35:52.202Z",
 		"tasksAnalyzed": 10,
 		"totalTasks": 10,
 		"analysisCount": 10,
@@ -11,83 +11,83 @@
 	"complexityAnalysis": [
 		{
 			"taskId": 1,
-			"taskTitle": "Implement AI Provider Abstraction (lib/ai)",
+			"taskTitle": "Setup Core AI Abstraction Layer (`lib/ai`)",
 			"complexityScore": 4,
 			"recommendedSubtasks": 3,
-			"expansionPrompt": "Break this down into subtasks for setting up the Vercel AI SDK provider wrapper, creating the initial set of prompt template functions for chat and summaries, and implementing unit tests with mocks.",
-			"reasoning": "This is a greenfield module with no existing code to refactor. Complexity is moderate as it involves correctly abstracting the external Vercel AI SDK and defining a robust internal API for prompts and streaming, which is a core dependency. The SDK itself simplifies the underlying streaming logic, preventing a higher score."
+			"expansionPrompt": "Break this foundational task down into three subtasks: 1. Define the core interfaces and types for the AI provider and prompt system. 2. Implement the `provider.ts` module to wrap the Vercel AI SDK for streaming chat. 3. Implement the `prompt-templates.ts` module for building structured prompts.",
+			"reasoning": "This task is foundational but has low implementation complexity as it primarily wraps the Vercel AI SDK, which handles the difficult parts of streaming and model interaction. The complexity score of 4 reflects the importance of designing a clean, extensible abstraction that will be a core dependency for many other features. The task naturally splits into defining types, wrapping the client, and building the templating utility."
 		},
 		{
 			"taskId": 2,
-			"taskTitle": "Implement AGENTS.md Rules Parser (lib/agents-rules)",
+			"taskTitle": "Implement AGENTS.md Rules Parser (`lib/agents-rules`)",
 			"complexityScore": 6,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "Generate subtasks for setting up the markdown AST parser, implementing the logic to traverse the AST and extract rule structures, adding support for parsing metadata from HTML comments, and building the final query API with associated unit/snapshot tests.",
-			"reasoning": "This task involves using specialized libraries (`unified`/`remark`) for AST manipulation, which has a learning curve. The logic must be robust against variations in the markdown structure and requires careful parsing of embedded metadata within comments, which is more complex than parsing a simple structured file format. Snapshot testing also requires careful setup."
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Decompose this parsing task into subtasks for: 1. Defining the `AgentsRule` data structures and types. 2. Implementing the core markdown parser to extract headings, lists, and custom metadata comments. 3. Implementing the query functions (`getRuleById`, `queryRules`) to filter the parsed data.",
+			"reasoning": "Parsing custom file formats, even if based on markdown, introduces significant complexity due to edge cases and the need for robust error handling. The requirement to parse metadata from HTML comments adds a non-standard step. While the module is self-contained, the logic for parsing and then providing a queryable interface is non-trivial, justifying a score of 6."
 		},
 		{
 			"taskId": 3,
-			"taskTitle": "Define Canonical Session Model (lib/sessions)",
-			"complexityScore": 3,
-			"recommendedSubtasks": 3,
-			"expansionPrompt": "Create subtasks to define the core TypeScript interfaces for `Session` and `SessionEvent`, implement corresponding Zod schemas for runtime validation, and refactor the existing viewer component at `src/routes/(site)/viewer/index.tsx` to adopt these new canonical types.",
-			"reasoning": "This is primarily a type-definition and refactoring task. The core effort of creating interfaces is low. Complexity is slightly increased by the need to refactor an existing part of the codebase (`viewer/index.tsx`) and implement runtime validation with Zod, but no complex algorithms are involved."
+			"taskTitle": "Define Canonical Session Data Models (`lib/sessions`)",
+			"complexityScore": 1,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "This task is atomic and consists of defining TypeScript interfaces. No further breakdown is necessary.",
+			"reasoning": "This is the simplest type of task. It involves creating TypeScript `interface` and `type` definitions in a single file with no runtime logic, algorithms, or external dependencies. The effort is minimal and focused on clear data modeling rather than implementation challenges."
 		},
 		{
 			"taskId": 4,
-			"taskTitle": "Implement Session Context Builder (features/chatbot/context-builder)",
-			"complexityScore": 7,
+			"taskTitle": "Implement Session Context Builder (`features/chatbot/context-builder.ts`)",
+			"complexityScore": 8,
 			"recommendedSubtasks": 4,
-			"expansionPrompt": "Decompose this task into creating the basic context summarization logic (bucketing events), implementing a token counting utility, developing the intelligent truncation algorithm to enforce a strict token budget, and adding a caching layer to optimize repeated builds for the same session.",
-			"reasoning": "Complexity is high due to the algorithmic challenge of creating a token-bounded context. This involves not just data mapping but also implementing prioritization and truncation logic to 'intelligently' decide what information to keep based on importance. Testing the boundary conditions of the token budget adds further complexity."
+			"expansionPrompt": "Break down this complex algorithmic task into: 1. Implementing the basic event bucketing logic (e.g., recent N, critical errors). 2. Developing the deterministic summarization strategies for different event types. 3. Implementing the strict token budget enforcement algorithm. 4. Adding the per-session caching layer to optimize performance.",
+			"reasoning": "This task is algorithmically complex. The core challenge lies in designing and implementing the logic to 'intelligently' reduce a large session object into a token-limited string without losing critical context. This involves heuristics, summarization, and careful token counting. The caching requirement adds state management complexity, making this one of the more difficult backend tasks."
 		},
 		{
 			"taskId": 5,
-			"taskTitle": "Implement Automatic Misalignment Detector (features/chatbot/misalignment-detector)",
+			"taskTitle": "Develop Automatic AGENTS Misalignment Detector",
 			"complexityScore": 8,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "Break this down into subtasks for: designing the main `detectMisalignments` pipeline, implementing the fast-path heuristic rule checks, integrating the AI provider for LLM-based classification of complex rules, parsing the structured response from the LLM, and unifying the results into a list of `Misalignment` objects.",
-			"reasoning": "This task has high complexity due to its role as an orchestrator for multiple other modules (`lib/ai`, `lib/agents-rules`). It involves implementing a complex hybrid logic pipeline combining deterministic heuristics with non-deterministic, prompt-based LLM classification, which is inherently challenging to design, manage, and test reliably."
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Divide this hybrid detection task into: 1. Implementing the set of fast, heuristic-based detectors for simple rules (e.g., regex matching). 2. Implementing the LLM-based classification flow, including prompt construction and response parsing. 3. Creating the main aggregator function that runs all detectors and returns a consolidated list of misalignments.",
+			"reasoning": "High complexity is driven by the hybrid approach. It requires two distinct types of implementation: fast, precise heuristic logic and non-deterministic, prompt-engineered LLM-based classification. Integrating these two systems, along with its dependencies on the AI library, rules parser, and session models, creates significant technical and testing challenges."
 		},
 		{
 			"taskId": 6,
-			"taskTitle": "Implement Artifact Generation Logic (summaries & commit-messages)",
-			"complexityScore": 4,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "Generate subtasks for implementing the `generateSummary` function, the `generateCommitMessages` function, adding support for configurable commit message styles (e.g., Conventional Commits), and establishing the golden-file testing strategy for both features.",
-			"reasoning": "The complexity is moderate. While the task largely involves connecting pre-built modules (context builder, AI provider), the effort in prompt engineering to ensure high-quality output and implementing configuration options (like commit styles) is non-trivial. It's more than a simple API call wrapper, and setting up golden-file testing requires specific effort."
+			"taskTitle": "Implement Mode-Aware Chat Runtime (`chatbot.runtime.ts`)",
+			"complexityScore": 5,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "Separate this orchestration task into two subtasks: 1. Implement the chat runtime logic for 'session' mode, integrating the context builder and misalignment detector. 2. Implement the mode-switching factory function, including the stubbed 'general' mode error handling and config setup.",
+			"reasoning": "The complexity here is moderate and stems from orchestration, not novel logic. The task's primary responsibility is to correctly wire together several other complex, independent modules (AI lib, context builder, misalignment detector). While the internal logic is a simple conditional, managing the data flow and dependencies between these systems is a non-trivial integration effort."
 		},
 		{
 			"taskId": 7,
-			"taskTitle": "Implement Chatbot API Server (server/chatbot-api.server.ts)",
-			"complexityScore": 6,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "Break this down into subtasks: implement the non-streaming `analyzeSessionServerFn` to link to artifact generation; implement the streaming `chatbotStreamServerFn` using TanStack Start and the Vercel AI SDK; integrate the context builder and misalignment detector into the streaming logic; and write integration tests for both endpoints.",
-			"reasoning": "This task is an integration nexus, connecting four separate backend modules into two distinct server endpoints (one streaming, one not). This introduces significant orchestration complexity. The use of framework-specific (`TanStack Start`) and SDK-specific (`Vercel AI SDK`) features requires specific knowledge, and robust error handling across all dependencies is critical."
+			"taskTitle": "Create Mode-Aware Chat API Endpoint (`chatbot-api.server.ts`)",
+			"complexityScore": 4,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "Break this task into: 1. Setting up the API route (`POST /api/chatbot/stream`) with robust request body validation for `mode`, `sessionId`, etc. 2. Integrating the chat runtime (from Task 6) and implementing the response stream using `StreamingTextResponse` from the Vercel AI SDK.",
+			"reasoning": "This is a standard API implementation task, but with added complexity due to the streaming requirement and mode-based logic. The `codex-session-view` codebase structure with `.server.ts` files implies a framework like Next.js or Remix where this is a common pattern. The Vercel AI SDK simplifies streaming, bringing the complexity down to a moderate level focused on validation, integration, and error handling for different modes."
 		},
 		{
 			"taskId": 8,
-			"taskTitle": "Implement and Integrate ChatDock UI (components/chatbot/ChatDockPanel.tsx)",
-			"complexityScore": 5,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "Generate subtasks for scaffolding the basic UI layout with `shadcn/ui`, integrating the Vercel AI SDK's `useChat` hook to handle state and API communication, implementing the collapsible/expandable behavior of the dock, and integrating the final component into the viewer page.",
-			"reasoning": "While the `useChat` hook and `shadcn/ui` library provide powerful abstractions that simplify the work, this is a non-trivial UI component with complex state (streaming messages, loading, errors). It requires careful integration into an existing page layout (`viewer/index.tsx`), including managing its collapsible state, which increases effort beyond a simple component."
+			"taskTitle": "Implement Core ChatDockPanel React Component",
+			"complexityScore": 4,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break this UI task down into: 1. Initial component setup using the `useChat` hook from `ai/react`. 2. Implementing the JSX and CSS for rendering messages, the input form, and loading/error states. 3. Customizing the `useChat` hook's API call to include the `mode` and `sessionId` in the request body.",
+			"reasoning": "The complexity of this frontend task is significantly reduced by the Vercel `ai/react` library's `useChat` hook, which abstracts away most of the client-side state management for chat interfaces. The remaining work is standard React development: component structure, styling, and configuring the hook. The score of 4 reflects typical UI development effort."
 		},
 		{
 			"taskId": 9,
-			"taskTitle": "Implement Misalignment Notification UI (MisalignmentBanner, TimelineBadges)",
-			"complexityScore": 6,
+			"taskTitle": "Implement Misalignment UI and Remediation Flow",
+			"complexityScore": 7,
 			"recommendedSubtasks": 4,
-			"expansionPrompt": "Break this down into subtasks: build the `MisalignmentBanner` component with data fetching; create the `MisalignmentTimelineBadges` component; integrate the badges into the existing session timeline rendering logic; and implement the cross-component communication to open the chat dock on a click.",
-			"reasoning": "The complexity score is elevated by the integration challenge. Placing badges onto an existing timeline component requires understanding and potentially modifying its rendering logic, which is more complex than creating a self-contained component. The task also requires cross-component communication (badge click -> open chat dock), which necessitates a robust state management solution."
+			"expansionPrompt": "Decompose this feature into: 1. Implement a data-fetching mechanism (e.g., a React hook or route loader) for misalignment data. 2. Build the `MisalignmentBanner.tsx` component. 3. Build the `MisalignmentTimelineBadges.tsx` component. 4. Implement the interactive remediation flow to connect the banner's click event to the chat panel state.",
+			"reasoning": "This task is significantly more complex than a simple display component. It requires fetching and managing server state, rendering that data in two separate components, and orchestrating communication between the new `MisalignmentBanner` and the `ChatDockPanel` to trigger the remediation flow. This inter-component state management and user flow logic justifies the higher complexity score."
 		},
 		{
 			"taskId": 10,
-			"taskTitle": "Implement Summary and Commit Message Pop-outs",
-			"complexityScore": 3,
-			"recommendedSubtasks": 3,
-			"expansionPrompt": "Create subtasks to build a generic, reusable pop-out component using `shadcn/ui` that handles async loading and display of content; implement the specific `SummaryPopout` and `CommitPopout` variations; and add the trigger buttons to the main viewer UI to launch them.",
-			"reasoning": "This task has low complexity because it follows a very common UI pattern (button opens modal which fetches data). The use of a mature component library like `shadcn/ui` for modals abstracts away most of the difficult implementation details, such as accessibility and focus management. The client-side logic is a straightforward asynchronous data fetch."
+			"taskTitle": "Implement Pop-Out Summary and Commit Message Generators",
+			"complexityScore": 7,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break this full-stack feature down into: 1. Implement the backend `generateSummary` function, including prompt engineering. 2. Implement the backend `generateCommitMessages` function. 3. Create the new `POST /api/chatbot/analyze` endpoint to expose the generators. 4. Build the frontend `SummaryPopout` and `CommitPopout` components with API fetching and UI controls.",
+			"reasoning": "This is a self-contained, full-stack feature slice. Its complexity score of 7 is due to the need to coordinate work across the entire stack: backend (new AI-powered generator functions), API (a new endpoint), and frontend (new modal/pop-out components with their own state). While the individual pieces are manageable, implementing and testing the end-to-end flow requires significant effort."
 		}
 	]
 }
