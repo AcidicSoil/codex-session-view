@@ -29,7 +29,7 @@ must have components aceternity
 **to show user/assistant messages on hover**
 
 - for timeline view props
-- it will show the user message if the prop is an assistant message and vice versa 
+- it will show the user message if the prop is an assistant message and vice versa
 
 [effect to use on user/assistant messages](https://ui.aceternity.com/components/evervault-card)
 
