@@ -1,0 +1,87 @@
+[
+  {
+    "id": "loader-fetch-discipline",
+    "heading": "Loader fetch discipline",
+    "level": 1,
+    "summary": "",
+    "body": "- Fetch speculative data via TanStack Start loaders.\n- Never use `useEffect` for server reads.",
+    "bullets": [
+      "Fetch speculative data via TanStack Start loaders.",
+      "Never use `useEffect` for server reads."
+    ],
+    "severity": "high",
+    "keywords": [
+      "loader",
+      "fetch",
+      "discipline",
+      "speculative",
+      "data",
+      "via",
+      "tanstack",
+      "start",
+      "loaders",
+      "never",
+      "use",
+      "useeffect",
+      "for",
+      "server",
+      "reads"
+    ]
+  },
+  {
+    "id": "hydration-suspense-safety",
+    "heading": "Hydration + suspense safety",
+    "level": 2,
+    "summary": "",
+    "body": "- Avoid suspending updates during hydration.\n- Wrap synchronous updates that may suspend with `startTransition`.",
+    "bullets": [
+      "Avoid suspending updates during hydration.",
+      "Wrap synchronous updates that may suspend with `startTransition`."
+    ],
+    "severity": "medium",
+    "keywords": [
+      "hydration",
+      "suspense",
+      "safety",
+      "avoid",
+      "suspending",
+      "updates",
+      "during",
+      "wrap",
+      "synchronous",
+      "that",
+      "may",
+      "suspend",
+      "with",
+      "starttransition"
+    ]
+  },
+  {
+    "id": "zustand-state-syncing",
+    "heading": "Zustand state syncing",
+    "level": 2,
+    "summary": "",
+    "body": "- Keep server-synced data out of Zustand.\n- Mirror server truth via TanStack DB collections instead.",
+    "bullets": [
+      "Keep server-synced data out of Zustand.",
+      "Mirror server truth via TanStack DB collections instead."
+    ],
+    "severity": "info",
+    "keywords": [
+      "zustand",
+      "state",
+      "syncing",
+      "keep",
+      "server",
+      "synced",
+      "data",
+      "out",
+      "mirror",
+      "truth",
+      "via",
+      "tanstack",
+      "collections",
+      "instead"
+    ]
+  }
+]

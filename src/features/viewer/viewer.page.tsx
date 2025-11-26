@@ -16,6 +16,16 @@ import { Switch } from '~/components/ui/switch'
 import { ChatDockPanel } from '~/components/chatbot/ChatDockPanel'
 import { VIEWER_ROUTE_ID } from './route-id'
 import type { ViewerSnapshot } from './viewer.loader'
+import type { TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
+import type { MisalignmentRecord } from '~/lib/sessions/model'
+import type { ChatRemediationMetadata } from '~/features/chatbot/chatbot.runtime'
+import { MisalignmentBanner } from '~/components/chatbot/MisalignmentBanner'
+import { pickHigherSeverity, selectPrimaryMisalignment } from '~/features/chatbot/severity'
+
+interface SessionCoachPrefill {
+  prompt: string
+  metadata?: ChatRemediationMetadata
+}
 
 export function ViewerPage() {
   return (
@@ -37,6 +47,15 @@ export function ViewerClient() {
   const [tabValue, setTabValue] = useState<'timeline' | 'explorer'>('timeline');
   const [timelineFiltersSlot, setTimelineFiltersSlot] = useState<ReactNode | null>(null);
   const [explorerFiltersSlot, setExplorerFiltersSlot] = useState<ReactNode | null>(null);
+  const sessionCoach = loaderData?.sessionCoach
+  const misalignments = sessionCoach?.misalignments ?? []
+  const flaggedEventMarkers = useMemo(() => {
+    if (!sessionCoach?.featureEnabled) {
+      return new Map<number, TimelineFlagMarker>()
+    }
+    return buildFlaggedEventMap(misalignments)
+  }, [misalignments, sessionCoach?.featureEnabled])
+  const [coachPrefill, setCoachPrefill] = useState<SessionCoachPrefill | null>(null)
   const handleAddTimelineEventToChat = (event: TimelineEvent, index: number) => {
     logInfo('viewer.chatdock', 'Timeline event add-to-chat requested', {
       eventType: event.type,
@@ -100,6 +119,23 @@ export function ViewerClient() {
     setExplorerFiltersSlot(node);
   }, []);
 
+  const handleRemediationPrefill = useCallback(
+    (records: MisalignmentRecord[]) => {
+      const payload = buildRemediationPrefill(records)
+      if (!payload) return
+      setCoachPrefill(payload)
+      handleNavChange('chat')
+    },
+    [handleNavChange],
+  )
+
+  const handleFlaggedEventClick = useCallback(
+    (marker: TimelineFlagMarker) => {
+      handleRemediationPrefill(marker.misalignments)
+    },
+    [handleRemediationPrefill],
+  )
+
   const timelineSections: StickySection[] = [
     {
       id: 'timeline-events',
@@ -112,6 +148,8 @@ export function ViewerClient() {
           onAddTimelineEventToChat={handleAddTimelineEventToChat}
           className="border-none bg-transparent p-0 text-foreground"
           onFiltersRender={handleTimelineFiltersRender}
+          flaggedEvents={flaggedEventMarkers}
+          onFlaggedEventClick={handleFlaggedEventClick}
         />
       ),
     },
@@ -180,11 +218,19 @@ export function ViewerClient() {
             <section>
               <UploadControlsCard controller={uploadController} className="rounded-3xl border border-white/15 bg-background/80 p-5" />
             </section>
+            {sessionCoach?.featureEnabled ? (
+              <MisalignmentBanner misalignments={misalignments} onReview={handleRemediationPrefill} />
+            ) : null}
             <aside
               id="viewer-chat"
               className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner"
             >
-              <ChatDockPanel sessionId={loaderData?.sessionId ?? 'demo-session'} state={loaderData?.sessionCoach} />
+              <ChatDockPanel
+                sessionId={loaderData?.sessionId ?? 'demo-session'}
+                state={sessionCoach}
+                prefill={coachPrefill}
+                onPrefillConsumed={() => setCoachPrefill(null)}
+              />
             </aside>
           </div>
         </div>
@@ -203,4 +249,68 @@ function ViewerSkeleton() {
       <div className="h-96 animate-pulse rounded-3xl bg-muted" />
     </main>
   )
+}
+
+function buildFlaggedEventMap(misalignments: MisalignmentRecord[]): Map<number, TimelineFlagMarker> {
+  const map = new Map<number, TimelineFlagMarker>()
+  misalignments.forEach((record) => {
+    if (record.status !== 'open') return
+    const range = record.eventRange
+    if (!range) return
+    const start = typeof range.startIndex === 'number' ? range.startIndex : 0
+    const end = typeof range.endIndex === 'number' ? range.endIndex : start
+    for (let index = start; index <= end; index += 1) {
+      const existing = map.get(index)
+      if (existing) {
+        map.set(index, {
+          severity: pickHigherSeverity(existing.severity, record.severity),
+          misalignments: [...existing.misalignments, record],
+        })
+      } else {
+        map.set(index, { severity: record.severity, misalignments: [record] })
+      }
+    }
+  })
+  return map
+}
+
+function buildRemediationPrefill(records: MisalignmentRecord[]): SessionCoachPrefill | null {
+  if (!records.length) {
+    return null
+  }
+  const primary = selectPrimaryMisalignment(records)
+  if (!primary) {
+    return null
+  }
+  const range = primary.eventRange
+    ? `events ${primary.eventRange.startIndex}-${primary.eventRange.endIndex}`
+    : 'the linked events'
+  const evidence = primary.evidence?.map((entry) => entry.message).filter(Boolean).join('; ')
+  const supporting = records.filter((record) => record.id !== primary.id)
+  const supportingLine = supporting.length
+    ? `Additional rules involved: ${supporting.map((record) => `${record.ruleId} "${record.title}"`).join(', ')}.`
+    : ''
+  const prompt =
+    [
+      `Remediate AGENT rule ${primary.ruleId} "${primary.title}" (${primary.severity}).`,
+      `It was flagged around ${range}.`,
+      `Summary: ${primary.summary}.`,
+      evidence ? `Evidence: ${evidence}.` : null,
+      supportingLine || null,
+      'Outline concrete steps to resolve these violations and confirm mitigations.',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+  return {
+    prompt,
+    metadata: {
+      misalignmentId: primary.id,
+      ruleId: primary.ruleId,
+      severity: primary.severity,
+      eventRange: primary.eventRange
+        ? { startIndex: primary.eventRange.startIndex, endIndex: primary.eventRange.endIndex }
+        : undefined,
+    },
+  }
 }

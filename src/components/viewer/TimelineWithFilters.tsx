@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ResponseItem } from '~/lib/viewer-types'
-import { AnimatedTimelineList, type TimelineEvent } from '~/components/viewer/AnimatedTimelineList'
+import { AnimatedTimelineList, type TimelineEvent, type TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
 import type { Filter } from '~/components/ui/filters'
 import {
   TimelineFilters,
@@ -22,6 +22,8 @@ interface TimelineWithFiltersProps {
   onAddEventToChat?: (event: TimelineEvent, index: number) => void
   timelineHeight?: number
   registerFilters?: (node: React.ReactNode | null) => void
+  flaggedEvents?: Map<number, TimelineFlagMarker>
+  onFlaggedEventClick?: (marker: TimelineFlagMarker) => void
 }
 
 export function TimelineWithFilters({
@@ -29,6 +31,8 @@ export function TimelineWithFilters({
   onAddEventToChat,
   timelineHeight,
   registerFilters,
+  flaggedEvents,
+  onFlaggedEventClick,
 }: TimelineWithFiltersProps) {
   const [filters, setFilters] = useState<Filter<TimelineFilterValue>[]>([])
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
@@ -150,6 +154,8 @@ export function TimelineWithFilters({
           searchMatchers={searchMatchers}
           getDisplayNumber={(event) => displayNumberMap.get(event)}
           height={timelineHeight}
+          flaggedEvents={flaggedEvents}
+          onFlaggedEventClick={onFlaggedEventClick}
         />
       )}
     </div>

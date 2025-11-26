@@ -28,6 +28,11 @@ import { eventKey } from '~/utils/event-key'
 import { formatClockTime } from '~/utils/intl'
 import type { SearchMatcher } from '~/utils/search'
 import { HighlightedText } from '~/components/ui/highlighted-text'
+import type { MisalignmentRecord, MisalignmentSeverity } from '~/lib/sessions/model'
+import { Badge } from '~/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
+import { truncateRuleTitle } from '~/lib/agents-rules/format'
+import { getSeverityVisuals, toSeverityLabel } from '~/features/chatbot/severity'
 
 export type TimelineEvent = ResponseItem | ResponseItemParsed
 
@@ -41,6 +46,13 @@ interface AnimatedTimelineListProps {
   searchMatchers?: SearchMatcher[]
   getDisplayNumber?: (event: TimelineEvent, index: number) => number | null | undefined
   height?: number
+  flaggedEvents?: Map<number, TimelineFlagMarker>
+  onFlaggedEventClick?: (marker: TimelineFlagMarker) => void
+}
+
+export interface TimelineFlagMarker {
+  severity: MisalignmentSeverity
+  misalignments: MisalignmentRecord[]
 }
 
 const SNIPPET_LENGTH = 100
@@ -59,6 +71,8 @@ export function AnimatedTimelineList({
   searchMatchers,
   getDisplayNumber,
   height = 720,
+  flaggedEvents,
+  onFlaggedEventClick,
 }: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [scrollTarget, setScrollTarget] = useState<number | null>(null)
@@ -124,7 +138,7 @@ export function AnimatedTimelineList({
                 return next
               })
               onSelect?.(item.event, item.index)
-            }, searchQuery, onAddEventToChat, searchMatchers, getDisplayNumber)}
+            }, searchQuery, onAddEventToChat, searchMatchers, getDisplayNumber, flaggedEvents, onFlaggedEventClick)}
           </motion.div>
         )}
         scrollToIndex={scrollTarget}
@@ -198,6 +212,8 @@ function renderTimelineItem(
   onAddEventToChat?: (event: TimelineEvent, index: number) => void,
   searchMatchers?: SearchMatcher[],
   getDisplayNumber?: (event: TimelineEvent, index: number) => number | null | undefined,
+  flaggedEvents?: Map<number, TimelineFlagMarker>,
+  onFlaggedEventClick?: (marker: TimelineFlagMarker) => void,
 ) {
   const handleAddToChat = (mouseEvent: MouseEvent<HTMLButtonElement>) => {
     mouseEvent.preventDefault()
@@ -205,6 +221,9 @@ function renderTimelineItem(
     onAddEventToChat?.(event, index)
   }
   const timestampLabel = event.at ? formatTimestamp(event.at) : null
+  const eventIndex = typeof (event as { index?: number }).index === 'number' ? (event as { index?: number }).index : null
+  const marker = eventIndex != null ? flaggedEvents?.get(eventIndex) : undefined
+  const severityVisual = marker ? getSeverityVisuals(marker.severity) : null
   const resolvedDisplayNumber = getDisplayNumber?.(event, index)
   const labelNumber =
     typeof resolvedDisplayNumber === 'number' && Number.isFinite(resolvedDisplayNumber)
@@ -249,6 +268,29 @@ function renderTimelineItem(
                 {event.type}
               </span>
             </div>
+            {marker && severityVisual ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="outline-none"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      onFlaggedEventClick?.(marker)
+                    }}
+                  >
+                    <Badge
+                      variant={severityVisual.badgeVariant}
+                      className={`text-[10px] font-semibold uppercase tracking-wide ${severityVisual.textClass} ${severityVisual.borderClass}`}
+                    >
+                      {marker.misalignments.length} issue{marker.misalignments.length === 1 ? '' : 's'}
+                    </Badge>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{formatMisalignmentTooltip(marker)}</TooltipContent>
+              </Tooltip>
+            ) : null}
             {event.type === 'Message' ? (
               <ShimmerButton
                 type="button"
@@ -558,6 +600,14 @@ function formatTimestamp(date: string | number | Date) {
 
 function capitalize(value: string) {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
+}
+
+function formatMisalignmentTooltip(marker: TimelineFlagMarker) {
+  const severityLabel = toSeverityLabel(marker.severity)
+  const entries = marker.misalignments
+    .map((record) => `${record.ruleId.toUpperCase()} “${truncateRuleTitle(record.title)}”`)
+    .join(', ')
+  return `${severityLabel} severity: ${entries}`
 }
 
 function safeStringify(value: unknown) {

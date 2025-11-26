@@ -73,11 +73,13 @@ export async function updateMisalignmentStatus(sessionId: SessionId, id: string,
   if (!canTransitionMisalignmentStatus(existing.status, nextStatus)) {
     throw new Error(`Cannot transition misalignment from ${existing.status} to ${nextStatus}`)
   }
+  const previousStatus = existing.status
   await misalignmentsCollection.update(id, (draft) => {
     draft.status = nextStatus
     draft.updatedAt = new Date().toISOString()
   })
-  return misalignmentsCollection.get(id)
+  const record = misalignmentsCollection.get(id)
+  return { record: record ?? existing, previousStatus }
 }
 
 export async function clearMisalignments() {

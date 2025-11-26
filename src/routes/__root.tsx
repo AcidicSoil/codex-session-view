@@ -17,17 +17,7 @@ import customCss from "../styles/custom.css?url"
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
 }>()({
-  loader: async () => {
-    if (typeof window !== 'undefined') {
-      return 'system'
-    }
-    try {
-      return await getTheme()
-    } catch (error) {
-      console.error('[root.loader] Failed to resolve theme, falling back to system', error)
-      return 'system'
-    }
-  },
+  loader: () => getTheme(),
   head: () => ({
     meta: [
       {

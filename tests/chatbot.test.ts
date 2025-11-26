@@ -4,8 +4,10 @@ import { buildChatContext } from '~/features/chatbot/context-builder'
 import { detectMisalignments } from '~/features/chatbot/misalignment-detector'
 import type { SessionSnapshot } from '~/lib/sessions/model'
 import sessionFixture from './fixtures/session-large.json'
+import misalignmentSessionFixture from './fixtures/sessions/session.misalignment-basic.json'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { generateCommitMessages, generateSessionSummaryMarkdown } from '~/lib/ai/client'
 
 const sessionSnapshot: SessionSnapshot = {
   sessionId: 'test-session',
@@ -13,7 +15,13 @@ const sessionSnapshot: SessionSnapshot = {
   events: sessionFixture.events,
 }
 
-const agentsMarkdown = readFileSync(resolve(process.cwd(), 'tests/fixtures/agents/sample.md'), 'utf8')
+const misalignmentSnapshot: SessionSnapshot = {
+  sessionId: 'session-misalignment-basic',
+  meta: misalignmentSessionFixture.meta,
+  events: misalignmentSessionFixture.events,
+}
+
+const agentsMarkdown = readFileSync(resolve(process.cwd(), 'tests/fixtures/agents/AGENTS.session-coach.md'), 'utf8')
 const agentRules = parseAgentRules(agentsMarkdown)
 
 describe('Agent rule parser', () => {
@@ -40,7 +48,38 @@ describe('Chat context builder', () => {
 
 describe('Misalignment detector', () => {
   it('flags fixture heuristics', () => {
-    const detection = detectMisalignments({ snapshot: sessionSnapshot, agentRules })
+    const detection = detectMisalignments({ snapshot: misalignmentSnapshot, agentRules })
     expect(detection.misalignments.length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('Analysis helpers', () => {
+  const detection = detectMisalignments({ snapshot: misalignmentSnapshot, agentRules })
+
+  it('builds markdown with four required sections', () => {
+    const markdown = generateSessionSummaryMarkdown({
+      snapshot: misalignmentSnapshot,
+      misalignments: detection.misalignments,
+      recentEvents: misalignmentSnapshot.events,
+      contextHeadings: ['Session metadata'],
+    })
+    expect(markdown).toContain('## Goals')
+    expect(markdown).toContain('## Main changes')
+    expect(markdown).toContain('## Issues')
+    expect(markdown).toContain('## Follow-ups')
+    const sections = markdown.split('\n## ').length
+    expect(sections).toBeGreaterThanOrEqual(4)
+  })
+
+  it('returns commit subjects under 72 characters', () => {
+    const commits = generateCommitMessages({
+      snapshot: misalignmentSnapshot,
+      misalignments: detection.misalignments,
+      recentEvents: misalignmentSnapshot.events,
+    })
+    expect(commits.length).toBeGreaterThan(0)
+    for (const subject of commits) {
+      expect(subject.length).toBeLessThanOrEqual(72)
+    }
   })
 })

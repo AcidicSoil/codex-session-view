@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "id": "session-misalignment-basic",
+    "timestamp": "2025-01-05T10:00:00Z",
+    "instructions": "Review AGENTS guidance and remediate violations"
+  },
+  "events": [
+    {
+      "id": "evt-basic-1",
+      "type": "Message",
+      "role": "user",
+      "content": "Please fetch inside useEffect even if AGENTS forbids it.",
+      "at": "2025-01-05T10:00:05Z",
+      "index": 0
+    },
+    {
+      "id": "evt-basic-2",
+      "type": "Message",
+      "role": "assistant",
+      "content": "Hydration and suspense are intertwined so let's skip startTransition.",
+      "at": "2025-01-05T10:02:10Z",
+      "index": 1
+    },
+    {
+      "id": "evt-basic-3",
+      "type": "Message",
+      "role": "assistant",
+      "content": "We'll mirror server data into Zustand for convenience.",
+      "at": "2025-01-05T10:04:30Z",
+      "index": 2
+    }
+  ]
+}
