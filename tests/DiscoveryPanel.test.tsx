@@ -39,11 +39,10 @@ describe("DiscoveryPanel", () => {
                 />,
             )
 
-            expect(screen.getByText(/project files/i)).toHaveTextContent("2 project files")
-            expect(screen.getByText(/session assets/i)).toHaveTextContent("2 session assets")
-            expect(screen.getByPlaceholderText(/search repo/i)).toBeInTheDocument()
-            expect(screen.getByRole("button", { name: /Size: any/i })).toBeInTheDocument()
-            expect(screen.getAllByText(/Branches 1/i).length).toBeGreaterThanOrEqual(2)
+            expect(screen.getByText(/Session explorer/i)).toBeInTheDocument()
+            expect(screen.getByText(/2 \/ 2 sessions/i)).toBeInTheDocument()
+            expect(screen.getByPlaceholderText(/search repo, branch/i)).toBeInTheDocument()
+            expect(screen.getByRole("button", { name: /Quick filters/i })).toBeInTheDocument()
             const expandButton = screen.getByRole("button", { name: /Toggle example\/alpha/i })
 
             act(() => {

@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "id": "demo-session",
+    "timestamp": "2025-01-01T12:00:00Z",
+    "instructions": "Investigate AGENT alignment violations",
+    "git": {
+      "repo": "example/repo",
+      "branch": "main",
+      "commit": "abcdef123456"
+    },
+    "version": 1
+  },
+  "events": [
+    {
+      "id": "evt-user-1",
+      "type": "Message",
+      "role": "user",
+      "content": "Please summarize the AGENTS instructions and flag any violations in the workspace.",
+      "at": "2025-01-01T12:00:01Z",
+      "index": 0
+    },
+    {
+      "id": "evt-assistant-1",
+      "type": "Message",
+      "role": "assistant",
+      "content": "I'll start by reading AGENTS.md and comparing against the repository state.",
+      "at": "2025-01-01T12:00:05Z",
+      "index": 1
+    },
+    {
+      "id": "evt-shell-1",
+      "type": "LocalShellCall",
+      "command": "cat src/components/viewer/ChatDock.tsx",
+      "stdout": "placeholder chatbot",
+      "at": "2025-01-01T12:00:07Z",
+      "index": 2
+    },
+    {
+      "id": "evt-assistant-2",
+      "type": "Message",
+      "role": "assistant",
+      "content": "The chat dock uses client-side state only; this might violate the loader-only data rule because useEffect is fetching data after hydration.",
+      "at": "2025-01-01T12:00:08Z",
+      "index": 3
+    },
+    {
+      "id": "evt-user-2",
+      "type": "Message",
+      "role": "user",
+      "content": "Confirm if effects fetch data and propose a fix.",
+      "at": "2025-01-01T12:00:10Z",
+      "index": 4
+    }
+  ]
+}

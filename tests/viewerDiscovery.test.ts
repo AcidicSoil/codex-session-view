@@ -18,12 +18,17 @@ afterAll(() => {
 describe("discoverProjectAssets", () => {
   it("includes sessions from CODEX_SESSION_DIR", async () => {
     const snapshot = await discoverProjectAssets()
-    const externalAsset = snapshot.sessionAssets.find((asset) =>
-      asset.path.includes("tests/fixtures/home-sessions/demo/demo-20240105.jsonl")
+    const codexDirectory = snapshot.inputs.externalDirectories.find((dir) =>
+      dir.displayPrefix.includes("home-sessions")
+    )
+
+    expect(codexDirectory).toBeDefined()
+    const externalAsset = snapshot.sessionAssets.find(
+      (asset) => asset.source === "external" && asset.path.includes(codexDirectory!.displayPrefix)
     )
 
     expect(externalAsset).toBeDefined()
-    expect(externalAsset?.url.startsWith("file://")).toBe(true)
+    expect(externalAsset?.path).toContain(codexDirectory!.displayPrefix)
     expect(externalAsset?.size).toBeGreaterThan(0)
   })
 
@@ -33,10 +38,17 @@ describe("discoverProjectAssets", () => {
       process.env.HOME = resolve(process.cwd(), "tests/fixtures/fake-home")
 
       const snapshot = await discoverProjectAssets()
-      const homeAsset = snapshot.sessionAssets.find((asset) => asset.path.includes("from-home/home-20231231.jsonl"))
+      const homeDirectory = snapshot.inputs.externalDirectories.find(
+        (dir) => dir.displayPrefix === "~/.codex/sessions"
+      )
+
+      expect(homeDirectory).toBeDefined()
+      const homeAsset = snapshot.sessionAssets.find(
+        (asset) => asset.source === "external" && asset.path.includes(homeDirectory!.displayPrefix)
+      )
 
       expect(homeAsset).toBeDefined()
-      expect(homeAsset?.path.startsWith("~/.codex/sessions")).toBe(true)
+      expect(homeAsset?.path).toContain(homeDirectory!.displayPrefix)
     } finally {
       if (previousHome === undefined) {
         delete process.env.HOME
