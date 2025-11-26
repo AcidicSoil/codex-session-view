@@ -1,19 +1,22 @@
 import type { LoaderFnContext } from '@tanstack/react-router'
 import { logError, logInfo, logWarn } from '~/lib/logger'
 import { runSessionDiscovery } from '~/server/function/sessionDiscovery'
+import { fetchChatbotState } from '~/server/function/chatbotState'
 
 let previousStats: { projectFiles: number; sessionAssets: number } | null = null
 
-export async function viewerLoader(ctx?: LoaderFnContext) {
+export async function viewerLoader(ctx: LoaderFnContext) {
   const environment = typeof window === 'undefined' ? 'server' : 'client'
-  const trigger = ctx?.cause ?? 'unknown'
-  const loaderDeps = ctx?.deps ?? {}
-  const searchParams = ctx?.location?.search ?? {}
+  const trigger = ctx.cause ?? 'unknown'
+  const loaderDeps = ctx.deps ?? {}
+  const searchParams = ctx.location?.search ?? {}
+  const sessionId = resolveSessionId(searchParams)
   logInfo('viewer.loader', 'Loader invoked', {
     environment,
     trigger,
     loaderDeps,
     searchParams,
+    sessionId,
   })
 
   try {
@@ -42,7 +45,21 @@ export async function viewerLoader(ctx?: LoaderFnContext) {
       sessionAssets: snapshot.sessionAssets.length,
     }
 
-    return snapshot
+    let sessionCoach: Awaited<ReturnType<typeof fetchChatbotState>> | null = null
+    try {
+      sessionCoach = await fetchChatbotState({ data: { sessionId, mode: 'session' } })
+    } catch (chatbotError) {
+      logWarn('viewer.loader', 'Chatbot state unavailable', {
+        sessionId,
+        error: chatbotError instanceof Error ? chatbotError.message : chatbotError,
+      })
+    }
+
+    return {
+      ...snapshot,
+      sessionId,
+      sessionCoach,
+    }
   } catch (error) {
     logError('viewer.loader', 'Failed to discover project assets', {
       error: error instanceof Error ? error.message : 'unknown',
@@ -54,3 +71,9 @@ export async function viewerLoader(ctx?: LoaderFnContext) {
 }
 
 export type ViewerSnapshot = Awaited<ReturnType<typeof viewerLoader>>
+export type ViewerChatState = Awaited<ReturnType<typeof fetchChatbotState>>
+
+function resolveSessionId(search: Record<string, unknown>) {
+  const fromSearch = typeof search?.sessionId === 'string' ? search.sessionId : null
+  return fromSearch && fromSearch.trim().length > 0 ? fromSearch : 'demo-session'
+}

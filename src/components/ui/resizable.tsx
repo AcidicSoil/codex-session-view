@@ -23,7 +23,7 @@ const ResizableHandle = React.forwardRef<HTMLDivElement, PanelResizeHandleProps>
     <PanelResizeHandle
       ref={ref}
       className={cn(
-        'flex w-1 items-center justify-center bg-transparent transition hover:bg-border data-[resize-handle-active=true]:bg-border',
+        'flex w-1 items-center justify-center bg-transparent transition hover:bg-border data-[resize-handle-active=false]:bg-border',
         className,
       )}
       {...props}

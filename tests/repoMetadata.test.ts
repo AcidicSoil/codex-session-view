@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { promises as fs } from 'fs'
 import { deriveRepoDetailsFromLine } from '~/lib/repo-metadata'
 
-async function readFirstLine(path: string) {
-  const content = await fs.readFile(path, 'utf8')
-  const newline = content.indexOf('\n')
-  return newline >= 0 ? content.slice(0, newline) : content
-}
-
 describe('repo metadata derivation', () => {
-  it('infers repo label from cwd when git info missing', async () => {
-    const line = await readFirstLine('example-session-metadata.jsonl')
+  it('infers repo label from cwd when git info missing', () => {
+    const line = JSON.stringify({
+      type: 'session_meta',
+      timestamp: new Date().toISOString(),
+      payload: {
+        timestamp: new Date().toISOString(),
+        cwd: '/home/user/projects/temp/codex-session-view',
+      },
+    })
     const details = deriveRepoDetailsFromLine(line)
     expect(details.repoLabel).toBe('codex-session-view')
     expect(details.repoMeta?.repo).toBe('codex-session-view')

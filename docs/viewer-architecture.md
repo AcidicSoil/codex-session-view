@@ -7,6 +7,15 @@ This document captures the technical details that would otherwise bloat the top-
 - `src/routes/(site)/viewer/index.tsx` renders `ViewerPage`, which is backed by `src/features/viewer/viewer.loader.ts`.
 - The loader calls a dedicated server function that performs filesystem discovery before render. Because the loader ignores client search params, every revalidation always re-hits the server function and never discards the discovered sessions.
 - Repo/branch grouping, search text, size ranges, ASC/DESC toggles, and expand state all live in client state inside `DiscoverySection`, ensuring instant, in-memory filtering without retriggering the loader.
+- When `SESSION_COACH_ENABLED` resolves truthy (default: `true` for dev, `false` for prod), the loader also calls `fetchChatbotState` so the viewer hydrates with the latest `{ sessionId, chat history, misalignments, context sections }`. Because this rides through a TanStack Start server function, the client never runs manual `fetch` calls in `useEffect`.
+
+## Session Coach Chatbot
+
+- **Models & persistence**: Shared types live in `src/lib/sessions/model.ts`. `chat-messages` and `misalignments` TanStack DB collections (under `src/server/persistence`) keep per-session, per-mode chat turns and status transitions scoped to the current process, mirroring the existing todos/session upload stores.
+- **AI pipeline**: `src/lib/ai/client.ts` centralizes provider limits + prompt helpers; `features/chatbot/context-builder.ts` builds trimmed prompt sections, while `misalignment-detector.ts` heuristically tags rules parsed from `src/lib/agents-rules/parser.ts`. Fixture snapshots live in `tests/fixtures/` for regression tests/token budgeting.
+- **APIs**: `src/server/chatbot-api.server.ts` powers `POST /api/chatbot/stream` (streaming session mode) and `POST /api/chatbot/analyze` (summary/commit pop-outs). Non-session modes short-circuit with `{ code: 'MODE_NOT_ENABLED' }`. Misalignment status mutations use `createServerFn` via `src/server/function/misalignments.ts`.
+- **Viewer integration**: `viewer.loader.ts` now returns `{ ...snapshot, sessionId, sessionCoach }`. `ViewerPage` swaps the legacy `ChatDock` for `components/chatbot/ChatDockPanel`, which renders persisted chat history, inline streaming, summary/commit buttons, and acknowledgement/dismissal controls without any client-side fetching in `useEffect`.
+- **Feature flag**: `src/config/features.ts` reads `SESSION_COACH_ENABLED` with sane defaults (true locally, false in prod unless overridden). When disabled, `ChatDockPanel` falls back to the classic placeholder UI so no UX surface disappears.
 
 ## Virtualized Timeline Invariants
 

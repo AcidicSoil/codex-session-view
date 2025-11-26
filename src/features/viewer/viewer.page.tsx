@@ -1,9 +1,8 @@
-import { ClientOnly } from '@tanstack/react-router'
+import { ClientOnly, useLoaderData } from '@tanstack/react-router'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useFileLoader } from '~/hooks/useFileLoader'
 import { DiscoverySection, useViewerDiscovery } from './viewer.discovery.section'
 import { UploadControlsCard, UploadTimelineSection, useUploadController } from './viewer.upload.section'
-import { ChatDock } from '~/components/viewer/ChatDock'
 import type { TimelineEvent } from '~/components/viewer/AnimatedTimelineList'
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery'
 import { logInfo } from '~/lib/logger'
@@ -14,6 +13,9 @@ import { FloatingNavbar } from '~/components/aceternity/floating-navbar'
 import { formatCount } from '~/utils/intl'
 import { ViewerFilterDropdown } from '~/components/viewer/ViewerFilterDropdown'
 import { Switch } from '~/components/ui/switch'
+import { ChatDockPanel } from '~/components/chatbot/ChatDockPanel'
+import { VIEWER_ROUTE_ID } from './route-id'
+import type { ViewerSnapshot } from './viewer.loader'
 
 export function ViewerPage() {
   return (
@@ -24,6 +26,7 @@ export function ViewerPage() {
 }
 
 export function ViewerClient() {
+  const loaderData = useLoaderData({ from: VIEWER_ROUTE_ID }) as ViewerSnapshot | undefined
   const loader = useFileLoader();
   const discovery = useViewerDiscovery({ loader });
   const uploadController = useUploadController({
@@ -181,7 +184,7 @@ export function ViewerClient() {
               id="viewer-chat"
               className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner"
             >
-              <ChatDock />
+              <ChatDockPanel sessionId={loaderData?.sessionId ?? 'demo-session'} state={loaderData?.sessionCoach} />
             </aside>
           </div>
         </div>

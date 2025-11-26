@@ -21,4 +21,21 @@ must have components aceternity
 <https://ui.aceternity.com/components/link-preview> | Link Preview
 <https://ui.aceternity.com/components/parallax-scroll> | Parallax Grid Scroll
 [another text effect to add for other text areas](https://ui.aceternity.com/components/encrypted-text)
+
+
+
 ---
+
+**to show user/assistant messages on hover**
+
+- for timeline view props
+- it will show the user message if the prop is an assistant message and vice versa 
+
+[effect to use on user/assistant messages](https://ui.aceternity.com/components/evervault-card)
+
+---
+
+[on-startup just in case long wait times for viewer to pop-up when switching tabs](https://ui.aceternity.com/components/loader)
+
+
+[feature card for tech-stack being used](https://ui.aceternity.com/components/cards)
