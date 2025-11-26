@@ -13,13 +13,13 @@ export interface SessionSnapshot {
 
 export interface SessionEventRange {
   startIndex: number
-  endIndex?: number
-  startEventId?: string
-  endEventId?: string
+  endIndex: number
+  startAt: string
+  endAt: string
 }
 
 export type MisalignmentSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical'
-export type MisalignmentStatus = 'new' | 'acknowledged' | 'dismissed'
+export type MisalignmentStatus = 'open' | 'acknowledged' | 'dismissed'
 
 export interface MisalignmentEvidence {
   message: string
@@ -61,13 +61,13 @@ export interface ChatThreadState {
 }
 
 export const MISALIGNMENT_STATUS_TRANSITIONS: Record<MisalignmentStatus, MisalignmentStatus[]> = {
-  new: ['acknowledged', 'dismissed'],
-  acknowledged: ['dismissed', 'new'],
-  dismissed: ['acknowledged', 'new'],
+  open: ['acknowledged', 'dismissed'],
+  acknowledged: ['dismissed', 'open'],
+  dismissed: ['acknowledged', 'open'],
 }
 
 export function isValidMisalignmentStatus(value: string): value is MisalignmentStatus {
-  return value === 'new' || value === 'acknowledged' || value === 'dismissed'
+  return value === 'open' || value === 'acknowledged' || value === 'dismissed'
 }
 
 export function canTransitionMisalignmentStatus(current: MisalignmentStatus, next: MisalignmentStatus) {
@@ -118,7 +118,7 @@ export function createMisalignmentRecord(input: {
     title: input.title,
     summary: input.summary,
     severity: input.severity ?? 'medium',
-    status: input.status ?? 'new',
+    status: input.status ?? 'open',
     eventRange: input.eventRange,
     evidence: input.evidence ?? [],
     createdAt,

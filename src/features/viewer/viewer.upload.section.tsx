@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { TimelineWithFilters } from '~/components/viewer/TimelineWithFilters'
-import type { TimelineEvent } from '~/components/viewer/AnimatedTimelineList'
+import type { TimelineEvent, TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
 import { Button } from '~/components/ui/button'
 import type { FileLoaderHook } from '~/hooks/useFileLoader'
 import { persistSessionFile } from '~/server/function/sessionStore'
@@ -19,6 +19,8 @@ interface UploadSectionProps {
   loader: FileLoaderHook
   onUploadsPersisted?: (assets: DiscoveredSessionAsset[]) => void
   onAddTimelineEventToChat?: (event: TimelineEvent, index: number) => void
+  flaggedEvents?: Map<number, TimelineFlagMarker>
+  onFlaggedEventClick?: (marker: TimelineFlagMarker) => void
 }
 
 interface UploadControllerOptions {
@@ -196,9 +198,11 @@ interface UploadTimelineSectionProps {
   onAddTimelineEventToChat?: (event: TimelineEvent, index: number) => void
   className?: string
   onFiltersRender?: (node: ReactNode | null) => void
+  flaggedEvents?: Map<number, import('~/components/viewer/AnimatedTimelineList').TimelineFlagMarker>
+  onFlaggedEventClick?: (marker: import('~/components/viewer/AnimatedTimelineList').TimelineFlagMarker) => void
 }
 
-export function UploadTimelineSection({ controller, onAddTimelineEventToChat, className, onFiltersRender }: UploadTimelineSectionProps) {
+export function UploadTimelineSection({ controller, onAddTimelineEventToChat, className, onFiltersRender, flaggedEvents, onFlaggedEventClick }: UploadTimelineSectionProps) {
   const loader = controller.loader
   const hasEvents = loader.state.events.length > 0
   const [timelineHeight, setTimelineHeight] = useState(720)
@@ -240,6 +244,8 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
             onAddEventToChat={onAddTimelineEventToChat}
             timelineHeight={timelineHeight}
             registerFilters={onFiltersRender}
+            flaggedEvents={flaggedEvents}
+            onFlaggedEventClick={onFlaggedEventClick}
           />
         </TimelineTracingBeam>
       ) : (
@@ -249,12 +255,17 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
   )
 }
 
-export function UploadSection({ loader, onUploadsPersisted, onAddTimelineEventToChat }: UploadSectionProps) {
+export function UploadSection({ loader, onUploadsPersisted, onAddTimelineEventToChat, flaggedEvents, onFlaggedEventClick }: UploadSectionProps) {
   const controller = useUploadController({ loader, onUploadsPersisted })
   return (
     <section className="flex flex-col gap-6">
       <UploadControlsCard controller={controller} />
-      <UploadTimelineSection controller={controller} onAddTimelineEventToChat={onAddTimelineEventToChat} />
+      <UploadTimelineSection
+        controller={controller}
+        onAddTimelineEventToChat={onAddTimelineEventToChat}
+        flaggedEvents={flaggedEvents}
+        onFlaggedEventClick={onFlaggedEventClick}
+      />
     </section>
   )
 }

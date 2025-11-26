@@ -1,0 +1,74 @@
+[
+  {
+    "id": "mis-basic-1",
+    "sessionId": "session-misalignment-basic",
+    "ruleId": "loader-fetch-discipline",
+    "title": "Loader fetch discipline",
+    "summary": "Fetch detected inside useEffect heuristics",
+    "severity": "high",
+    "status": "open",
+    "eventRange": {
+      "startIndex": 0,
+      "endIndex": 1,
+      "startAt": "2025-01-05T10:00:05Z",
+      "endAt": "2025-01-05T10:02:10Z"
+    },
+    "evidence": [
+      {
+        "message": "Matched keywords useEffect, fetch",
+        "eventIndex": 0,
+        "eventId": "evt-basic-1"
+      }
+    ],
+    "createdAt": "2025-01-05T10:05:00Z",
+    "updatedAt": "2025-01-05T10:05:00Z"
+  },
+  {
+    "id": "mis-basic-2",
+    "sessionId": "session-misalignment-basic",
+    "ruleId": "hydration-suspense-safety",
+    "title": "Hydration + suspense safety",
+    "summary": "Hydration and suspense referenced together",
+    "severity": "medium",
+    "status": "acknowledged",
+    "eventRange": {
+      "startIndex": 1,
+      "endIndex": 2,
+      "startAt": "2025-01-05T10:02:10Z",
+      "endAt": "2025-01-05T10:04:30Z"
+    },
+    "evidence": [
+      {
+        "message": "Matched keywords hydration, suspense",
+        "eventIndex": 1,
+        "eventId": "evt-basic-2"
+      }
+    ],
+    "createdAt": "2025-01-05T10:05:20Z",
+    "updatedAt": "2025-01-05T10:06:00Z"
+  },
+  {
+    "id": "mis-basic-3",
+    "sessionId": "session-misalignment-basic",
+    "ruleId": "zustand-state-syncing",
+    "title": "Zustand state syncing",
+    "summary": "Server data mirrored in Zustand store",
+    "severity": "low",
+    "status": "dismissed",
+    "eventRange": {
+      "startIndex": 2,
+      "endIndex": 2,
+      "startAt": "2025-01-05T10:04:30Z",
+      "endAt": "2025-01-05T10:04:30Z"
+    },
+    "evidence": [
+      {
+        "message": "Matched keywords zustand, server",
+        "eventIndex": 2,
+        "eventId": "evt-basic-3"
+      }
+    ],
+    "createdAt": "2025-01-05T10:06:30Z",
+    "updatedAt": "2025-01-05T10:07:00Z"
+  }
+]

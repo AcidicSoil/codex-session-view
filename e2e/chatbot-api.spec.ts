@@ -15,7 +15,7 @@ test.describe('chatbot endpoints', () => {
       data: {
         sessionId: 'demo-session',
         mode: 'session',
-        target: 'summary',
+        analysisType: 'summary',
       },
       headers: {
         'content-type': 'application/json',
@@ -24,9 +24,8 @@ test.describe('chatbot endpoints', () => {
 
     expect(response.status()).toBe(200)
     const payload = await response.json()
-    expect(payload.status).toBe('ok')
-    expect(typeof payload.markdown).toBe('string')
-    expect(payload.markdown).toContain('Session summary')
+    expect(typeof payload.summaryMarkdown).toBe('string')
+    expect(payload.summaryMarkdown).toContain('## Goals')
   })
 
   test('stream endpoint returns assistant text', async ({ request }) => {

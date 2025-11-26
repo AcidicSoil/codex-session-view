@@ -1,40 +1,56 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { ScrollArea } from '~/components/ui/scroll-area'
-import { Separator } from '~/components/ui/separator'
 import { Textarea } from '~/components/ui/textarea'
 import type { ViewerChatState } from '~/features/viewer/viewer.loader'
 import type { ChatMessageRecord, MisalignmentRecord } from '~/lib/sessions/model'
 import { mutateMisalignmentStatus } from '~/server/function/misalignments'
-import { requestChatAnalysis, requestChatStream } from '~/features/chatbot/chatbot.runtime'
+import { requestChatStream, type ChatRemediationMetadata } from '~/features/chatbot/chatbot.runtime'
 import { ChatDock } from '~/components/viewer/ChatDock'
+import { SummaryPopout, CommitPopout } from '~/components/chatbot/SessionAnalysisPopouts'
 
 interface ChatDockPanelProps {
   sessionId: string
   state: ViewerChatState | null | undefined
+  prefill?: CoachPrefillPayload | null
+  onPrefillConsumed?: () => void
+}
+
+interface CoachPrefillPayload {
+  prompt: string
+  metadata?: ChatRemediationMetadata
 }
 
 interface LocalMessage extends ChatMessageRecord {
   pending?: boolean
 }
 
-export function ChatDockPanel({ sessionId, state }: ChatDockPanelProps) {
+export function ChatDockPanel({ sessionId, state, prefill, onPrefillConsumed }: ChatDockPanelProps) {
   if (!state?.featureEnabled) {
     return <ChatDock />
   }
-  return <FeatureEnabledChatDock sessionId={sessionId} initialState={state} />
+  return <FeatureEnabledChatDock sessionId={sessionId} initialState={state} prefill={prefill} onPrefillConsumed={onPrefillConsumed} />
 }
 
-function FeatureEnabledChatDock({ sessionId, initialState }: { sessionId: string; initialState: ViewerChatState }) {
+function FeatureEnabledChatDock({
+  sessionId,
+  initialState,
+  prefill,
+  onPrefillConsumed,
+}: {
+  sessionId: string
+  initialState: ViewerChatState
+  prefill?: CoachPrefillPayload | null
+  onPrefillConsumed?: () => void
+}) {
   const [messages, setMessages] = useState<LocalMessage[]>(() => initialState.messages ?? [])
   const [misalignments, setMisalignments] = useState<MisalignmentRecord[]>(() => initialState.misalignments ?? [])
   const [draft, setDraft] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamError, setStreamError] = useState<string | null>(null)
-  const [analysis, setAnalysis] = useState<{ target: 'summary' | 'commit'; markdown: string } | null>(null)
-  const [analysisLoading, setAnalysisLoading] = useState<'summary' | 'commit' | null>(null)
+  const [pendingMetadata, setPendingMetadata] = useState<ChatRemediationMetadata | undefined>()
   const assistantMessageIdRef = useRef<string | null>(null)
 
   const orderedMessages = useMemo(() => [...messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt)), [messages])
@@ -76,7 +92,9 @@ function FeatureEnabledChatDock({ sessionId, initialState }: { sessionId: string
         mode: initialState.mode,
         prompt: trimmed,
         clientMessageId,
+        metadata: pendingMetadata,
       })
+      setPendingMetadata(undefined)
       if (!stream) {
         throw new Error('Stream unavailable')
       }
@@ -98,7 +116,7 @@ function FeatureEnabledChatDock({ sessionId, initialState }: { sessionId: string
     } finally {
       setIsStreaming(false)
     }
-  }, [draft, initialState.mode, isStreaming, sessionId])
+  }, [draft, initialState.mode, isStreaming, pendingMetadata, sessionId])
 
   const handleMisalignmentUpdate = useCallback(
     async (record: MisalignmentRecord, status: MisalignmentRecord['status']) => {
@@ -115,33 +133,28 @@ function FeatureEnabledChatDock({ sessionId, initialState }: { sessionId: string
     [sessionId],
   )
 
-  const handleAnalyze = useCallback(
-    async (target: 'summary' | 'commit') => {
-      setAnalysisLoading(target)
-      setStreamError(null)
-      try {
-        const response = await requestChatAnalysis<{ markdown: string; status: string }>({
-          sessionId,
-          mode: initialState.mode,
-          target,
-        })
-        setAnalysis({ target, markdown: response.markdown })
-      } catch (error) {
-        setStreamError(error instanceof Error ? error.message : 'Failed to analyze session')
-      } finally {
-        setAnalysisLoading(null)
-      }
-    },
-    [initialState.mode, sessionId],
-  )
+  useEffect(() => {
+    if (!prefill?.prompt) return
+    setDraft(prefill.prompt)
+    setPendingMetadata(prefill.metadata)
+    onPrefillConsumed?.()
+  }, [prefill, onPrefillConsumed])
 
   return (
     <Card className="flex h-full flex-col gap-4">
       <CardHeader className="space-y-2 border-b pb-4">
-        <CardTitle className="text-base font-semibold">Session coach</CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Mode: {initialState.mode} · Context sections: {initialState.contextSections?.map((section) => section.heading).join(', ') || 'n/a'}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base font-semibold">Session coach</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Mode: {initialState.mode} · Context sections: {initialState.contextSections?.map((section) => section.heading).join(', ') || 'n/a'}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <SummaryPopout sessionId={sessionId} mode={initialState.mode} />
+            <CommitPopout sessionId={sessionId} mode={initialState.mode} />
+          </div>
+        </div>
         {streamError ? <p className="text-xs text-destructive">{streamError}</p> : null}
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 p-4">
@@ -153,26 +166,11 @@ function FeatureEnabledChatDock({ sessionId, initialState }: { sessionId: string
         <div className="space-y-3">
           <Textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Summarize this session's status" disabled={isStreaming} rows={3} />
           <div className="flex items-center justify-between gap-3">
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" disabled={analysisLoading === 'summary' || isStreaming} onClick={() => handleAnalyze('summary')}>
-                {analysisLoading === 'summary' ? 'Generating…' : 'Summary'}
-              </Button>
-              <Button size="sm" variant="outline" disabled={analysisLoading === 'commit' || isStreaming} onClick={() => handleAnalyze('commit')}>
-                {analysisLoading === 'commit' ? 'Generating…' : 'Commit'}
-              </Button>
-            </div>
             <Button onClick={handleSend} disabled={!draft.trim() || isStreaming}>
               {isStreaming ? 'Streaming…' : 'Send'}
             </Button>
           </div>
         </div>
-        {analysis ? (
-          <div className="rounded-2xl border border-border/60 bg-muted/20 p-3 text-sm">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{analysis.target} output</p>
-            <Separator className="my-2" />
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap font-mono text-xs">{analysis.markdown}</pre>
-          </div>
-        ) : null}
         <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
       </CardContent>
     </Card>
@@ -213,6 +211,9 @@ function MisalignmentList({ items, onUpdate }: { items: MisalignmentRecord[]; on
             </Badge>
           </div>
           <div className="mt-2 flex gap-2">
+            <Button size="xs" variant={item.status === 'open' ? 'secondary' : 'outline'} onClick={() => onUpdate(item, 'open')}>
+              {item.status === 'open' ? 'Open' : 'Reopen'}
+            </Button>
             <Button size="xs" variant={item.status === 'acknowledged' ? 'default' : 'outline'} onClick={() => onUpdate(item, 'acknowledged')}>
               Acknowledge
             </Button>

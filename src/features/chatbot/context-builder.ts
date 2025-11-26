@@ -135,7 +135,7 @@ function createMisalignmentSection(list: MisalignmentRecord[] | undefined): Prom
       const summary = `Summary: ${item.summary}`
       const evidence = item.evidence?.length ? `Evidence: ${item.evidence.map((e) => e.message).join(' | ')}` : null
       const range = item.eventRange
-        ? `Events: ${[item.eventRange.startIndex, item.eventRange.endIndex].filter((value) => typeof value === 'number').join(' - ')}`
+        ? `Events: ${item.eventRange.startIndex} - ${item.eventRange.endIndex} (${item.eventRange.startAt} → ${item.eventRange.endAt})`
         : null
       return [header, summary, evidence, range].filter(Boolean).join('\n')
     })

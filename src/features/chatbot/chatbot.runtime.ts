@@ -1,16 +1,24 @@
-import type { ChatMode } from '~/lib/sessions/model'
+import type { ChatMode, MisalignmentSeverity } from '~/lib/sessions/model'
+
+export interface ChatRemediationMetadata {
+  misalignmentId?: string
+  ruleId?: string
+  severity?: MisalignmentSeverity
+  eventRange?: { startIndex: number; endIndex: number }
+}
 
 export interface ChatStreamRequestBody {
   sessionId: string
   mode: ChatMode
   prompt: string
   clientMessageId?: string
+  metadata?: ChatRemediationMetadata
 }
 
 export interface ChatAnalyzeRequestBody {
   sessionId: string
   mode: ChatMode
-  target: 'summary' | 'commit'
+  analysisType: 'summary' | 'commits'
   prompt?: string
 }
 

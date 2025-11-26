@@ -6,17 +6,21 @@ import { updateMisalignmentStatus } from '~/server/persistence/misalignments'
 const mutationInput = z.object({
   sessionId: z.string().min(1),
   misalignmentId: z.string().min(1),
-  status: z.union([z.literal('new'), z.literal('acknowledged'), z.literal('dismissed')]),
+  status: z.union([z.literal('open'), z.literal('acknowledged'), z.literal('dismissed')]),
 })
 
 export const mutateMisalignmentStatus = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => mutationInput.parse(data))
   .handler(async ({ data }) => {
     try {
-      const record = await updateMisalignmentStatus(data.sessionId, data.misalignmentId, data.status)
+      const { record, previousStatus } = await updateMisalignmentStatus(data.sessionId, data.misalignmentId, data.status)
       logInfo('chatbot.misalignment', 'Updated misalignment status', {
-        id: data.misalignmentId,
-        status: data.status,
+        sessionId: data.sessionId,
+        misalignmentId: data.misalignmentId,
+        oldStatus: previousStatus,
+        newStatus: record.status,
+        userId: null,
+        at: new Date().toISOString(),
       })
       return record
     } catch (error) {

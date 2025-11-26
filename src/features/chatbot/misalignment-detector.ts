@@ -66,20 +66,22 @@ export function detectMisalignments(options: MisalignmentDetectorOptions): Misal
           {
             message: `Matched keywords ${heuristic.keywords.join(', ')}`,
             eventIndex: eventRange?.startIndex,
-            eventId: eventRange?.startEventId,
+            eventId: searchableEvents.find((item) => item.index === eventRange?.startIndex)?.id,
           },
         ],
         eventRange: eventRange ?? undefined,
+        status: 'open',
       }),
     )
   }
   return { misalignments: newRecords, warnings }
 }
 
-function normalizeEvents(events: ResponseItemParsed[]): Array<{ index: number; id?: string; text: string }> {
+function normalizeEvents(events: ResponseItemParsed[]): Array<{ index: number; id?: string; at?: string; text: string }> {
   return events.map((event, index) => ({
     index,
     id: event.id,
+    at: (event as { at?: string }).at,
     text: stringifyEvent(event).toLowerCase(),
   }))
 }
@@ -109,20 +111,23 @@ function findFirstMatch(events: Array<{ index: number; text: string }>, keywords
   return null
 }
 
-function deriveEventRange(events: Array<{ index: number; id?: string }>, index: number): SessionEventRange | null {
+function deriveEventRange(
+  events: Array<{ index: number; id?: string; at?: string }>,
+  index: number,
+): SessionEventRange | null {
   const hit = events.find((event) => event.index === index)
   if (!hit) {
     return null
   }
   const startIndex = Math.max(0, hit.index - 2)
-  const endIndex = hit.index + 1
-  const startEvent = events.find((event) => event.index === startIndex)
-  const endEvent = events.find((event) => event.index === endIndex)
+  const endIndex = Math.min(events.length - 1, hit.index + 1)
+  const startEvent = events.find((event) => event.index === startIndex) ?? hit
+  const endEvent = events.find((event) => event.index === endIndex) ?? hit
   return {
     startIndex,
     endIndex,
-    startEventId: startEvent?.id,
-    endEventId: endEvent?.id,
+    startAt: startEvent.at ?? new Date().toISOString(),
+    endAt: endEvent.at ?? startEvent.at ?? new Date().toISOString(),
   }
 }
 

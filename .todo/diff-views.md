@@ -22,3 +22,12 @@
 ## parse and reconstruct apply_patch calls
 
 * reconstruct events with apply_patch is used so it renders the normalized file content as if viewing the file itself
+
+[later when diffs can be compared](https://magicui.design/docs/components/code-comparison)
+[apply-patch props being rendered in terminal ?](https://magicui.design/docs/components/terminal)
+
+---
+
+### notes
+
+[will be used in timeline props to send to file changed, which will be parsed apply_patch etc...](https://ui.aceternity.com/components/3d-pin)

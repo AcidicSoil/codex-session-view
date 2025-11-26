@@ -44,6 +44,17 @@ This application serves as an advanced implementation of a modern web app starte
 - **Beautiful & Accessible UI:** Crafted with [shadcn/ui](https://ui.shadcn.com/) and [Tailwind CSS v4](https://tailwindcss.com/) for a polished, responsive, and accessible user interface.
 - **Enhanced Client-Side Debugging:** Leverages [Browser Echo](https://github.com/browser-echo/browser-echo) for advanced client-side logging and inspection.
 
+## 🧠 Session Coach
+
+The Session Coach vertical stitches together the chat dock, `/api/chatbot/*` endpoints, and the AGENTS rule engine.
+
+- **Pop-out analysis:** The chat dock now exposes `Summary` and `Commits` pop-outs powered by `POST /api/chatbot/analyze` with `analysisType: "summary" | "commits"`. Summary responses always include the four fixed sections (`## Goals`, `## Main changes`, `## Issues`, `## Follow-ups`) with at least one `-` bullet (using `- None.` as the placeholder). Commit responses return a `commitMessages: string[]` of Conventional Commit subjects ≤72 chars.
+- **Misalignment banner + timeline badges:** Open misalignments (status `open`) render in a top-of-view banner and inline timeline badges. Severity colors reuse the shadcn semantic tokens (info → secondary, warning → outline, high → destructive), and overlapping ranges collapse into a single badge with the tooltip template `"{Severity} severity: AGENT-3 “Rule title”, …"`.
+- **Remediation metadata:** When a banner or badge is clicked, the chat dock receives a prefilled remediation prompt _plus_ structured metadata (`metadata?: { misalignmentId; ruleId; severity; eventRange }`). The metadata travels to `/api/chatbot/stream` but is not persisted with chat messages.
+- **Telemetry:** `/api/chatbot/stream`, `/api/chatbot/analyze`, and misalignment status changes emit unsampled `~/lib/logger` events tagged with `{ mode, sessionId, analysisType?, misalignmentId?, oldStatus?, newStatus?, userId?, durationMs, success }` for staging + prod dashboards.
+- **Rollout guardrail:** Session Coach surfaces stay behind `SESSION_COACH_ENABLED`. Before enabling it in production, budget two business days for ops to land the new dashboards/alerts (staging first, prod second) and secure sign-off from the owner of `viewer.loader`/`~/lib/logger`.
+- **Rollout guardrail:** Session Coach surfaces stay behind `SESSION_COACH_ENABLED`. Before enabling it in production, budget two business days for ops to land the new dashboards/alerts (staging first, prod second) and secure sign-off from the owner of `viewer.loader`/`~/lib/logger`. See [`docs/ops/session-coach-rollout.md`](docs/ops/session-coach-rollout.md) for the full checklist.
+
 ## 🚀 Quick Start
 
 ### Prerequisites
