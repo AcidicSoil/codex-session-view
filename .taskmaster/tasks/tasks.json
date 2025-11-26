@@ -9,7 +9,7 @@
         "testStrategy": "Unit test the `streamChat` function using a mocked Vercel AI client to ensure it correctly handles requests and streams responses. Use snapshot testing for the `buildPromptTemplate` function to verify that prompts are assembled correctly for various inputs ('golden tests').",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -17,7 +17,7 @@
             "description": "Establish the TypeScript interfaces and types that will govern the AI provider and prompt templating system. This ensures a consistent data model and contract for the `lib/ai` module.",
             "dependencies": [],
             "details": "Create a new file `lib/ai/types.ts`. Define core interfaces such as `AIProvider`, `StreamChatOptions`, and types for different prompt templates like `PromptTemplate` and `PromptType` ('chat', 'summary', 'commit').",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "This is a type-definition task. Primary validation will be through TypeScript's static analysis during the build process. No runtime unit tests are required for this file."
           },
           {
@@ -28,7 +28,7 @@
               1
             ],
             "details": "Implement and export `getChatModel` and `streamChat` functions within `lib/ai/provider.ts`. These functions will utilize the Vercel AI SDK to handle model instantiation and streaming logic, conforming to the interfaces defined in subtask 1.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test the `streamChat` function using a mocked Vercel AI SDK client. Verify it correctly formats requests, passes options, and properly handles both successful streaming responses and error conditions."
           },
           {
@@ -39,7 +39,7 @@
               1
             ],
             "details": "Implement and export a `buildPromptTemplate` function in `lib/ai/prompt-templates.ts`. This function will accept a prompt type and a data payload, then construct and return a structured prompt object (e.g., array of messages) suitable for the AI provider.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Use snapshot testing (e.g., with Jest) to verify the output of the `buildPromptTemplate` function for various inputs. Create 'golden tests' for each prompt type ('chat', 'summary', 'commit') to ensure the generated prompt structure is correct and consistent."
           }
         ]
@@ -52,7 +52,7 @@
         "testStrategy": "Write unit tests for the parser using a sample `AGENTS.md` fixture. Create a snapshot test to validate the entire structured output of the parsed rules, ensuring consistency. Test the query functions to confirm they correctly filter and retrieve rules by ID, tag, and severity.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -60,7 +60,7 @@
             "description": "Establish the core data structures and TypeScript types for representing parsed rules from AGENTS.md, including `AgentsRule`, `RuleSeverity`, and related metadata interfaces.",
             "dependencies": [],
             "details": "In a new file `lib/agents-rules/types.ts`, define the `AgentsRule` interface to include properties such as `id`, `severity`, and `content`. Also, define the `RuleSeverity` union type (e.g., 'low' | 'medium' | 'high'). Export these types for consumption by the parser and query modules.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Type definitions will be validated by the TypeScript compiler during the implementation of the parser and query functions. No dedicated unit tests are required for this task."
           },
           {
@@ -71,7 +71,7 @@
               1
             ],
             "details": "The `loadAgentsRules` function will take a markdown string as input and return an array of `AgentsRule` objects. Use a suitable markdown library to traverse the content. Implement logic to parse HTML comments (e.g., `<!-- id: R01, severity: high -->`) to populate the rule's metadata fields.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Write unit tests for the parser using a sample `AGENTS.md` fixture. Create a snapshot test to validate the entire structured output. Test edge cases like malformed metadata comments, rules without metadata, and nested list items."
           },
           {
@@ -82,7 +82,7 @@
               2
             ],
             "details": "In `lib/agents-rules/index.ts` or a dedicated query file, create `getRuleById(rules: AgentsRule[], id: string)` and `queryRules(rules: AgentsRule[], criteria: object)`. These functions will operate on the array of rules returned by the parser, using array methods to find and filter the data.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Write unit tests for the query functions. Use a mocked array of `AgentsRule` objects. Verify that `getRuleById` correctly retrieves a rule or returns undefined. Test `queryRules` with different filter criteria (e.g., severity) to confirm correct filtering logic."
           }
         ]
@@ -95,7 +95,7 @@
         "testStrategy": "This module is primarily type definitions. The primary validation is ensuring the module compiles without errors and that the types can be successfully imported and used in other modules. Type-level tests (e.g., using `tsd`) can be used to assert structural correctness.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -103,7 +103,7 @@
             "description": "Establish the foundational string literal and union types that will be used across all session models, including `ProviderId` for identifying the source environment and a union type for different event kinds.",
             "dependencies": [],
             "details": "In `lib/sessions/model.ts`, define and export `ProviderId` as a string literal union (e.g., 'vscode' | 'jetbrains') and `SessionEventKind` as another union (e.g., 'ACTION' | 'MUTATION' | 'LOG').",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Validate that the types compile and can be referenced. Type-level tests can ensure the literal values are correct."
           },
           {
@@ -114,7 +114,7 @@
               1
             ],
             "details": "Create a `SessionEvent` interface in `lib/sessions/model.ts` with fields such as `id: string`, `timestamp: number`, and `kind: SessionEventKind`. This interface will be extended by all concrete event types.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify the interface compiles and can be correctly extended. Ensure that it properly uses the `SessionEventKind` type from the previous step."
           },
           {
@@ -125,7 +125,7 @@
               2
             ],
             "details": "For each event kind (`ACTION`, `MUTATION`, `LOG`), define a corresponding interface (e.g., `ActionSessionEvent extends SessionEvent`) with a specific `kind` and `payload` property. Finally, create a union type `AnySessionEvent` that includes all defined subtypes.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Ensure each subtype correctly specializes the base interface. Use `tsd` or a similar tool to assert that the discriminated union works as expected and allows for type-safe switching on the `kind` property."
           },
           {
@@ -137,7 +137,7 @@
               3
             ],
             "details": "In `lib/sessions/model.ts`, define the `Session` interface to include properties like `sessionId: string`, `provider: ProviderId`, `createdAt: number`, and `events: AnySessionEvent[]`.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Confirm that the `Session` interface correctly composes the previously defined types (`ProviderId`, `AnySessionEvent`) and compiles without errors. This serves as an integration check for the defined models."
           },
           {
@@ -148,7 +148,7 @@
               4
             ],
             "details": "Add TSDoc blocks (/** ... */) to every exported type and interface, explaining its purpose and each of its properties. Verify that the file's export statements are clean and expose the complete, intended public API.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Manually review the generated documentation for clarity and completeness. Use a linter with TSDoc rules to enforce style and correctness. A final compilation check ensures everything is valid."
           }
         ]
@@ -163,7 +163,7 @@
         "dependencies": [
           3
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -171,7 +171,7 @@
             "description": "Create the initial logic within `buildSessionContext` to categorize `SessionEvent` objects into distinct buckets, such as 'recent events', 'critical errors', and 'user actions'. This provides the foundational structure for selective summarization.",
             "dependencies": [],
             "details": "Inside the `buildSessionContext` function in `features/chatbot/context-builder.ts`, iterate through the `session.events` array. Implement logic to filter and group events based on their type and timestamp. For example, create separate arrays for the last 20 events, events with `log.level === 'error'`, and user-initiated `ACTION` events.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test the bucketing logic with a mock `Session` object containing a mix of event types and timestamps. Assert that the resulting buckets contain the correct events and that empty buckets are handled gracefully."
           },
           {
@@ -182,7 +182,7 @@
               1
             ],
             "details": "Create helper functions like `summarizeLogEvent(event)` or `summarizeMutationEvent(event)`. For a `LOG` event, this might just take the message. For a `MUTATION`, it might describe the change path and new value. These functions will be called on the events collected in the buckets from the previous step.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Create unit tests for each summarization helper function. Provide various event fixtures and snapshot the resulting string output to ensure consistency and correctness of the summary."
           },
           {
@@ -194,7 +194,7 @@
               2
             ],
             "details": "First, assemble a string from high-priority buckets (e.g., critical errors, inferred goals). Then, iteratively add content from lower-priority buckets while counting tokens using a library like `gpt-tokenizer`. Once the budget is approached, stop adding new events and ensure the final string is under the limit.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test the token enforcement with various inputs. Create a test case with a very large summarized context to ensure it is correctly truncated. Verify that high-priority information is preserved while lower-priority info is dropped. Assert the final token count is below the specified budget."
           },
           {
@@ -207,7 +207,7 @@
               3
             ],
             "details": "Use an in-memory cache (e.g., a `Map` object) mapping `sessionId` to the generated context. The cache key should incorporate a hash of the session events to ensure invalidation. Before building context, check the cache for a valid entry. If found, return the cached context; otherwise, compute, cache, and return the new context.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Write unit tests to verify caching behavior. Call `buildSessionContext` twice with the same `Session` object and assert that the core building logic is only executed once. Test cache invalidation by modifying the session object between calls and asserting that the context is recomputed."
           }
         ]
@@ -224,7 +224,7 @@
           2,
           3
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -232,7 +232,7 @@
             "description": "Develop a set of fast, heuristic-based detectors within `features/chatbot/misalignment-detector.ts` to identify violations of simple AGENTS rules (e.g., string matching, regex) from session data.",
             "dependencies": [],
             "details": "Create specific detector functions, such as `detectStringMatch(session, rule)`, that use efficient methods like regular expressions to scan session event logs for patterns defined in simple rules. These functions must be optimized for speed.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Write unit tests for each heuristic detector using mock session fixtures containing known violations. Assert that each detector correctly identifies the violation and returns a `Misalignment` object with the correct `ruleId`, `evidence`, and `timestamps`."
           },
           {
@@ -241,7 +241,7 @@
             "description": "Create the logic for detecting violations of complex, semantic AGENTS rules. This involves constructing detailed prompts with session evidence and using the `lib/ai` module to get a classification from the LLM.",
             "dependencies": [],
             "details": "Implement a `detectWithLLM(session, rule)` function. This will gather relevant events from the session, format them into a structured prompt, and invoke the `lib/ai` module. It must also include robust logic to parse the LLM's JSON response to extract the classification and evidence.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Use integration tests with a mocked LLM client from `lib/ai`. Verify that the correct prompt is constructed based on the session data and rule. Test the response-parsing logic to ensure it correctly handles valid, invalid, and empty LLM responses."
           },
           {
@@ -253,7 +253,7 @@
               2
             ],
             "details": "In `features/chatbot/misalignment-detector.ts`, the `detectMisalignments` function will loop through the provided `rules`. Based on rule metadata (e.g., `detection: 'heuristic'`), it will invoke the corresponding detection function from subtask 1 or 2, collect all returned `Misalignment` objects, and return the consolidated array.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Write an integration test for the `detectMisalignments` function. Use a comprehensive session fixture and a mix of simple and complex rules. Mock the heuristic and LLM detector functions to assert the aggregator calls them correctly based on the rule type and properly combines their results."
           }
         ]
@@ -270,7 +270,7 @@
           4,
           5
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -278,7 +278,7 @@
             "description": "Implement the `createChatRuntime` factory function in `chatbot.runtime.ts` and create the `features/chatbot/chatModeConfig.ts` file. This task establishes the core mode-switching logic and the stubbed implementation for 'general' mode, which returns a `MODE_NOT_ENABLED` error.",
             "dependencies": [],
             "details": "Create `features/chatbot/chatModeConfig.ts` to define an initial configuration structure. In `chatbot.runtime.ts`, export a factory function `createChatRuntime(opts: { mode, sessionId })`. Inside, implement a conditional `if (opts.mode === 'general')` that returns a deterministic `MODE_NOT_ENABLED` error object. The `session` mode branch can be initially stubbed to be implemented in the next task.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test `createChatRuntime`. Assert that when called with `mode: 'general'`, it immediately returns the specified `MODE_NOT_ENABLED` error object. Test that invalid or unknown modes are handled gracefully, perhaps by throwing an error."
           },
           {
@@ -291,7 +291,7 @@
               5
             ],
             "details": "In `features/chatbot/chatbot.runtime.ts`, flesh out the `mode === 'session'` branch. This branch should invoke `buildSessionContext` from the context builder module (Task 4) using the provided `sessionId`. The result will be combined with a system prompt defined in `chatModeConfig.ts`. This complete prompt is then used to call the AI service. Integrate the misalignment detector (Task 5) to process the AI response.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Write unit tests for the 'session' mode logic, mocking dependencies like `buildSessionContext` and the AI service client. Verify that for a given `sessionId`, the context builder is called. Assert that the prompt sent to the AI service is correctly formatted with the system prompt and the context."
           }
         ]
@@ -306,7 +306,7 @@
         "dependencies": [
           6
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -314,7 +314,7 @@
             "description": "Create the `POST /api/chatbot/stream` endpoint in `chatbot-api.server.ts`. Implement robust validation for the request body, specifically checking for the presence and validity of the `mode` parameter. Handle all specified error cases for invalid requests and the disabled 'general' mode.",
             "dependencies": [],
             "details": "Implement the server-side function to handle `POST /api/chatbot/stream`. Parse the request body and validate its structure. If `mode` is missing or not 'session' or 'general', respond with a 400 status. If `mode` is 'general', respond with a 501 status and a `{ code: 'MODE_NOT_ENABLED' }` JSON body.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Use an HTTP client testing library to send requests to the endpoint. Verify that a request with a missing `mode` field returns a 400 error. Verify that a request with `mode: 'general'` returns a 501 error with the correct JSON payload."
           },
           {
@@ -325,7 +325,7 @@
               1
             ],
             "details": "Within the API handler created in the previous subtask, add the logic for the `mode: 'session'` case. Import and call the chat runtime function, passing it the validated request parameters. Construct and return a `StreamingTextResponse` with the stream provided by the runtime.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Write an integration test for a valid `mode: 'session'` request. Mock the chat runtime to return a predefined stream of text chunks. Assert that the API response is a streaming response and that the concatenated body content matches the expected output from the mock."
           }
         ]
@@ -340,7 +340,7 @@
         "dependencies": [
           7
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -348,7 +348,7 @@
             "description": "Create the initial `components/chatbot/ChatDockPanel.tsx` file. This includes setting up the basic React component structure, defining its props (`mode`, `sessionId`), and integrating the `useChat` hook from the Vercel AI SDK (`ai/react`) with a default configuration.",
             "dependencies": [],
             "details": "Create the file `ChatDockPanel.tsx`. Define a functional component that accepts `mode: string` and `sessionId: string` as props. Call the `useChat()` hook to get the essential helpers like `messages`, `input`, `handleInputChange`, and `handleSubmit`.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify that the component can be rendered in a test environment (e.g., Storybook or a temporary page) without crashing. The initial state should show an empty chat."
           },
           {
@@ -359,7 +359,7 @@
               1
             ],
             "details": "Map over the `messages` array from `useChat` to render a list of chat bubbles, differentiating between 'user' and 'assistant' roles. Create a `<form>` element containing a text input bound to the `input` value and an `onChange` handler using `handleInputChange`. The form's `onSubmit` should call `handleSubmit`. Conditionally render loading indicators or error messages based on the `isLoading` and `error` properties from the hook.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Use a component testing framework like Storybook to create stories for different states: an empty message list, a list with several messages, the `isLoading` state, and an `error` state. Visually confirm that each state renders correctly."
           },
           {
@@ -370,7 +370,7 @@
               1
             ],
             "details": "In the `ChatDockPanel.tsx` component, pass a configuration object to the `useChat` hook. Within this object, define the `body` property to be an object containing the `mode` and `sessionId` values received from the component's props. Example: `useChat({ body: { mode, sessionId } })`.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "After sending a message through the UI, use the browser's developer tools to inspect the network request sent to the chat API. Verify that the request's payload (body) is a JSON object containing the correct `mode` and `sessionId` keys and values."
           }
         ]
@@ -444,7 +444,7 @@
           3,
           7
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -473,7 +473,7 @@
               2
             ],
             "details": "Create a new API route handler for `POST /api/chatbot/analyze`. The request body should specify the `analysisType` ('summary' or 'commitMessage') and `sessionId`. The handler will call the appropriate generator function from the previous subtasks and return the result.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Write integration tests for the endpoint. Test the 'summary' case by POSTing a valid request and verifying a string response. Test the 'commitMessage' case and verify a JSON array response. Test for error handling with invalid request bodies."
           },
           {
@@ -492,7 +492,7 @@
     ],
     "metadata": {
       "created": "2025-11-24T23:34:13.905Z",
-      "updated": "2025-11-24T23:34:13.905Z",
+      "updated": "2025-11-26T02:25:51.353Z",
       "description": "Tasks for master context"
     }
   }

@@ -22,6 +22,10 @@
 <img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/README-demo_UI-overhaul.gif" alt="demo-latest-look" />
 </p>
 
+<p>
+<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/README-demo_v4.gif" alt="demo-latest-look" />
+</p>
+
 ## Overview
 
 Codex Session Viewer is a sophisticated tool designed for replaying, analyzing, and debugging interactive user sessions. It provides a detailed timeline of events, including user actions, console logs, and network requests, alongside a chat-like interface to inspect conversational context. It's built to help developers and AI engineers understand complex interactions and diagnose issues with precision.
