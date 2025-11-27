@@ -1,6 +1,6 @@
 # chatbot components and fixes
 
-## agent-parsing-improvements
+## agent-parsing-improvements 
 
 - retrieve agents.md and other provider instruction files from users code base
 - currently the first agents.md is seen at the start of every session, but there is no proof of nested agents.md being parsed yet.
