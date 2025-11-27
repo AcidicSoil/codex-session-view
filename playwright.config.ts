@@ -1,5 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const isProdE2E = process.env.PLAYWRIGHT_USE_PROD === '1';
+const defaultSessionModel = process.env.PLAYWRIGHT_SESSION_MODEL ?? 'demo:grounded';
+const defaultGeneralModel = process.env.PLAYWRIGHT_GENERAL_MODEL ?? 'demo:general';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? (isProdE2E ? 'http://127.0.0.1:3000/viewer' : 'http://localhost:3001/viewer');
+
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -19,7 +24,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001/viewer',
+    baseURL,
     trace: 'on-first-retry',
   },
 
@@ -60,9 +65,25 @@ export default defineConfig({
     // },
   ],
 
-  webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:3001/viewer',
-    reuseExistingServer: true,
-  },
+  webServer: isProdE2E
+    ? {
+        command: 'pnpm start -- --prod',
+        url: 'http://127.0.0.1:4173/viewer',
+        reuseExistingServer: false,
+        env: {
+          ...process.env,
+          AI_SESSION_DEFAULT_MODEL: defaultSessionModel,
+          AI_GENERAL_DEFAULT_MODEL: defaultGeneralModel,
+        },
+      }
+    : {
+        command: 'pnpm dev',
+        url: 'http://localhost:3001/viewer',
+        reuseExistingServer: true,
+        env: {
+          ...process.env,
+          AI_SESSION_DEFAULT_MODEL: defaultSessionModel,
+          AI_GENERAL_DEFAULT_MODEL: defaultGeneralModel,
+        },
+      },
 });

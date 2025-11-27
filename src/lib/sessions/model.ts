@@ -42,6 +42,14 @@ export interface MisalignmentRecord {
   updatedAt: string
 }
 
+export interface ChatMessageEvidence {
+  path?: string
+  ruleId?: string
+  snippet?: string
+  severity?: MisalignmentSeverity
+  label?: string
+}
+
 export interface ChatMessageRecord {
   id: string
   sessionId: SessionId
@@ -50,6 +58,7 @@ export interface ChatMessageRecord {
   content: string
   clientMessageId?: string
   misalignmentId?: string
+  evidence?: ChatMessageEvidence[]
   createdAt: string
   updatedAt: string
 }
@@ -81,6 +90,7 @@ export function createChatMessageRecord(input: {
   content: string
   clientMessageId?: string
   misalignmentId?: string
+  evidence?: ChatMessageEvidence[]
   id?: string
   timestamp?: Date
 }): ChatMessageRecord {
@@ -93,6 +103,7 @@ export function createChatMessageRecord(input: {
     content: input.content,
     clientMessageId: input.clientMessageId,
     misalignmentId: input.misalignmentId,
+    evidence: input.evidence,
     createdAt,
     updatedAt: createdAt,
   }

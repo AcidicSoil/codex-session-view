@@ -3,22 +3,31 @@ import { z } from 'zod'
 import { buildChatContext } from '~/features/chatbot/context-builder'
 import { featureFlags } from '~/config/features'
 import { loadAgentRules, loadSessionSnapshot } from '~/server/chatbot-api.server'
-import { listChatMessages } from '~/server/persistence/chatMessages'
+import { listChatMessages, resetChatThread } from '~/server/persistence/chatMessages'
 import { listMisalignments } from '~/server/persistence/misalignments'
+import { getChatModelOptions, getDefaultModelForMode } from '~/lib/ai/client'
 
 const inputSchema = z.object({
   sessionId: z.string().min(1),
   mode: z.union([z.literal('session'), z.literal('general')]).default('session'),
+  reset: z.boolean().optional(),
 })
 
 export const fetchChatbotState = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
+    if (data.reset) {
+      await resetChatThread(data.sessionId, data.mode)
+    }
     const snapshot = await loadSessionSnapshot(data.sessionId)
-    const agentRules = await loadAgentRules()
+    const agentRules = data.mode === 'session' ? await loadAgentRules() : []
     const messages = await listChatMessages(data.sessionId, data.mode)
-    const misalignments = await listMisalignments(data.sessionId)
-    const contextPreview = buildChatContext({ snapshot, misalignments, history: messages, agentRules })
+    const misalignments = data.mode === 'session' ? await listMisalignments(data.sessionId) : []
+    const contextPreview =
+      data.mode === 'session'
+        ? buildChatContext({ snapshot, misalignments, history: messages, agentRules })
+        : null
+    const contextSections = contextPreview?.sections ?? []
     return {
       sessionId: data.sessionId,
       mode: data.mode,
@@ -26,6 +35,8 @@ export const fetchChatbotState = createServerFn({ method: 'POST' })
       snapshot,
       misalignments,
       messages,
-      contextSections: contextPreview.sections.map((section) => ({ id: section.id, heading: section.heading })),
+      contextSections: contextSections.map((section) => ({ id: section.id, heading: section.heading })),
+      modelOptions: getChatModelOptions(data.mode),
+      initialModelId: getDefaultModelForMode(data.mode),
     }
   })

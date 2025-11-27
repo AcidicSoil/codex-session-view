@@ -1,6 +1,3 @@
-if (import.meta.env.DEV) {
-  import('react-grab');
-}
 
 import { StartClient } from '@tanstack/react-start/client';
 import { StrictMode, startTransition } from 'react';
@@ -12,14 +9,35 @@ if (typeof window !== 'undefined') {
   const win = window as typeof window & { [globalKey]?: boolean };
   if (!win[globalKey]) {
     win[globalKey] = true;
-    window.addEventListener('error', (event) => {
-      logError('runtime', `Unhandled window error: ${event.message}`, {
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno,
-        stack: event.error?.stack,
-      });
-    });
+    window.addEventListener(
+      'error',
+      (event) => {
+        if (event instanceof ErrorEvent) {
+          logError('runtime', `Unhandled window error: ${event.message}`, {
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+            stack: event.error?.stack,
+          });
+          return;
+        }
+
+        const target = event.target as (EventTarget & { tagName?: string | undefined }) | null;
+        if (target && target !== window && typeof (target as HTMLElement).tagName === 'string') {
+          const element = target as HTMLElement;
+          const src = element.getAttribute('src') ?? element.getAttribute('href') ?? null;
+          logError('runtime', 'Resource load error captured', {
+            tagName: element.tagName,
+            src,
+            outerHTML: element.outerHTML?.slice(0, 500),
+          });
+          return;
+        }
+
+        logError('runtime', 'Unknown window error event', { type: event.type });
+      },
+      { capture: true },
+    );
     window.addEventListener('unhandledrejection', (event) => {
       logError('runtime', 'Unhandled promise rejection', { reason: event.reason });
     });

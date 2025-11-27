@@ -10,6 +10,7 @@
     "start": "node .output/server/index.mjs",
     "test": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:prod": "pnpm build && PLAYWRIGHT_USE_PROD=1 pnpm playwright test --project=chromium",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:ci": "pnpm build && pnpm test:e2e",
     "lint": "oxlint",
@@ -24,6 +25,7 @@
     "code:all": "pnpm code:src && pnpm code:comp && pnpm code:routes && pnpm code:hooks && pnpm code:serve"
   },
   "dependencies": {
+    "@ai-sdk/google": "^2.0.43",
     "@ai-sdk/openai-compatible": "^1.0.27",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -54,7 +56,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.12",
     "ai": "^5.0.93",
-    "ai-sdk-provider-gemini-cli": "^1.2.0",
+    "ai-sdk-provider-gemini-cli": "^1.4.0",
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "fast-glob": "^3.3.3",

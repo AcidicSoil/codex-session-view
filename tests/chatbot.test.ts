@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { parseAgentRules } from '~/lib/agents-rules/parser'
 import { buildChatContext } from '~/features/chatbot/context-builder'
 import { detectMisalignments } from '~/features/chatbot/misalignment-detector'
-import type { SessionSnapshot } from '~/lib/sessions/model'
+import type { MisalignmentRecord, SessionSnapshot } from '~/lib/sessions/model'
 import sessionFixture from './fixtures/session-large.json'
 import misalignmentSessionFixture from './fixtures/sessions/session.misalignment-basic.json'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { generateCommitMessages, generateSessionSummaryMarkdown } from '~/lib/ai/client'
+import { generateCommitMessages, generateSessionSummaryMarkdown, getChatModelOptions, resolveModelForMode } from '~/lib/ai/client'
+import { buildAssistantEvidence } from '~/server/chatbot-api.server'
+import type { ChatRemediationMetadata } from '~/lib/chatbot/types'
 
 const sessionSnapshot: SessionSnapshot = {
   sessionId: 'test-session',
@@ -81,5 +83,54 @@ describe('Analysis helpers', () => {
     for (const subject of commits) {
       expect(subject.length).toBeLessThanOrEqual(72)
     }
+  })
+})
+
+describe('Chat model registry', () => {
+  it('lists session-safe models with metadata', () => {
+    const models = getChatModelOptions('session')
+    expect(models.length).toBeGreaterThan(0)
+    expect(models[0]).toMatchObject({ id: expect.any(String), provider: expect.any(String) })
+  })
+
+  it('resolves defaults per mode when unset', () => {
+    const modelId = resolveModelForMode('general')
+    expect(typeof modelId).toBe('string')
+    expect(modelId.length).toBeGreaterThan(0)
+  })
+})
+
+describe('Assistant evidence mapping', () => {
+  const sampleMisalignment: MisalignmentRecord = {
+    id: 'mis-1',
+    sessionId: 'demo-session',
+    ruleId: 'AGENT-001',
+    title: 'Sample',
+    summary: 'Sample summary',
+    severity: 'high',
+    status: 'open',
+    evidence: [
+      {
+        message: 'src/app.ts has TODO markers',
+        eventIndex: 5,
+        highlight: 'TODO: clean up',
+      },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  it('builds evidence when metadata references an existing misalignment', () => {
+    const metadata: ChatRemediationMetadata = { misalignmentId: 'mis-1' }
+    const evidence = buildAssistantEvidence(metadata, [sampleMisalignment])
+    expect(evidence).toBeTruthy()
+    expect(evidence?.[0]?.ruleId).toBe('AGENT-001')
+    expect(evidence?.[0]?.severity).toBe('high')
+    expect(evidence?.[0]?.snippet).toContain('TODO')
+  })
+
+  it('returns undefined when no metadata is provided', () => {
+    const evidence = buildAssistantEvidence(undefined, [sampleMisalignment])
+    expect(evidence).toBeUndefined()
   })
 })

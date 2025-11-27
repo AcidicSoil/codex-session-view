@@ -1,4 +1,4 @@
-import type { MisalignmentRecord, SessionSnapshot } from '~/lib/sessions/model'
+import type { ChatMode, MisalignmentRecord, SessionSnapshot } from '~/lib/sessions/model'
 import type { ResponseItemParsed } from '~/lib/session-parser'
 
 export interface AIProviderConfig {
@@ -16,9 +16,20 @@ export interface PromptSection {
   content: string
 }
 
-const DEFAULT_MODEL = process.env.AI_MODEL ?? 'openai/gpt-4o-mini'
-const DEFAULT_CONTEXT = Number(process.env.AI_MAX_CONTEXT ?? 32768)
-const DEFAULT_OUTPUT = Number(process.env.AI_MAX_OUTPUT ?? 2048)
+const DEFAULT_MODEL = readEnvValue('AI_SESSION_DEFAULT_MODEL') ?? readEnvValue('AI_MODEL') ?? 'openai/gpt-4o-mini'
+const DEFAULT_CONTEXT = Number(readEnvValue('AI_MAX_CONTEXT') ?? 32768)
+const DEFAULT_OUTPUT = Number(readEnvValue('AI_MAX_OUTPUT') ?? 2048)
+
+function readEnvValue(key: string) {
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[key]
+  }
+  return undefined
+}
+
+function readServerEnv(key: string) {
+  return readEnvValue(key)
+}
 
 export function getAiProviderConfig(overrides: Partial<AIProviderConfig> = {}): AIProviderConfig {
   return {
@@ -233,4 +244,173 @@ function truncateText(value: string, max: number) {
 function capitalize(value: string) {
   if (!value) return ''
   return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+export type ProviderId = 'openai-compatible' | 'gemini-cli' | 'demo' | 'lm-studio'
+
+export interface ChatModelDefinition {
+  id: string
+  label: string
+  description: string
+  providerId: ProviderId
+  providerModel: string
+  contextWindow: number
+  maxOutputTokens: number
+  defaultTemperature: number
+  tags: string[]
+  modes: ChatMode[]
+}
+
+export interface ChatModelOption {
+  id: string
+  label: string
+  description: string
+  provider: string
+  contextWindow: number
+  maxOutputTokens: number
+  tags: string[]
+  modes: ChatMode[]
+}
+
+const PROVIDER_LABELS: Record<ProviderId, string> = {
+  'openai-compatible': 'OpenAI Compatible',
+  'gemini-cli': 'Gemini CLI',
+  'lm-studio': 'LM Studio',
+  demo: 'Demo',
+}
+
+const MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
+  'openai:gpt-4o-mini': {
+    id: 'openai:gpt-4o-mini',
+    label: 'GPT-4o mini',
+    description: 'Balanced reasoning tuned for AGENTS remediation with 128K context.',
+    providerId: 'openai-compatible',
+    providerModel: 'gpt-4o-mini',
+    contextWindow: 128_000,
+    maxOutputTokens: 4_096,
+    defaultTemperature: 0.2,
+    tags: ['grounded', 'fast'],
+    modes: ['session', 'general'],
+  },
+  'openai:gpt-4.1-mini': {
+    id: 'openai:gpt-4.1-mini',
+    label: 'GPT-4.1 mini',
+    description: 'Creative general-purpose assistant with structured reasoning support.',
+    providerId: 'openai-compatible',
+    providerModel: 'gpt-4.1-mini',
+    contextWindow: 128_000,
+    maxOutputTokens: 8_192,
+    defaultTemperature: 0.35,
+    tags: ['general', 'creative'],
+    modes: ['general'],
+  },
+  'gemini:2.5-flash': {
+    id: 'gemini:2.5-flash',
+    label: 'Gemini 2.5 Flash',
+    description: 'High-token streaming model via Gemini CLI for exploratory chats.',
+    providerId: 'gemini-cli',
+    providerModel: 'gemini-2.5-flash',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 16_384,
+    defaultTemperature: 0.4,
+    tags: ['streaming', 'exploration'],
+    modes: ['general'],
+  },
+  'gemini:2.5-pro': {
+    id: 'gemini:2.5-pro',
+    label: 'Gemini 2.5 pro',
+    description: 'High-token streaming model via Gemini CLI for exploratory chats.',
+    providerId: 'gemini-cli',
+    providerModel: 'gemini-2.5-pro',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 16_384,
+    defaultTemperature: 0.4,
+    tags: ['streaming', 'exploration'],
+    modes: ['general'],
+  },
+  'demo:grounded': {
+    id: 'demo:grounded',
+    label: 'Demo Session Coach',
+    description: 'Local deterministic model used for offline development of Session Coach.',
+    providerId: 'demo',
+    providerModel: 'demo-grounded',
+    contextWindow: 16_000,
+    maxOutputTokens: 1_024,
+    defaultTemperature: 0,
+    tags: ['demo', 'offline'],
+    modes: ['session'],
+  },
+  'demo:general': {
+    id: 'demo:general',
+    label: 'Demo General Chat',
+    description: 'Local deterministic general chat assistant for tests and CI.',
+    providerId: 'demo',
+    providerModel: 'demo-general',
+    contextWindow: 8_000,
+    maxOutputTokens: 1_024,
+    defaultTemperature: 0,
+    tags: ['demo', 'offline'],
+    modes: ['general'],
+  },
+};
+
+const FALLBACK_MODEL_IDS: Record<ChatMode, string> = {
+  session: 'openai:gpt-4o-mini',
+  general: 'openai:gpt-4o-mini',
+}
+
+export function getChatModelDefinition(modelId: string): ChatModelDefinition {
+  const definition = MODEL_REGISTRY[modelId]
+  if (!definition) {
+    throw new Error(`Unknown chat model: ${modelId}`)
+  }
+  return definition
+}
+
+export function getChatModelOptions(mode?: ChatMode): ChatModelOption[] {
+  return Object.values(MODEL_REGISTRY)
+    .filter((definition) => (mode ? definition.modes.includes(mode) : true))
+    .map((definition) => ({
+      id: definition.id,
+      label: definition.label,
+      description: definition.description,
+      provider: PROVIDER_LABELS[definition.providerId],
+      contextWindow: definition.contextWindow,
+      maxOutputTokens: definition.maxOutputTokens,
+      tags: definition.tags,
+      modes: definition.modes,
+    }))
+    .sort((a, b) => a.provider.localeCompare(b.provider) || a.label.localeCompare(b.label))
+}
+
+export function getDefaultModelForMode(mode: ChatMode): string {
+  const configured =
+    mode === 'session'
+      ? readServerEnv('AI_SESSION_DEFAULT_MODEL') ?? process.env.AI_SESSION_DEFAULT_MODEL
+      : readServerEnv('AI_GENERAL_DEFAULT_MODEL') ?? process.env.AI_GENERAL_DEFAULT_MODEL
+  if (configured) {
+    const definition = MODEL_REGISTRY[configured]
+    if (definition && definition.modes.includes(mode)) {
+      return configured
+    }
+  }
+  const fallback = Object.values(MODEL_REGISTRY).find((definition) => definition.modes.includes(mode))?.id ?? FALLBACK_MODEL_IDS[mode]
+  if (!fallback || !MODEL_REGISTRY[fallback]) {
+    throw new Error(`No chat model registered for mode ${mode}`)
+  }
+  return fallback
+}
+
+export function resolveModelForMode(mode: ChatMode, requestedId?: string): string {
+  if (!requestedId) {
+    return getDefaultModelForMode(mode)
+  }
+  const definition = MODEL_REGISTRY[requestedId]
+  if (!definition) {
+    throw new Error(`Unknown chat model: ${requestedId}`)
+  }
+  if (!definition.modes.includes(mode)) {
+    throw new Error(`Model ${requestedId} is not available for ${mode} mode`)
+  }
+  return definition.id
 }

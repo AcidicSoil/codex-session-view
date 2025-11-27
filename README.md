@@ -95,6 +95,16 @@ pnpm biome:check  # Check code formatting and linting
 pnpm biome:fix:unsafe # Fix code issues (unsafe)
 ```
 
+### Testing
+
+```bash
+pnpm test            # Vitest unit test suite
+pnpm test:e2e        # Playwright suite against pnpm dev (uses demo LLM models by default)
+pnpm test:e2e:prod   # pnpm build + Playwright against pnpm start -- --prod
+```
+
+> The e2e commands inject `AI_SESSION_DEFAULT_MODEL=demo:grounded` and `AI_GENERAL_DEFAULT_MODEL=demo:general` so CI never hits real LLM providers. Override those env vars when you want to exercise OpenAI/Gemini backends locally.
+
 ## 📁 Project Structure
 
 ```
