@@ -1,6 +1,6 @@
 # mcp-missin-docs
 
-## gitmcp Server and mcpdoc server usage
+## gitmcp Server and mcpdoc server usage 
 
 for ANY question about tech-stack specifics, use the <name>_Docs server for that repo:
 
