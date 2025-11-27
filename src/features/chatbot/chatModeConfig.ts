@@ -1,5 +1,6 @@
 import { featureFlags } from '~/config/features'
 import type { ChatMode } from '~/lib/sessions/model'
+import { getDefaultModelForMode } from '~/lib/ai/client'
 
 export interface ChatModeDefinition {
   mode: ChatMode
@@ -8,6 +9,7 @@ export interface ChatModeDefinition {
   enabled: boolean
   description: string
   errorCode?: string
+  defaultModelId: string
 }
 
 const CHAT_MODE_DEFINITIONS: Record<ChatMode, Omit<ChatModeDefinition, 'enabled'>> = {
@@ -16,13 +18,14 @@ const CHAT_MODE_DEFINITIONS: Record<ChatMode, Omit<ChatModeDefinition, 'enabled'
     label: 'Session coach',
     streaming: true,
     description: 'Grounded responses sourced from the active session snapshot and AGENTS instructions.',
+    defaultModelId: getDefaultModelForMode('session'),
   },
   general: {
     mode: 'general',
     label: 'General chat',
-    streaming: false,
-    description: 'Unbounded creative chat. Disabled until the PRD expands general-purpose guardrails.',
-    errorCode: 'MODE_NOT_ENABLED',
+    streaming: true,
+    description: 'Open-domain reasoning assistant that can discuss the viewer context without AGENTS scaffolding.',
+    defaultModelId: getDefaultModelForMode('general'),
   },
 }
 
@@ -31,7 +34,7 @@ export function getChatModeDefinition(mode: ChatMode): ChatModeDefinition {
   if (!def) {
     throw new Error(`Unsupported chat mode ${mode}`)
   }
-  const enabled = mode === 'session' ? featureFlags.sessionCoach.enabled() : false
+  const enabled = featureFlags.sessionCoach.enabled()
   return { ...def, enabled }
 }
 

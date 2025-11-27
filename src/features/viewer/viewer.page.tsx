@@ -18,7 +18,7 @@ import { VIEWER_ROUTE_ID } from './route-id'
 import type { ViewerSnapshot } from './viewer.loader'
 import type { TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
 import type { MisalignmentRecord } from '~/lib/sessions/model'
-import type { ChatRemediationMetadata } from '~/features/chatbot/chatbot.runtime'
+import type { ChatRemediationMetadata } from '~/lib/chatbot/types'
 import { MisalignmentBanner } from '~/components/chatbot/MisalignmentBanner'
 import { pickHigherSeverity, selectPrimaryMisalignment } from '~/features/chatbot/severity'
 

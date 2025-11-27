@@ -121,4 +121,40 @@ test.describe('codex session viewer', () => {
     expect(horizontalGap).toBeLessThan(200);
     expect(chatBox!.x ?? 0).toBeGreaterThan(40);
   });
+
+  test.describe('chatbot flows', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/viewer')
+      await page.route('**/api/chatbot/stream', async (route) => {
+        const body = route.request().postData() ?? '{}'
+        let mode = 'session'
+        try {
+          mode = JSON.parse(body).mode ?? 'session'
+        } catch (error) {
+          // ignore parse errors
+        }
+        const reply = mode === 'general' ? 'General reply from demo model.' : 'Session coach reply from demo model.'
+        await route.fulfill({ status: 200, body: reply, headers: { 'content-type': 'text/plain' } })
+      })
+    })
+
+    test('session coach can send and reset chats', async ({ page }) => {
+      const textarea = page.getByPlaceholder(/Summarize this session/i)
+      await textarea.fill('Provide a quick summary')
+      await page.keyboard.press('Enter')
+      await expect(page.getByText(/Provide a quick summary/)).toBeVisible()
+      await expect(page.getByText(/Session coach reply from demo model/)).toBeVisible()
+      await page.getByRole('button', { name: /New chat/i }).click()
+      await expect(page.getByText(/Provide a quick summary/)).toHaveCount(0)
+    })
+
+    test('general chat toggle hides misalignment UI and streams responses', async ({ page }) => {
+      await page.getByRole('button', { name: /^General$/i }).click()
+      await expect(page.getByText(/AGENTS issues detected/i)).toHaveCount(0)
+      const textarea = page.getByPlaceholder(/Ask anything about the viewer/i)
+      await textarea.fill('Say hello in demo mode')
+      await page.getByRole('button', { name: /^Send$/ }).click()
+      await expect(page.getByText(/General reply from demo model/)).toBeVisible()
+    })
+  })
 });

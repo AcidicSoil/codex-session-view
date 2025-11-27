@@ -13,7 +13,7 @@ export default ({ mode }: ConfigEnv) => {
 
   return defineConfig({
     server: {
-      port: 3000,
+      port: 3001,
     },
     plugins: [
       tsConfigPaths({

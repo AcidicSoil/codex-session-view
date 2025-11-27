@@ -1,5 +1,11 @@
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
-import { createChatMessageRecord, type ChatMessageRecord, type ChatMode, type SessionId } from '~/lib/sessions/model'
+import {
+  createChatMessageRecord,
+  type ChatMessageEvidence,
+  type ChatMessageRecord,
+  type ChatMode,
+  type SessionId,
+} from '~/lib/sessions/model'
 
 const chatMessagesCollection = createCollection(
   localOnlyCollectionOptions<ChatMessageRecord>({
@@ -21,6 +27,7 @@ export async function appendChatMessage(input: {
   content: string
   misalignmentId?: string
   clientMessageId?: string
+  evidence?: ChatMessageEvidence[]
 }) {
   const dedupeKey = input.clientMessageId
   if (dedupeKey) {
@@ -34,6 +41,13 @@ export async function appendChatMessage(input: {
   const record = createChatMessageRecord(input)
   await chatMessagesCollection.insert(record)
   return record
+}
+
+export async function resetChatThread(sessionId: SessionId, mode: ChatMode) {
+  const matches = chatMessagesCollection.toArray.filter((record) => record.sessionId === sessionId && record.mode === mode)
+  for (const record of matches) {
+    await chatMessagesCollection.delete(record.id)
+  }
 }
 
 export async function updateChatMessage(id: string, apply: (draft: ChatMessageRecord) => void) {
