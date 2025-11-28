@@ -181,6 +181,9 @@ function deriveKeywords(heading: string, bullets: string[]): string[] {
     'checklist',
     'intro',
     'introduction',
+    'avoid',
+    'render',
+    'loop',
   ]);
   const source = `${heading} ${bullets.join(' ')}`.toLowerCase();
   return Array.from(

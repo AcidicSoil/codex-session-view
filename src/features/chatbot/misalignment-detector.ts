@@ -1,19 +1,27 @@
 // path: src/features/chatbot/misalignment-detector.ts
-import { type ChatMessage } from '@/lib/chatbot/types';
-
-export type MisalignmentSeverity = 'low' | 'medium' | 'high' | 'critical';
+import type {
+  MisalignmentRecord,
+  MisalignmentSeverity,
+  MisalignmentStatus,
+  MisalignmentEvidence,
+} from '~/lib/sessions/model';
 
 export interface MisalignmentRule {
   id: string;
-  patterns: string[];
   severity: MisalignmentSeverity;
-  description: string;
+  patterns?: string[];
+  keywords?: string[]; // Support AgentRule keywords
+  description?: string;
+  heading?: string; // Support AgentRule heading
+  summary?: string; // Support AgentRule summary
 }
 
 export interface MisalignmentResult {
   ruleId: string;
   text: string;
   severity: MisalignmentSeverity;
+  ruleTitle?: string;
+  ruleSummary?: string;
 }
 
 export interface AnalysisContext {
@@ -24,12 +32,10 @@ export interface AnalysisContext {
 export class MisalignmentDetector {
   /**
    * Analyzes a message against a set of dynamic rules to detect misalignments.
-   * Uses case-insensitive regex matching for patterns.
+   * Checks both regex 'patterns' and simple string 'keywords'.
+   * Synchronous implementation.
    */
-  async analyze(
-    text: string,
-    context: AnalysisContext
-  ): Promise<{ misalignments: MisalignmentResult[] }> {
+  analyze(text: string, context: AnalysisContext): { misalignments: MisalignmentResult[] } {
     const misalignments: MisalignmentResult[] = [];
     const { rules } = context;
 
@@ -38,28 +44,31 @@ export class MisalignmentDetector {
     }
 
     for (const rule of rules) {
-      // Check each pattern in the rule
-      const isViolation = rule.patterns.some((pattern) => {
+      // 1. Gather all triggers (regex patterns or simple keywords)
+      const triggers: string[] = [...(rule.patterns || []), ...(rule.keywords || [])];
+
+      if (triggers.length === 0) continue;
+
+      // 2. Check for violations
+      const isViolation = triggers.some((trigger) => {
         try {
-          // Create a case-insensitive regex from the pattern
-          // 'i' flag ensures "Delete" matches "delete"
-          const regex = new RegExp(pattern, 'i');
+          // Attempt regex match first
+          // We use 'i' for case-insensitive matching
+          const regex = new RegExp(trigger, 'i');
           return regex.test(text);
-        } catch (error) {
-          console.warn(
-            `[MisalignmentDetector] Invalid regex pattern provided: "${pattern}"`,
-            error
-          );
-          // Fallback to simple inclusion check if regex fails
-          return text.toLowerCase().includes(pattern.toLowerCase());
+        } catch {
+          // Fallback to simple inclusion if regex fails
+          return text.toLowerCase().includes(trigger.toLowerCase());
         }
       });
 
       if (isViolation) {
         misalignments.push({
           ruleId: rule.id,
-          text, // In a real scenario, you might want to return just the matching snippet
+          text,
           severity: rule.severity,
+          ruleTitle: rule.heading || rule.id,
+          ruleSummary: rule.summary || rule.description || 'Misalignment detected',
         });
       }
     }
@@ -70,32 +79,74 @@ export class MisalignmentDetector {
 
 /**
  * Helper function used by tests to run detection on a snapshot object.
- * Restores compatibility with existing tests expecting a functional export.
+ * Returns fully shaped MisalignmentRecord objects to satisfy test helpers.
+ * This function is SYNCHRONOUS.
  */
-export async function detectMisalignments(params: { snapshot: any }) {
-  const { snapshot } = params;
+export function detectMisalignments(params: { snapshot: any; agentRules?: any[] }): {
+  misalignments: MisalignmentRecord[];
+} {
+  const { snapshot, agentRules } = params;
   const detector = new MisalignmentDetector();
 
-  // Robustly extract rules from likely locations in the snapshot/fixture
-  const rules: MisalignmentRule[] = snapshot.rules || snapshot.misalignmentRules || [];
+  // 1. Extract rules from snapshot OR the provided agentRules argument
+  let rules: MisalignmentRule[] = [];
 
-  // Robustly extract text from likely locations
+  if (agentRules && Array.isArray(agentRules)) {
+    // Cast the incoming AgentRules to our internal compatible interface
+    rules = agentRules as unknown as MisalignmentRule[];
+  } else if (snapshot.rules || snapshot.misalignmentRules) {
+    rules = (snapshot.rules || snapshot.misalignmentRules) as MisalignmentRule[];
+  }
+
+  // 2. Extract text content from various snapshot formats
   let text = '';
 
   if (typeof snapshot.text === 'string') {
     text = snapshot.text;
   } else if (typeof snapshot.content === 'string') {
     text = snapshot.content;
+  } else if (Array.isArray(snapshot.events)) {
+    // Handle 'events' array common in SessionSnapshot
+    text = snapshot.events
+      .filter((e: any) => e.type === 'Message' && e.content)
+      .map((e: any) => e.content)
+      .join('\n');
   } else if (Array.isArray(snapshot.messages)) {
-    // Combine content from messages if provided as an array
     text = snapshot.messages.map((m: any) => m.content || '').join('\n');
   }
 
-  // Default context
+  const sessionId = snapshot.id || snapshot.sessionId || 'test-session';
+
+  // 3. Prepare Context
   const context: AnalysisContext = {
-    sessionId: snapshot.id || 'test-session',
+    sessionId,
     rules,
   };
 
-  return detector.analyze(text, context);
+  // 4. Analyze (Synchronously)
+  const result = detector.analyze(text, context);
+
+  // 5. Map to full MisalignmentRecord structure expected by tests
+  const records: MisalignmentRecord[] = result.misalignments.map((m, idx) => {
+    const evidenceItem: MisalignmentEvidence = {
+      message: m.text,
+    };
+
+    return {
+      id: `temp-misalignment-${idx}`,
+      sessionId,
+      ruleId: m.ruleId,
+      title: m.ruleTitle || m.ruleId,
+      summary: m.ruleSummary || '',
+      severity: m.severity,
+      status: 'open' as MisalignmentStatus,
+      evidence: [evidenceItem],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  });
+
+  return {
+    misalignments: records,
+  };
 }
