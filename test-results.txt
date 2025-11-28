@@ -1,0 +1,62 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.6 [39m[90m/home/user/projects/temp/codex-session-view[39m
+
+[90mstdout[2m | src/lib/agents-rules/parser.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+[90mstdout[2m | tests/chatbot.test.ts
+[22m[39m[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+ [32m✓[39m src/lib/agents-rules/parser.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [31m❯[39m tests/chatbot.test.ts [2m([22m[2m11 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 8[2mms[22m[39m
+     [32m✓[39m extracts headings and severity[32m 1[2mms[22m[39m
+     [32m✓[39m builds context within token budgets[32m 1[2mms[22m[39m
+[31m     [31m×[31m flags fixture heuristics[39m[32m 2[2mms[22m[39m
+     [32m✓[39m builds markdown with four required sections[32m 1[2mms[22m[39m
+     [32m✓[39m returns commit subjects under 72 characters[32m 0[2mms[22m[39m
+     [32m✓[39m lists session-safe models with metadata[32m 1[2mms[22m[39m
+     [32m✓[39m resolves defaults per mode when unset[32m 0[2mms[22m[39m
+     [32m✓[39m builds evidence when metadata references an existing misalignment[32m 0[2mms[22m[39m
+     [32m✓[39m returns undefined when no metadata is provided[32m 0[2mms[22m[39m
+[31m       [31m×[31m detects violations based on dynamic keywords[39m[32m 2[2mms[22m[39m
+       [32m✓[39m ignores events that do not match keywords[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/chatbot.test.ts[2m > [22mMisalignment detector[2m > [22mflags fixture heuristics
+[31m[1mAssertionError[22m: expected 0 to be greater than or equal to 1[39m
+[36m [2m❯[22m tests/chatbot.test.ts:[2m54:44[22m[39m
+    [90m 52| [39m  [34mit[39m([32m'flags fixture heuristics'[39m[33m,[39m () [33m=>[39m {
+    [90m 53| [39m    const detection = detectMisalignments({ snapshot: misalignmentSnap…
+    [90m 54| [39m    [34mexpect[39m(detection[33m.[39mmisalignments[33m.[39mlength)[33m.[39m[34mtoBeGreaterThanOrEqual[39m([34m1[39m)
+    [90m   | [39m                                           [31m^[39m
+    [90m 55| [39m  })
+    [90m 56| [39m})
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/chatbot.test.ts[2m > [22mAssistant evidence mapping[2m > [22mDynamic Misalignment Detection[2m > [22mdetects violations based on dynamic keywords
+[31m[1mAssertionError[22m: expected +0 to be 1 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 0[39m
+
+[36m [2m❯[22m tests/chatbot.test.ts:[2m166:43[22m[39m
+    [90m164| [39m
+    [90m165| [39m      [90m// Should find 1 misalignment[39m
+    [90m166| [39m      [34mexpect[39m(result[33m.[39mmisalignments[33m.[39mlength)[33m.[39m[34mtoBe[39m([34m1[39m)[33m;[39m
+    [90m   | [39m                                          [31m^[39m
+    [90m167| [39m
+    [90m168| [39m      [90m// Check details[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m13 passed[39m[22m[90m (15)[39m
+[2m   Start at [22m 11:44:23
+[2m   Duration [22m 1.73s[2m (transform 188ms, setup 128ms, collect 1.18s, tests 11ms, environment 798ms, prepare 15ms)[22m
+
