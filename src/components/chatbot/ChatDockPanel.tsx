@@ -12,16 +12,16 @@ import { cn } from '~/lib/utils'
 import { mutateMisalignmentStatus } from '~/server/function/misalignments'
 import { requestChatStream } from '~/features/chatbot/chatbot.runtime'
 import type { ChatRemediationMetadata } from '~/lib/chatbot/types'
-import { ChatDock } from '~/components/viewer/ChatDock'
 import { SummaryPopout, CommitPopout } from '~/components/chatbot/SessionAnalysisPopouts'
 import { fetchChatbotState } from '~/server/function/chatbotState'
 import { TextGenerateEffect } from '~/components/aceternity/text-generate-effect'
 import { PlaceholdersAndVanishInput } from '~/components/chatbot/PlaceholdersAndVanishInput'
 import { getSeverityVisuals } from '~/features/chatbot/severity'
+import { Loader2 } from 'lucide-react'
 
 interface ChatDockPanelProps {
   sessionId: string
-  state: ViewerChatState | null | undefined
+  state?: ViewerChatState | null
   prefill?: CoachPrefillPayload | null
   onPrefillConsumed?: () => void
 }
@@ -36,10 +36,48 @@ interface LocalMessage extends ChatMessageRecord {
 }
 
 export function ChatDockPanel({ sessionId, state, prefill, onPrefillConsumed }: ChatDockPanelProps) {
-  if (!state?.featureEnabled) {
-    return <ChatDock />
+  const [bootState, setBootState] = useState<ViewerChatState | null>(state ?? null)
+  const [bootStatus, setBootStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>(state ? 'ready' : 'loading')
+  const [bootError, setBootError] = useState<string | null>(null)
+
+  const hydrateState = useCallback(async () => {
+    setBootStatus('loading')
+    setBootError(null)
+    try {
+      const next = await fetchChatbotState({ data: { sessionId, mode: 'session' } })
+      setBootState(next)
+      setBootStatus('ready')
+    } catch (error) {
+      setBootError(error instanceof Error ? error.message : 'Failed to load chat state')
+      setBootStatus('error')
+    }
+  }, [sessionId])
+
+  useEffect(() => {
+    if (state) {
+      setBootState(state)
+      setBootStatus('ready')
+      setBootError(null)
+      return
+    }
+    if (!bootState) {
+      void hydrateState()
+    }
+  }, [state, hydrateState, bootState])
+
+  if (!bootState) {
+    return <ChatDockBootstrapCard status={bootStatus} error={bootError} onRetry={hydrateState} />
   }
-  return <FeatureEnabledChatDock sessionId={sessionId} initialState={state} prefill={prefill} onPrefillConsumed={onPrefillConsumed} />
+
+  return (
+    <FeatureEnabledChatDock
+      key={`${bootState.sessionId}-${bootState.mode}`}
+      sessionId={sessionId}
+      initialState={bootState}
+      prefill={prefill}
+      onPrefillConsumed={onPrefillConsumed}
+    />
+  )
 }
 
 function FeatureEnabledChatDock({
@@ -428,5 +466,40 @@ function updateAssistantMessage(id: string, content: string, setMessages: React.
           }
         : message,
     ),
+  )
+}
+
+function ChatDockBootstrapCard({
+  status,
+  error,
+  onRetry,
+}: {
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  error: string | null
+  onRetry: () => void
+}) {
+  const isLoading = status === 'loading' || status === 'idle'
+  return (
+    <Card className="flex h-full flex-col gap-4">
+      <CardHeader className="space-y-2">
+        <CardTitle className="text-base font-semibold">Chat dock</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {isLoading ? 'Preparing Session Coach…' : 'Unable to load Session Coach state.'}
+        </p>
+        {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col items-center justify-center gap-3">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading chat history…
+          </div>
+        ) : (
+          <Button onClick={onRetry} variant="outline">
+            Retry
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   )
 }

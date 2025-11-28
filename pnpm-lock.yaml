@@ -101,6 +101,9 @@ importers:
       ai:
         specifier: ^5.0.93
         version: 5.0.93(zod@4.1.12)
+      ai-sdk-provider-codex-cli:
+        specifier: ^0.6.0
+        version: 0.6.0(zod@4.1.12)
       ai-sdk-provider-gemini-cli:
         specifier: ^1.4.0
         version: 1.4.0(@modelcontextprotocol/sdk@1.18.1)(@opentelemetry/core@2.2.0(@opentelemetry/api@1.9.0))(@opentelemetry/resources@2.2.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-metrics@2.0.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.0.1(@opentelemetry/api@1.9.0))(zod@4.1.12)
@@ -311,6 +314,12 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider-utils@3.0.3':
+    resolution: {integrity: sha512-kAxIw1nYmFW1g5TvE54ZB3eNtgZna0RnLjPUp1ltz1+t9xkXJIuDT4atrwfau9IbS0BOef38wqrI8CjFfQrxhw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4
 
   '@ai-sdk/provider@2.0.0':
     resolution: {integrity: sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==}
@@ -1356,6 +1365,11 @@ packages:
 
   '@open-draft/until@2.1.0':
     resolution: {integrity: sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg==}
+
+  '@openai/codex@0.60.1':
+    resolution: {integrity: sha512-qKLPldoUdBviRBltPxYYqbpOmTpFcIgy3Hbehrcda7kMY7OcdruU3HaTfERXwOXXOl853v8s8hBBpOALLqUCgQ==}
+    engines: {node: '>=16'}
+    hasBin: true
 
   '@opentelemetry/api-logs@0.203.0':
     resolution: {integrity: sha512-9B9RU0H7Ya1Dx/Rkyc4stuBZSGVQF27WigitInx2QQoj6KUpEFYPKoWjdFTunJYxmXmh17HeBvbMa1EhGyPmqQ==}
@@ -3876,6 +3890,12 @@ packages:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
 
+  ai-sdk-provider-codex-cli@0.6.0:
+    resolution: {integrity: sha512-KHESWzTSqt6B402OpZNyEMn5d4RXRDARPghIo4ZHcLeLf2GukB5AeNQ1mYgGN0F7e40gAzaSXIatYNM5dt/mpA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.0.0 || ^4.0.0
+
   ai-sdk-provider-gemini-cli@1.4.0:
     resolution: {integrity: sha512-k5nWGbqUO28Bi8yQErBP1m5MQZQL1oCVFpCytSepYMAwfNP01QPcYyYR2bt8HrGGlEMS7Bl1CbuRjPFcJdccMg==}
     engines: {node: '>=20'}
@@ -5352,6 +5372,9 @@ packages:
     resolution: {integrity: sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==}
     engines: {node: '>=6'}
     hasBin: true
+
+  jsonc-parser@3.3.1:
+    resolution: {integrity: sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ==}
 
   jsonfile@4.0.0:
     resolution: {integrity: sha512-m6F1R3z8jjlf2imQHS2Qez5sjKWQzbuuhuJ/FKYFRZvPE3PuHcSMVZzfsLhGVOkfd20obL5SWEBew5ShlquNxg==}
@@ -7376,6 +7399,14 @@ snapshots:
       eventsource-parser: 3.0.6
       zod: 4.1.12
 
+  '@ai-sdk/provider-utils@3.0.3(zod@4.1.12)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@standard-schema/spec': 1.0.0
+      eventsource-parser: 3.0.6
+      zod: 4.1.12
+      zod-to-json-schema: 3.25.0(zod@4.1.12)
+
   '@ai-sdk/provider@2.0.0':
     dependencies:
       json-schema: 0.4.0
@@ -8596,6 +8627,9 @@ snapshots:
       outvariant: 1.4.3
 
   '@open-draft/until@2.1.0': {}
+
+  '@openai/codex@0.60.1':
+    optional: true
 
   '@opentelemetry/api-logs@0.203.0':
     dependencies:
@@ -11851,6 +11885,15 @@ snapshots:
 
   agent-base@7.1.4: {}
 
+  ai-sdk-provider-codex-cli@0.6.0(zod@4.1.12):
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.3(zod@4.1.12)
+      jsonc-parser: 3.3.1
+      zod: 4.1.12
+    optionalDependencies:
+      '@openai/codex': 0.60.1
+
   ai-sdk-provider-gemini-cli@1.4.0(@modelcontextprotocol/sdk@1.18.1)(@opentelemetry/core@2.2.0(@opentelemetry/api@1.9.0))(@opentelemetry/resources@2.2.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-metrics@2.0.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.0.1(@opentelemetry/api@1.9.0))(zod@4.1.12):
     dependencies:
       '@ai-sdk/provider': 2.0.0
@@ -13492,6 +13535,8 @@ snapshots:
   json-stable-stringify-without-jsonify@1.0.1: {}
 
   json5@2.2.3: {}
+
+  jsonc-parser@3.3.1: {}
 
   jsonfile@4.0.0:
     optionalDependencies:

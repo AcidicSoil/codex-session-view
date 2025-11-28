@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { parseAgentRules } from '~/lib/agents-rules/parser'
 import { buildChatContext } from '~/features/chatbot/context-builder'
 import { detectMisalignments } from '~/features/chatbot/misalignment-detector'
 import { assertChatModeEnabled } from '~/features/chatbot/chatModeConfig'
@@ -9,7 +8,8 @@ import { appendChatMessage, listChatMessages } from '~/server/persistence/chatMe
 import { ingestMisalignmentCandidates, listMisalignments } from '~/server/persistence/misalignments'
 import type { MisalignmentRecord } from '~/lib/sessions/model'
 import { generateCommitMessages, generateSessionSummaryMarkdown, resolveModelForMode, getChatModelDefinition } from '~/lib/ai/client'
-import { generateSessionCoachReply, runGeneralChatTurn, type ChatStreamResult } from '~/server/lib/aiRuntime'
+import { loadAgentRules, loadSessionSnapshot } from '~/server/lib/chatbotData'
+import { generateSessionCoachReply, runGeneralChatTurn, type ChatStreamResult, ProviderUnavailableError } from '~/server/lib/aiRuntime'
 import type { ChatRemediationMetadata } from '~/lib/chatbot/types'
 
 const metadataSchema = z
@@ -42,8 +42,17 @@ const analyzeInputSchema = z.object({
   prompt: z.string().optional(),
 })
 
-let cachedSnapshot: SessionSnapshot | null = null
-let cachedRules: ReturnType<typeof parseAgentRules> | null = null
+function isProviderUnavailableError(error: unknown): error is ProviderUnavailableError {
+  if (error instanceof ProviderUnavailableError) {
+    return true
+  }
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      (error as { code?: string }).code === 'MODEL_UNAVAILABLE',
+  )
+}
 
 export async function streamChatFromPayload(payload: unknown): Promise<Response> {
   const input = streamInputSchema.safeParse(payload)
@@ -82,6 +91,22 @@ export async function streamChatFromPayload(payload: unknown): Promise<Response>
       startedAt,
     })
   } catch (error) {
+    if (isProviderUnavailableError(error)) {
+      logWarn('chatbot.stream', 'Requested model is unavailable', {
+        sessionId: input.data.sessionId,
+        mode: input.data.mode,
+        modelId,
+        providerId: (error as ProviderUnavailableError).providerId,
+        durationMs: Date.now() - startedAt,
+      })
+      return jsonResponse(
+        {
+          code: 'MODEL_UNAVAILABLE',
+          message: error instanceof Error ? error.message : 'Model is not available right now.',
+        },
+        503,
+      )
+    }
     logError('chatbot.stream', 'Streaming response failed', {
       sessionId: input.data.sessionId,
       mode: input.data.mode,
@@ -352,33 +377,6 @@ export function buildAssistantEvidence(metadata: ChatRemediationMetadata | undef
     severity: record.severity,
     label: entry.message ?? `Evidence #${index + 1}`,
   }))
-}
-
-export async function loadSessionSnapshot(sessionId: string): Promise<SessionSnapshot> {
-  if (cachedSnapshot) {
-    return { ...cachedSnapshot, sessionId }
-  }
-  const fs = await import('node:fs/promises')
-  const url = new URL('../../tests/fixtures/session-large.json', import.meta.url)
-  const file = await fs.readFile(url, 'utf8')
-  const parsed = JSON.parse(file) as { meta: SessionSnapshot['meta']; events: SessionSnapshot['events'] }
-  cachedSnapshot = {
-    sessionId,
-    meta: parsed.meta,
-    events: parsed.events,
-  }
-  return cachedSnapshot
-}
-
-export async function loadAgentRules() {
-  if (cachedRules) {
-    return cachedRules
-  }
-  const fs = await import('node:fs/promises')
-  const url = new URL('../../tests/fixtures/agents/AGENTS.session-coach.md', import.meta.url)
-  const file = await fs.readFile(url, 'utf8')
-  cachedRules = parseAgentRules(file)
-  return cachedRules
 }
 
 function jsonResponse(payload: unknown, status = 200) {

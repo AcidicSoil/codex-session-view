@@ -25,15 +25,30 @@ export async function requestChatStream(body: ChatStreamRequestBody) {
     },
     body: JSON.stringify(body),
   })
-  if (!response.ok) {
-    throw new Error(`Chat stream failed with status ${response.status}`)
-  }
   const contentType = response.headers.get('content-type') ?? ''
+  if (!response.ok) {
+    const payload = contentType.includes('application/json') ? await response.json().catch(() => null) : null
+    const error = new Error(
+      payload && typeof payload === 'object' && typeof (payload as { message?: string }).message === 'string'
+        ? (payload as { message: string }).message
+        : `Chat stream failed with status ${response.status}`,
+    ) as Error & { code?: string }
+    const code = payload && typeof payload === 'object' && 'code' in payload ? (payload as { code?: string }).code : undefined
+    if (code) {
+      error.code = code
+    }
+    throw error
+  }
   if (contentType.includes('application/json')) {
-    const payload = await response.json()
-    const error = new Error('Chat mode unavailable') as Error & { code?: string }
-    if (payload && typeof payload === 'object' && 'code' in payload) {
-      error.code = (payload as { code?: string }).code
+    const payload = await response.json().catch(() => ({}))
+    const error = new Error(
+      typeof (payload as { message?: string }).message === 'string'
+        ? (payload as { message: string }).message
+        : 'Chat mode unavailable',
+    ) as Error & { code?: string }
+    const code = typeof (payload as { code?: string }).code === 'string' ? (payload as { code: string }).code : undefined
+    if (code) {
+      error.code = code
     }
     throw error
   }

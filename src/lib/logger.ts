@@ -1,3 +1,5 @@
+import { captureBrowserLog, recordBrowserLogEntry } from '~/server/function/browserLogs'
+
 type LogMeta = Record<string, unknown> | Error | string | number | boolean | null | undefined
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -49,32 +51,25 @@ function emit(level: LogLevel, scope: string, message: string, meta?: LogMeta) {
 }
 
 function forwardToServer(level: LogLevel, scope: string, message: string, meta?: LogMeta) {
-  const normalizedMeta = serializeMeta(meta)
+  const payload = {
+    level,
+    scope,
+    message,
+    meta: serializeMeta(meta),
+    timestamp: new Date().toISOString(),
+  }
+
   if (typeof window === 'undefined') {
     queueMicrotask(() => {
-      ensureServerLogWriter()
-        .then((writer) => writer({ level, scope, message, meta: normalizedMeta, timestamp: new Date().toISOString() }))
-        .catch(() => {})
+      recordBrowserLogEntry(payload).catch(() => {})
     })
     return
   }
 
   queueMicrotask(() => {
-    ensureCaptureBrowserLog()
-      .then((capture) =>
-        capture({
-          data: {
-            level,
-            scope,
-            message,
-            meta: normalizedMeta,
-            timestamp: new Date().toISOString(),
-          },
-        }),
-      )
-      .catch(() => {
-        // swallow network errors
-      })
+    captureBrowserLog({ data: payload }).catch(() => {
+      // swallow network errors
+    })
   })
 }
 
@@ -95,27 +90,6 @@ function serializeMeta(meta?: LogMeta) {
     }
   }
   return meta
-}
-
-type CaptureFn = (payload: { data: { level: LogLevel; scope: string; message: string; meta?: unknown; timestamp: string } }) => Promise<unknown>
-
-let captureBrowserLogPromise: Promise<CaptureFn> | null = null
-
-function ensureCaptureBrowserLog(): Promise<CaptureFn> {
-  if (!captureBrowserLogPromise) {
-    captureBrowserLogPromise = import('~/server/function/browserLogs').then((mod) => mod.captureBrowserLog as CaptureFn)
-  }
-  return captureBrowserLogPromise
-}
-
-type ServerLogWriter = (entry: { level: LogLevel; scope: string; message: string; meta?: unknown; timestamp: string }) => Promise<void>
-let serverLogWriterPromise: Promise<ServerLogWriter> | null = null
-
-function ensureServerLogWriter(): Promise<ServerLogWriter> {
-  if (!serverLogWriterPromise) {
-    serverLogWriterPromise = import('~/server/function/browserLogs').then((mod) => mod.recordBrowserLogEntry as ServerLogWriter)
-  }
-  return serverLogWriterPromise
 }
 
 interface ServerLogEntry {
