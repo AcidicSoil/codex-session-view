@@ -2,10 +2,10 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { buildChatContext } from '~/features/chatbot/context-builder'
 import { featureFlags } from '~/config/features'
-import { loadAgentRules, loadSessionSnapshot } from '~/server/chatbot-api.server'
 import { listChatMessages, resetChatThread } from '~/server/persistence/chatMessages'
 import { listMisalignments } from '~/server/persistence/misalignments'
 import { getChatModelOptions, getDefaultModelForMode } from '~/lib/ai/client'
+import { ensureLmStudioModelsRegistered } from '~/server/lib/lmStudioModels'
 
 const inputSchema = z.object({
   sessionId: z.string().min(1),
@@ -16,6 +16,8 @@ const inputSchema = z.object({
 export const fetchChatbotState = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
+    await ensureLmStudioModelsRegistered().catch(() => {})
+    const { loadAgentRules, loadSessionSnapshot } = await import('~/server/lib/chatbotData')
     if (data.reset) {
       await resetChatThread(data.sessionId, data.mode)
     }

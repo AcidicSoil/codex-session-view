@@ -3,10 +3,10 @@
     "tasks": [
       {
         "id": 1,
-        "title": "Establish Foundational AI Configuration and Logging",
-        "description": "Create a centralized module for AI-related configuration and a lightweight logging utility. This forms the foundation for all subsequent AI and guardrail modules, loading secrets and settings from the environment.",
-        "details": "Implement `src/lib/config/ai-config.ts` to load environment variables (e.g., API keys, base URLs) for different AI providers. Create a function `getAiConfig()` that validates the config and a function `listAvailableModels()` that returns model descriptors. Also, implement `src/lib/observability/logging.ts` with simple `logInfo` and `logError` functions that can be used server-side.",
-        "testStrategy": "Unit test `ai-config.ts` by mocking `process.env` to verify successful loading and validation logic, including error handling for missing keys. For logging, unit test to ensure log functions can be called without throwing errors, especially in failure scenarios.",
+        "title": "Establish Foundational Layer: Config, Types, and Logging",
+        "description": "Create the core foundation for the AI orchestration and guardrails system. This includes centralized configuration management for AI providers, shared TypeScript domain types, and a basic observability logging utility.",
+        "details": "Implement three foundational modules as specified in the PRD's Phase 0. Create `src/lib/config/ai-config.ts` to load and validate environment variables (API keys, base URLs) for AI providers. Define shared data models like `ChatMessage`, `SessionContext`, `AgentsRuleset`, and `AlignmentEvent` in `src/lib/core/types.ts`. Implement a simple logging abstraction in `src/lib/observability/logging.ts` with `logInfo` and `logError` functions for server-side use.",
+        "testStrategy": "Unit test `ai-config.ts` by mocking environment variables to verify correct loading and validation logic, including error handling for missing keys. For `core-types.ts`, use compile-time type checking and simple Jest tests to ensure type guards and constructors work as expected. For `logging.ts`, unit test with a mocked console or sink to ensure messages are formatted and sent correctly without throwing errors.",
         "priority": "high",
         "dependencies": [],
         "status": "pending",
@@ -15,31 +15,9 @@
       {
         "id": 2,
         "title": "Implement AI Provider and Model Registry",
-        "description": "Set up an AI SDK provider registry in `src/lib/ai/providers.ts` that centralizes all providers and models, exposing helpers that resolve simple string IDs (for language, embedding, and image models) into concrete AI SDK model instances. This decouples model selection from call sites and mirrors the official provider-management pattern.",
-        "details": "Create a `registry` using `createProviderRegistry` from `ai`, wiring in providers for OpenAI-compatible endpoints (OpenAI, LM Studio, Gateway-style HTTP), and leaving room to plug in Anthropic, Gemini, and local/in-browser providers as configuration becomes available. Read all API keys, base URLs, and default settings from `getAiConfig()` (Task 1) so that provider configuration lives in one place. Use `customProvider`, `wrapLanguageModel`, and `defaultSettingsMiddleware` to define a small, opinionated set of aliased models (for example: `openai:gpt-4.1`, `openai:gpt-4.1-mini`, `anthropic:sonnet`, `local:dev`), preconfiguring provider options such as reasoning effort, temperature, and max tokens per alias. Export from this module: (1) `registry` itself, (2) `resolveLanguageModel(modelId: string)` that internally calls `registry.languageModel(modelId)`, (3) `resolveEmbeddingModel(modelId: string)` using `registry.textEmbeddingModel(modelId)`, (4) `resolveImageModel(modelId: string)` using `registry.imageModel(modelId)`, and (5) a backwards-compatible `resolveModel(modelId: string)` that currently delegates to `resolveLanguageModel` and is intended for the chat orchestrator. All helpers must accept IDs in the `provider:model` form (e.g., `openai:gpt-4.1`) and throw clear, developer-friendly errors when the provider or model alias is unknown. Keep the public API generic enough that adding a new provider or alias is done by editing the registry configuration rather than touching call sites.",
-        "testStrategy": "Unit test the registry helpers by mocking `getAiConfig` and verifying that (1) known IDs resolve to the correct underlying provider instances for language, embedding, and image models, (2) provider options (API key, base URL, reasoning settings, etc.) are passed through as configured, and (3) unknown provider IDs and model aliases throw descriptive errors. Add a small table-driven test that iterates over all documented aliases (e.g., `openai:gpt-4.1`, `local:dev`) to ensure the registry stays in sync with the configuration.",
-        "priority": "high",
-        "dependencies": [1],
-        "status": "pending",
-        "subtasks": []
-      },
-      {
-        "id": 3,
-        "title": "Implement AGENTS.md Loader and Parser",
-        "description": "Create a module `src/lib/agents/agents-rules.ts` to locate, load, and parse AGENTS.md files from a given repository context into a structured, normalized ruleset object. This will serve as the source of truth for the alignment linter.",
-        "details": "Implement `loadAgentsRules(repoRef, path)` which resolves the AGENTS.md file according to specification (root + nested overrides). The parser should convert the Markdown content into a structured object, e.g., `{ sections: { commands: { text: '...', rules: [{id: 'c1', text: '...'}, ...] } } }`. Implement caching per repo/path to improve performance.",
-        "testStrategy": "Unit test the parser with various synthetic AGENTS.md file contents, including malformed ones. Test the file resolver logic for root and nested paths. Use snapshot testing to validate the structure of the parsed output.",
-        "priority": "high",
-        "dependencies": [],
-        "status": "pending",
-        "subtasks": []
-      },
-      {
-        "id": 4,
-        "title": "Define and Persist Alignment Events",
-        "description": "Establish the database schema for `AlignmentEvent` and implement the persistence logic in `src/lib/agents/alignment-events.ts`. This includes functions to create and query alignment events, which will be used by the linter and the analytics UI.",
-        "details": "Define the `AlignmentEvent` TypeScript type based on the PRD. Use TanStack DB or a similar persistence layer. Create an async function `createAlignmentEvent(eventData)` that writes a new event to the `alignment_events` table/collection. Also, create `listAlignmentEvents(filters)` for querying with pagination. Ensure persistence failures are non-blocking for core chat flows.",
-        "testStrategy": "Test the persistence functions against a test database or in-memory equivalent. Verify that created events match the input data and that filters (by date, repo, status) and pagination in `listAlignmentEvents` work as expected. Check index usage on key filter fields.",
+        "description": "Create a unified registry that maps logical model IDs (e.g., 'openai:gpt-4.1', 'lmstudio:local') to concrete Vercel AI SDK provider instances and configurations.",
+        "details": "In `src/lib/ai/providers.ts`, implement the `resolveModel(id: ModelId)` function. This function will parse the logical model ID string, consult the configuration loaded by `ai-config`, and instantiate the appropriate Vercel AI SDK provider. For example, for 'openai:*' it should use `createOpenAI` and for 'gemini:*' it should use `createGoogleGenerativeAI`. Support providers for OpenAI-compatible endpoints, LM Studio, Gemini CLI, and `built-in-ai`. The function should return a `ResolvedModel` object containing the AI SDK model instance and its options.",
+        "testStrategy": "Unit test the `resolveModel` function with various model IDs. Mock the `ai-config` module to provide different configurations. Verify that correct provider instances are created for each ID. Test edge cases like invalid or unsupported model IDs, ensuring it gracefully falls back to a default model or throws a clear error.",
         "priority": "high",
         "dependencies": [
           1
@@ -48,25 +26,39 @@
         "subtasks": []
       },
       {
-        "id": 5,
-        "title": "Build the Core Chat Orchestrator",
-        "description": "Implement the main server-side chat orchestrator in `src/lib/ai/orchestrator.ts`. This function will handle streaming responses, context management, and tool invocation uniformly across all supported AI providers using the Vercel AI SDK.",
-        "details": "Create a primary server function `streamChat({ messages, modelId, context })`. This function will use the `resolveModel` from Task 2 to get a provider instance. It will then call the Vercel AI SDK's `streamText` function, passing messages and any provided context. The function should return a `StreamingTextResponse`.\n```typescript\n// src/lib/ai/orchestrator.ts\nimport { streamText } from 'ai';\nimport { resolveModel } from './providers';\n\nexport async function streamChat(request: ChatRequest) {\n  const model = resolveModel(request.modelId);\n  const result = await streamText({\n    model: model,\n    messages: request.messages,\n    system: request.systemPrompt\n  });\n  return result.toAIStreamResponse();\n}\n```",
-        "testStrategy": "Create integration tests that call `streamChat` and mock the AI provider's response. Verify that the output is a valid streaming response. Test error handling when a provider fails or a model ID is invalid. Ensure latency is measured and logged.",
+        "id": 3,
+        "title": "Develop AGENTS.md Rules Loader and Parser",
+        "description": "Implement a server-side module to locate, load, parse, and cache the contents of AGENTS.md files for a given repository session. This will provide a structured ruleset for the linter.",
+        "details": "Create `src/lib/agents/agents-rules.ts`. Implement the `loadAgentsRules(repoRef)` function that reads the `AGENTS.md` file from the specified repository path on the server. The function should parse the markdown file into a structured `AgentsRuleset` object, breaking it down into sections (e.g., commands, testing) and individual rules with stable IDs. Implement a caching mechanism (e.g., in-memory LRU cache) keyed by repo/path to improve performance on subsequent lookups for the same file.",
+        "testStrategy": "Unit test the parsing logic with a variety of synthetic `AGENTS.md` file contents, including well-formed files, empty files, and files with unusual formatting. Verify the path resolution logic, including the specified behavior of handling root and nested override files. Test the caching mechanism to ensure it returns cached data for repeated calls and invalidates correctly if needed.",
         "priority": "high",
         "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Build Central Chat Orchestrator with Streaming",
+        "description": "Implement the main server-side chat function using the Vercel AI SDK to handle streaming responses, context, and tool usage uniformly across all registered AI providers.",
+        "details": "In `src/lib/ai/orchestrator.ts`, create the primary server function `streamChat(request: ChatRequest)`. This function will use the `resolveModel` function from the `ai-providers` module to get the correct model instance. It will then call the Vercel AI SDK's `streamText` function, passing the model, conversation history, and any attached context. The function should return an `AIStream` that can be directly piped to the client response. On completion, it should also handle persisting the final message and associated metadata.",
+        "testStrategy": "Write integration tests that call `streamChat` with a mocked AI provider (e.g., using `createMockServer` from `ai-test-utils`). Verify that the function produces a valid streaming response. Test error handling for scenarios where the provider API returns an error. Ensure latency metadata is captured correctly upon stream completion.",
+        "priority": "high",
+        "dependencies": [
+          1,
           2
         ],
         "status": "pending",
         "subtasks": []
       },
       {
-        "id": 6,
-        "title": "Implement Codex Session Context Attachment Pipeline",
-        "description": "Develop the logic in `src/lib/ai/context-codex-session.ts` to transform a Codex session object into a structured context blob or system prompt suitable for an LLM. This makes the chat truly session-aware.",
-        "details": "Create `buildSessionContext(session)` to normalize session data and `createContextPrompt(context)` to generate a concise summary. The prompt should include repo, branch, a summary of messages, and key file names, while respecting size limits and redaction rules. This context will be fed into the orchestrator's system prompt.",
-        "testStrategy": "Unit test with various synthetic `CodexSession` objects. Verify that the generated context prompt is well-formed, respects token/character limits, and correctly redacts sensitive information if rules are defined. Snapshot test the output prompts for consistency.",
-        "priority": "medium",
+        "id": 5,
+        "title": "Create Codex Session Context Attachment Pipeline",
+        "description": "Develop a module to transform raw Codex session data into a structured, concise context blob that can be attached to AI chat requests, to be used in system prompts or other context channels.",
+        "details": "Implement `src/lib/ai/context-codex-session.ts`. Create the function `buildSessionContext(session: CodexSession)` which takes the raw session data and normalizes it into a `SessionContext` object. Then, create `createContextPrompt(context: SessionContext)` which constructs a concise prompt string from the context object. This prompt should summarize the session, list key events/files, and adhere to strict token limits to avoid bloating the AI request. Implement redaction rules for sensitive information if necessary.",
+        "testStrategy": "Unit test `buildSessionContext` and `createContextPrompt` with various synthetic `CodexSession` objects. Verify that the output is structured correctly and that the generated prompt text is within expected size limits. Test boundary conditions, such as very large sessions, to ensure truncation logic works as designed.",
+        "priority": "high",
         "dependencies": [
           1
         ],
@@ -74,92 +66,79 @@
         "subtasks": []
       },
       {
-        "id": 7,
-        "title": "Implement AGENTS Alignment Linter",
-        "description": "Create the `agents-linter` module to classify user and assistant messages against the loaded AGENTS.md ruleset. This module will also be responsible for generating remediation prompts for misaligned messages.",
-        "details": "In `src/lib/agents/agents-linter.ts`, implement `lintMessage({ message, ruleset })`. Start with deterministic heuristics, like checking for forbidden commands or file paths mentioned in the rules. The function should return an `AlignmentResult` object: `{status: 'aligned' | 'warn' | 'block', violatedRules: [...]}`. Also, implement `buildRemediation(result)` to generate a helpful correction prompt.",
-        "testStrategy": "Write extensive unit tests for the linter. For each rule type, create test cases with messages that should pass, warn, or fail. Use snapshot tests for the generated remediation prompts to ensure they are helpful and consistent.",
-        "priority": "medium",
+        "id": 6,
+        "title": "Implement AGENTS Alignment Linter and Remediation Service",
+        "description": "Create the linter service that evaluates user and assistant messages against the AGENTS.md ruleset, classifies them as aligned/warn/block, and generates corrective remediation prompts.",
+        "details": "In `src/lib/agents/agents-linter.ts`, implement `lintMessage(input: LintInput)`. This function will receive the message text and the `AgentsRuleset` from Task 3. It should first run a series of fast, deterministic checks (e.g., regex for forbidden commands, file path checks). For more ambiguous cases, it can optionally call a small, fast classification LLM. It must return a structured `AlignmentResult` object with a status and a list of violated rule IDs. Also implement `buildRemediation(result: AlignmentResult)` which generates a short, actionable prompt suggesting a compliant alternative.",
+        "testStrategy": "Use snapshot testing for `buildRemediation` to ensure remediation text remains stable. Write extensive unit tests for `lintMessage` covering various deterministic rules with sample messages that should pass or fail. For the optional LLM classifier, mock its output to test the logic that consumes its classification.",
+        "priority": "high",
         "dependencies": [
+          1,
           3
         ],
         "status": "pending",
         "subtasks": []
       },
       {
-        "id": 8,
-        "title": "Integrate Linter with Alignment Event Logging",
-        "description": "Connect the AGENTS linter to the alignment event persistence layer. After each message is linted, the result should be logged as a structured `AlignmentEvent` in the database.",
-        "details": "Modify the workflow that calls `lintMessage` (likely within or alongside the orchestrator). After receiving the `AlignmentResult`, call the `createAlignmentEvent` function from Task 4, mapping the result fields (status, violatedRules, etc.) and message metadata to the event schema. This should be an async, non-blocking operation.",
-        "testStrategy": "Write an integration test that takes a message, runs it through the linter, and verifies that the correct `AlignmentEvent` is created in the test database. Check that all fields, including session ID, message excerpt, and rule IDs, are populated correctly.",
-        "priority": "medium",
+        "id": 7,
+        "title": "Define and Persist Alignment Events",
+        "description": "Establish the database schema for `AlignmentEvent` records and implement the persistence layer to create and query these events. This will be the data source for all analytics.",
+        "details": "In `src/lib/agents/alignment-events.ts`, define the `AlignmentEvent` schema based on the PRD, including fields like `sessionId`, `messageId`, `actor`, `status`, `ruleId`, and `severity`. Use TanStack DB or an equivalent persistence layer. Implement `createAlignmentEvent(event)` to write a new event to the database. Implement `listAlignmentEvents(filter)` to query events with filtering (by time, repo, status, etc.) and pagination. Ensure database queries are indexed for performance, particularly on filterable columns.",
+        "testStrategy": "Test the persistence layer using a test database or an in-memory alternative. Write unit tests for `createAlignmentEvent` to verify that records are created correctly. For `listAlignmentEvents`, test the filtering and pagination logic to ensure it returns the correct subsets of data. Check that DB write failures are handled gracefully and do not block the main application flow.",
+        "priority": "high",
         "dependencies": [
-          4,
-          7
-        ],
-        "status": "pending",
-        "subtasks": []
-      },
-      {
-        "id": 9,
-        "title": "Wire Session Context into Codex Viewer Route Loader",
-        "description": "Extend the TanStack Start route loader for the `codex-session-viewer.route.tsx` to fetch and provide session-specific context, including the parsed AGENTS.md ruleset, to the UI components.",
-        "details": "In the `loader` function for the session viewer route, use the `buildSessionContext` (Task 6) and `loadAgentsRules` (Task 3) functions. The loader should fetch the raw session data and then transform it into `SessionContext` and `AgentsRuleset` objects. These will be made available to the `ChatDock` component via props or a React context provider, ensuring no client-side fetching.",
-        "testStrategy": "Write an integration test for the route loader. Mock the underlying data-fetching for a session and verify that the loader's output contains the correctly structured `SessionContext` and `AgentsRuleset` objects. Ensure the data is available for SSR.",
-        "priority": "medium",
-        "dependencies": [
-          3,
+          1,
           6
         ],
         "status": "pending",
         "subtasks": []
       },
       {
-        "id": 10,
-        "title": "Refactor ChatDock UI to Use the AI Orchestrator",
-        "description": "Refactor the existing `ChatDock.tsx` component to remove any ad-hoc, direct AI calls and instead use a client-side hook that communicates with the new server-side chat orchestrator.",
-        "details": "Create a TanStack Query mutation or a simple fetch-based client to call a new server function that wraps the `streamChat` orchestrator (Task 5). Replace the current `useEffect`-based or direct SDK calls in `ChatDock.tsx` with this new client. The component should receive session context from its parent via props (provided by Task 9's loader). Use the Vercel AI SDK's `useChat` or `useCompletion` hooks if they fit TanStack Start's architecture, or handle the streaming response manually.",
-        "testStrategy": "Use component tests (e.g., with Vitest and Testing Library) to test the refactored `ChatDock`. Mock the orchestrator client API. Verify that user messages are sent correctly and that streaming responses are rendered as they arrive.",
+        "id": 8,
+        "title": "Integrate Orchestrator and Context into Session Viewer & Chat UI",
+        "description": "Refactor the existing `ChatDock` component and its parent route to use the new session-scoped context and central chat orchestrator, removing any direct AI calls.",
+        "details": "Modify `src/routes/codex/session-viewer.route.tsx`. Use the TanStack Start `loader` function to fetch the `CodexSession` data and pass it to the `ai-context-codex-session` and `agents-rules` modules to generate the `SessionContext` and `AgentsRuleset` on the server. Pass this data to the route component. Refactor `src/features/chatbot/ChatDock.tsx` to remove any direct AI SDK calls. Instead, it should use the `useChat` hook from Vercel AI SDK, configured to point to a new server-side API route that calls our `streamChat` orchestrator from Task 4.",
+        "testStrategy": "Perform component testing on the refactored `ChatDock` using a mocked orchestrator client to verify that UI state, message streaming, and user input are handled correctly. Write an integration test for the `session-viewer.route.tsx` to ensure the loader fetches and provides all necessary context data server-side without any client-side `useEffect` fetches for this data.",
         "priority": "high",
         "dependencies": [
-          5,
-          9
+          4,
+          5
         ],
         "status": "pending",
         "subtasks": []
       },
       {
-        "id": 11,
-        "title": "Implement Inline Alignment Notifications in UI",
-        "description": "Create and integrate the `AlignmentNotification.tsx` component into `ChatDock` to display non-blocking warnings and remediation suggestions when a message is flagged by the AGENTS linter.",
-        "details": "Create a new server endpoint that runs the linter (Task 7) for a given message. This should be called from the `ChatDock` component asynchronously whenever a message is sent or received. When an alignment result with `status: 'warn'` is returned, render an `AlignmentBanner` or `MessageAlignmentBadge` component with the violation details and the suggested remediation text from the linter.",
-        "testStrategy": "In component tests for `ChatDock`, mock the linter API endpoint to return different `AlignmentResult` statuses. Verify that the correct notification UI (banner, toast, or badge) is displayed for 'warn' status and that nothing is shown for 'aligned'. Test that the remediation prompt can be easily used by the user.",
+        "id": 9,
+        "title": "Implement Non-Blocking Inline Guardrails and UI Notifications",
+        "description": "Integrate the AGENTS linter into the chat flow in a non-blocking manner and display alignment warnings or suggestions to the user in the UI.",
+        "details": "Create a new React component `src/features/agents/AlignmentNotification.tsx` that can render a banner or toast based on an `AlignmentResult` object. In the `ChatDock` component, after a user or assistant message is processed, trigger the `lintMessage` service (via a server function). This call must be non-blocking. When the `AlignmentResult` is returned, update the component's state. If a violation is detected, render the `AlignmentNotification` component. Also, use the `createAlignmentEvent` function to log the result to the database asynchronously.",
+        "testStrategy": "Use UI component tests (e.g., with Storybook or Vitest) to test the `AlignmentNotification` component with different `AlignmentResult` inputs. In `ChatDock` component tests, simulate the asynchronous return of a linting result and verify that the notification appears without having blocked the initial message rendering or streaming. Confirm that the `createAlignmentEvent` function is called.",
+        "priority": "high",
+        "dependencies": [
+          6,
+          7,
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Build Alignment Log Viewer Page and API",
+        "description": "Create a new page and supporting API to allow users to query, view, and analyze the persisted alignment events, providing observability into agent behavior.",
+        "details": "Create the `alignment-metrics.ts` module to compute aggregate stats from events. Then, implement the TanStack Start route at `src/routes/agents/alignment-log.route.tsx`. The route's `loader` function will call `listAlignmentEvents` (from Task 7) and `computeAlignmentMetrics`, passing filter parameters from the URL search params. The component will render an interactive UI with filter controls (date range, repo, status), a summary metrics display, and a paginated table of alignment events. Each event should be expandable to show details like the message excerpt and the violated rule text.",
+        "testStrategy": "Write an integration test for the `/agents/alignment-log` route endpoint, mocking the database calls, to ensure the loader returns the correct data structure based on filter query parameters. Use UI tests to validate the client-side experience, including interacting with filters, paginating through results, and viewing event details. Ensure the page handles empty states and loading states correctly.",
         "priority": "medium",
         "dependencies": [
-          8,
-          10
-        ],
-        "status": "pending",
-        "subtasks": []
-      },
-      {
-        "id": 12,
-        "title": "Build the Alignment Log Viewer Page",
-        "description": "Create a new route and UI at `/agents/alignment-log` for viewing, filtering, and searching through the persisted alignment events. This page is for AI/DX owners to analyze agent behavior.",
-        "details": "Implement `src/routes/agents/alignment-log.route.tsx`. The route's loader should call `listAlignmentEvents` (Task 4), passing filter parameters from the URL search params (e.g., `?repo=...&status=warn`). The component should render a filter bar and a table or list of the returned events. Each event should show key details and link back to the original Codex session.",
-        "testStrategy": "Write an integration test for the route, mocking the database to return a predefined set of alignment events. Verify that the loader returns the correct data based on filter params. Use UI component tests to validate that the table and filter controls render and function correctly.",
-        "priority": "low",
-        "dependencies": [
-          4,
-          8
+          7
         ],
         "status": "pending",
         "subtasks": []
       }
     ],
     "metadata": {
-      "created": "2025-11-24T00:51:33.286Z",
-      "updated": "2025-11-24T00:51:33.286Z",
+      "created": "2025-11-27T19:49:28.162Z",
+      "updated": "2025-11-27T19:49:28.162Z",
       "description": "Tasks for master context"
     }
   }

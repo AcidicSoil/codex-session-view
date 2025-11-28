@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { streamChatFromPayload } from '~/server/chatbot-api.server'
 
 export const Route = createFileRoute('/api/chatbot/stream')({
   ...( {
     server: {
       handlers: {
         POST: async ({ request }: { request: Request }) => {
+          const { streamChatFromPayload } = await import('~/server/chatbot-api.server')
           let body: unknown = null
           try {
             body = await request.json()

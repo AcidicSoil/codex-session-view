@@ -246,7 +246,7 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-export type ProviderId = 'openai-compatible' | 'gemini-cli' | 'demo' | 'lm-studio'
+export type ProviderId = 'openai-compatible' | 'gemini-cli' | 'codex-cli' | 'demo' | 'lm-studio'
 
 export interface ChatModelDefinition {
   id: string
@@ -275,11 +275,12 @@ export interface ChatModelOption {
 const PROVIDER_LABELS: Record<ProviderId, string> = {
   'openai-compatible': 'OpenAI Compatible',
   'gemini-cli': 'Gemini CLI',
+  'codex-cli': 'Codex CLI',
   'lm-studio': 'LM Studio',
   demo: 'Demo',
 }
 
-const MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
+const STATIC_MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
   'openai:gpt-4o-mini': {
     id: 'openai:gpt-4o-mini',
     label: 'GPT-4o mini',
@@ -302,7 +303,7 @@ const MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     maxOutputTokens: 8_192,
     defaultTemperature: 0.35,
     tags: ['general', 'creative'],
-    modes: ['general'],
+    modes: ['session', 'general'],
   },
   'gemini:2.5-flash': {
     id: 'gemini:2.5-flash',
@@ -314,7 +315,7 @@ const MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     maxOutputTokens: 16_384,
     defaultTemperature: 0.4,
     tags: ['streaming', 'exploration'],
-    modes: ['general'],
+    modes: ['session', 'general'],
   },
   'gemini:2.5-pro': {
     id: 'gemini:2.5-pro',
@@ -326,7 +327,43 @@ const MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     maxOutputTokens: 16_384,
     defaultTemperature: 0.4,
     tags: ['streaming', 'exploration'],
-    modes: ['general'],
+    modes: ['session', 'general'],
+  },
+  'codex:gpt-5.1-codex': {
+    id: 'codex:gpt-5.1-codex',
+    label: 'GPT-5.1 Codex',
+    description: 'Full Codex CLI agent with approvals + sandbox controls for remediation coaching.',
+    providerId: 'codex-cli',
+    providerModel: 'gpt-5.1-codex',
+    contextWindow: 200_000,
+    maxOutputTokens: 8_192,
+    defaultTemperature: 0.1,
+    tags: ['reasoning', 'tools'],
+    modes: ['session', 'general'],
+  },
+  'codex:gpt-5.1-codex-max': {
+    id: 'codex:gpt-5.1-codex-max',
+    label: 'GPT-5.1 Codex Max',
+    description: 'Maximum reasoning effort via Codex CLI; best for deep remediation walkthroughs.',
+    providerId: 'codex-cli',
+    providerModel: 'gpt-5.1-codex-max',
+    contextWindow: 200_000,
+    maxOutputTokens: 16_384,
+    defaultTemperature: 0.15,
+    tags: ['reasoning', 'slow'],
+    modes: ['session', 'general'],
+  },
+  'lmstudio:local-default': {
+    id: 'lmstudio:local-default',
+    label: 'LM Studio Local',
+    description: 'Runs against a local LM Studio OpenAI-compatible server for offline workflows.',
+    providerId: 'lm-studio',
+    providerModel: 'openai/gpt-oss-20b',
+    contextWindow: 128_000,
+    maxOutputTokens: 8_192,
+    defaultTemperature: 0.2,
+    tags: ['local', 'open-source'],
+    modes: ['session', 'general'],
   },
   'demo:grounded': {
     id: 'demo:grounded',
@@ -338,7 +375,7 @@ const MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     maxOutputTokens: 1_024,
     defaultTemperature: 0,
     tags: ['demo', 'offline'],
-    modes: ['session'],
+    modes: ['session', 'general'],
   },
   'demo:general': {
     id: 'demo:general',
@@ -350,17 +387,40 @@ const MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     maxOutputTokens: 1_024,
     defaultTemperature: 0,
     tags: ['demo', 'offline'],
-    modes: ['general'],
+    modes: ['session', 'general'],
   },
 };
+
+const dynamicModelRegistry = new Map<string, ChatModelDefinition>()
 
 const FALLBACK_MODEL_IDS: Record<ChatMode, string> = {
   session: 'openai:gpt-4o-mini',
   general: 'openai:gpt-4o-mini',
 }
 
+function listAllModelDefinitions() {
+  return [...Object.values(STATIC_MODEL_REGISTRY), ...dynamicModelRegistry.values()]
+}
+
+function getOptionalModelDefinition(modelId: string) {
+  return dynamicModelRegistry.get(modelId) ?? STATIC_MODEL_REGISTRY[modelId]
+}
+
+export function registerDynamicChatModels(definitions: ChatModelDefinition[], options?: { replaceProvider?: ProviderId }) {
+  if (options?.replaceProvider) {
+    for (const [id, definition] of dynamicModelRegistry.entries()) {
+      if (definition.providerId === options.replaceProvider) {
+        dynamicModelRegistry.delete(id)
+      }
+    }
+  }
+  for (const definition of definitions) {
+    dynamicModelRegistry.set(definition.id, definition)
+  }
+}
+
 export function getChatModelDefinition(modelId: string): ChatModelDefinition {
-  const definition = MODEL_REGISTRY[modelId]
+  const definition = getOptionalModelDefinition(modelId)
   if (!definition) {
     throw new Error(`Unknown chat model: ${modelId}`)
   }
@@ -368,7 +428,7 @@ export function getChatModelDefinition(modelId: string): ChatModelDefinition {
 }
 
 export function getChatModelOptions(mode?: ChatMode): ChatModelOption[] {
-  return Object.values(MODEL_REGISTRY)
+  return listAllModelDefinitions()
     .filter((definition) => (mode ? definition.modes.includes(mode) : true))
     .map((definition) => ({
       id: definition.id,
@@ -389,13 +449,14 @@ export function getDefaultModelForMode(mode: ChatMode): string {
       ? readServerEnv('AI_SESSION_DEFAULT_MODEL') ?? process.env.AI_SESSION_DEFAULT_MODEL
       : readServerEnv('AI_GENERAL_DEFAULT_MODEL') ?? process.env.AI_GENERAL_DEFAULT_MODEL
   if (configured) {
-    const definition = MODEL_REGISTRY[configured]
+    const definition = getOptionalModelDefinition(configured)
     if (definition && definition.modes.includes(mode)) {
       return configured
     }
   }
-  const fallback = Object.values(MODEL_REGISTRY).find((definition) => definition.modes.includes(mode))?.id ?? FALLBACK_MODEL_IDS[mode]
-  if (!fallback || !MODEL_REGISTRY[fallback]) {
+  const fallback = listAllModelDefinitions().find((definition) => definition.modes.includes(mode))?.id ?? FALLBACK_MODEL_IDS[mode]
+  const fallbackDefinition = fallback ? getOptionalModelDefinition(fallback) : null
+  if (!fallback || !fallbackDefinition) {
     throw new Error(`No chat model registered for mode ${mode}`)
   }
   return fallback
@@ -405,7 +466,7 @@ export function resolveModelForMode(mode: ChatMode, requestedId?: string): strin
   if (!requestedId) {
     return getDefaultModelForMode(mode)
   }
-  const definition = MODEL_REGISTRY[requestedId]
+  const definition = getOptionalModelDefinition(requestedId)
   if (!definition) {
     throw new Error(`Unknown chat model: ${requestedId}`)
   }
