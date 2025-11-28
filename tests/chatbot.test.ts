@@ -133,4 +133,65 @@ describe('Assistant evidence mapping', () => {
     const evidence = buildAssistantEvidence(undefined, [sampleMisalignment])
     expect(evidence).toBeUndefined()
   })
+  describe('Dynamic Misalignment Detection', () => {
+    // 1. Define a rule that forbids "magic sparkles"
+    const MOCK_RULE_TEXT = `
+# performance rules
+* Avoid using magic sparkles in the render loop.
+`;
+    const rules = parseAgentRules(MOCK_RULE_TEXT);
+
+    // 2. Create a session snapshot that VIOLATES this rule
+    const badSnapshot: SessionSnapshot = {
+      sessionId: 'test-dynamic-detection',
+      meta: sessionFixture.meta,
+      events: [
+        {
+          id: 'evt-1',
+          type: 'Message',
+          role: 'user',
+          content: 'I am adding some magic sparkles to the component render function.',
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    };
+
+    it('detects violations based on dynamic keywords', () => {
+      const result = detectMisalignments({
+        snapshot: badSnapshot,
+        agentRules: rules,
+      });
+
+      // Should find 1 misalignment
+      expect(result.misalignments.length).toBe(1);
+
+      // Check details
+      const record = result.misalignments[0];
+      expect(record.ruleId).toContain('performance-rules'); // ID derived from heading
+      expect(record.evidence[0].message).toContain('magic');
+      expect(record.evidence[0].message).toContain('sparkles');
+    });
+
+    it('ignores events that do not match keywords', () => {
+      const goodSnapshot: SessionSnapshot = {
+        ...badSnapshot,
+        events: [
+          {
+            id: 'evt-2',
+            type: 'Message',
+            role: 'user',
+            content: 'I am optimizing the render loop with memoization.',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      };
+
+      const result = detectMisalignments({
+        snapshot: goodSnapshot,
+        agentRules: rules,
+      });
+
+      expect(result.misalignments.length).toBe(0);
+    });
+  });
 })

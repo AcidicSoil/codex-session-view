@@ -1,16 +1,25 @@
-import { z } from 'zod'
-import { buildChatContext } from '~/features/chatbot/context-builder'
-import { detectMisalignments } from '~/features/chatbot/misalignment-detector'
-import { assertChatModeEnabled } from '~/features/chatbot/chatModeConfig'
-import { logError, logInfo, logWarn } from '~/lib/logger'
-import type { ChatMessageEvidence, SessionSnapshot } from '~/lib/sessions/model'
-import { appendChatMessage, listChatMessages } from '~/server/persistence/chatMessages'
-import { ingestMisalignmentCandidates, listMisalignments } from '~/server/persistence/misalignments'
-import type { MisalignmentRecord } from '~/lib/sessions/model'
-import { generateCommitMessages, generateSessionSummaryMarkdown, resolveModelForMode, getChatModelDefinition } from '~/lib/ai/client'
-import { loadAgentRules, loadSessionSnapshot } from '~/server/lib/chatbotData'
-import { generateSessionCoachReply, runGeneralChatTurn, type ChatStreamResult, ProviderUnavailableError } from '~/server/lib/aiRuntime'
-import type { ChatRemediationMetadata } from '~/lib/chatbot/types'
+import { z } from 'zod';
+import { buildChatContext } from '~/features/chatbot/context-builder';
+import { detectMisalignments } from '~/features/chatbot/misalignment-detector';
+import { assertChatModeEnabled } from '~/features/chatbot/chatModeConfig';
+import { logError, logInfo, logWarn } from '~/lib/logger';
+import type { ChatMessageEvidence, SessionSnapshot } from '~/lib/sessions/model';
+import { appendChatMessage, listChatMessages } from '~/server/persistence/chatMessages';
+import {
+  ingestMisalignmentCandidates,
+  listMisalignments,
+} from '~/server/persistence/misalignments';
+import type { MisalignmentRecord } from '~/lib/sessions/model';
+import { resolveModelForMode, getChatModelDefinition } from '~/lib/ai/client';
+import { loadAgentRules, loadSessionSnapshot } from '~/server/lib/chatbotData';
+import {
+  generateSessionCoachReply,
+  runGeneralChatTurn,
+  generateSessionAnalysis,
+  type ChatStreamResult,
+  ProviderUnavailableError,
+} from '~/server/lib/aiRuntime';
+import type { ChatRemediationMetadata } from '~/lib/chatbot/types';
 
 const metadataSchema = z
   .object({
@@ -24,7 +33,7 @@ const metadataSchema = z
       })
       .optional(),
   })
-  .optional()
+  .optional();
 
 const streamInputSchema = z.object({
   sessionId: z.string().min(1),
@@ -33,45 +42,54 @@ const streamInputSchema = z.object({
   clientMessageId: z.string().optional(),
   metadata: metadataSchema,
   modelId: z.string().optional(),
-})
+});
 
 const analyzeInputSchema = z.object({
   sessionId: z.string().min(1),
   mode: z.union([z.literal('session'), z.literal('general')]).default('session'),
   analysisType: z.enum(['summary', 'commits']).default('summary'),
   prompt: z.string().optional(),
-})
+});
 
 function isProviderUnavailableError(error: unknown): error is ProviderUnavailableError {
   if (error instanceof ProviderUnavailableError) {
-    return true
+    return true;
   }
   return Boolean(
     error &&
       typeof error === 'object' &&
       'code' in error &&
-      (error as { code?: string }).code === 'MODEL_UNAVAILABLE',
-  )
+      (error as { code?: string }).code === 'MODEL_UNAVAILABLE'
+  );
 }
 
 export async function streamChatFromPayload(payload: unknown): Promise<Response> {
-  const input = streamInputSchema.safeParse(payload)
+  const input = streamInputSchema.safeParse(payload);
   if (!input.success) {
-    return jsonResponse({ error: 'INVALID_INPUT', issues: input.error.flatten() }, 400)
+    return jsonResponse({ error: 'INVALID_INPUT', issues: input.error.flatten() }, 400);
   }
   try {
-    assertChatModeEnabled(input.data.mode)
+    assertChatModeEnabled(input.data.mode);
   } catch (error) {
-    return jsonResponse({ code: (error as Error & { code?: string }).code ?? 'MODE_NOT_ENABLED' }, 403)
+    return jsonResponse(
+      { code: (error as Error & { code?: string }).code ?? 'MODE_NOT_ENABLED' },
+      403
+    );
   }
-  let modelId: string | null = null
+  let modelId: string | null = null;
   try {
-    modelId = resolveModelForMode(input.data.mode, input.data.modelId)
+    modelId = resolveModelForMode(input.data.mode, input.data.modelId);
   } catch (error) {
-    return jsonResponse({ error: 'INVALID_MODEL', message: error instanceof Error ? error.message : 'Invalid model selection' }, 400)
+    return jsonResponse(
+      {
+        error: 'INVALID_MODEL',
+        message: error instanceof Error ? error.message : 'Invalid model selection',
+      },
+      400
+    );
   }
 
-  const startedAt = Date.now()
+  const startedAt = Date.now();
   try {
     if (input.data.mode === 'general') {
       return await handleGeneralChatStream({
@@ -80,7 +98,7 @@ export async function streamChatFromPayload(payload: unknown): Promise<Response>
         clientMessageId: input.data.clientMessageId,
         modelId,
         startedAt,
-      })
+      });
     }
     return await handleSessionChatStream({
       sessionId: input.data.sessionId,
@@ -89,7 +107,7 @@ export async function streamChatFromPayload(payload: unknown): Promise<Response>
       metadata: input.data.metadata ?? undefined,
       modelId,
       startedAt,
-    })
+    });
   } catch (error) {
     if (isProviderUnavailableError(error)) {
       logWarn('chatbot.stream', 'Requested model is unavailable', {
@@ -98,14 +116,14 @@ export async function streamChatFromPayload(payload: unknown): Promise<Response>
         modelId,
         providerId: (error as ProviderUnavailableError).providerId,
         durationMs: Date.now() - startedAt,
-      })
+      });
       return jsonResponse(
         {
           code: 'MODEL_UNAVAILABLE',
           message: error instanceof Error ? error.message : 'Model is not available right now.',
         },
-        503,
-      )
+        503
+      );
     }
     logError('chatbot.stream', 'Streaming response failed', {
       sessionId: input.data.sessionId,
@@ -115,68 +133,86 @@ export async function streamChatFromPayload(payload: unknown): Promise<Response>
       error: error instanceof Error ? error.message : error,
       metadata: input.data.metadata ?? null,
       success: false,
-    })
-    throw error
+    });
+    throw error;
   }
 }
 
 export async function analyzeChatFromPayload(payload: unknown): Promise<Response> {
-  const input = analyzeInputSchema.safeParse(payload)
+  const input = analyzeInputSchema.safeParse(payload);
   if (!input.success) {
-    return jsonResponse({ error: 'INVALID_INPUT', issues: input.error.flatten() }, 400)
+    return jsonResponse({ error: 'INVALID_INPUT', issues: input.error.flatten() }, 400);
   }
   if (input.data.mode !== 'session') {
-    return jsonResponse({ code: 'MODE_NOT_ENABLED' }, 200)
+    return jsonResponse({ code: 'MODE_NOT_ENABLED' }, 200);
   }
   try {
-    assertChatModeEnabled(input.data.mode)
+    assertChatModeEnabled(input.data.mode);
   } catch (error) {
-    return jsonResponse({ code: (error as Error & { code?: string }).code ?? 'MODE_NOT_ENABLED' }, 403)
+    return jsonResponse(
+      { code: (error as Error & { code?: string }).code ?? 'MODE_NOT_ENABLED' },
+      403
+    );
   }
 
-  const startedAt = Date.now()
+  const startedAt = Date.now();
   try {
-    const snapshot = await loadSessionSnapshot(input.data.sessionId)
-    const rules = await loadAgentRules()
-    const misalignments = await listMisalignments(input.data.sessionId)
-    const history = await listChatMessages(input.data.sessionId, input.data.mode)
-    const context = buildChatContext({ snapshot, misalignments, agentRules: rules, history })
+    const modelId = resolveModelForMode(input.data.mode);
+    const modelDefinition = getChatModelDefinition(modelId);
+
+    const snapshot = await loadSessionSnapshot(input.data.sessionId);
+    const rules = await loadAgentRules();
+    const misalignments = await listMisalignments(input.data.sessionId);
+    const history = await listChatMessages(input.data.sessionId, input.data.mode);
+    const context = buildChatContext({
+      snapshot,
+      misalignments,
+      agentRules: rules,
+      history,
+      providerOverrides: {
+        maxContextTokens: modelDefinition.contextWindow,
+        maxOutputTokens: modelDefinition.maxOutputTokens,
+      },
+    });
+
     const baseMeta = {
       sessionId: input.data.sessionId,
       mode: input.data.mode,
       analysisType: input.data.analysisType,
-    }
+      modelId,
+    };
+
+    const resultText = await generateSessionAnalysis({
+      history,
+      contextPrompt: context.prompt,
+      analysisType: input.data.analysisType,
+      modelId,
+      mode: input.data.mode,
+    });
+
     if (input.data.analysisType === 'summary') {
-      const summaryMarkdown = generateSessionSummaryMarkdown({
-        snapshot,
-        misalignments,
-        recentEvents: snapshot.events,
-        contextHeadings: context.sections.map((section) => section.heading),
-        promptSummary: input.data.prompt,
-      })
       logInfo('chatbot.analyze', 'Analyze request processed', {
         ...baseMeta,
-        misalignments: misalignments.length,
         durationMs: Date.now() - startedAt,
         success: true,
-      })
-      return jsonResponse({ summaryMarkdown })
+      });
+      return jsonResponse({ summaryMarkdown: resultText });
     }
 
-    const commitMessages = generateCommitMessages({
-      snapshot,
-      misalignments,
-      recentEvents: snapshot.events,
-      contextHeadings: context.sections.map((section) => section.heading),
-      promptSummary: input.data.prompt,
-    })
+    const commitMessages = resultText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('#'))
+      .map((line) => line.replace(/^[-*•]\s+/, ''))
+      .filter((line) => line.length > 5);
+
     logInfo('chatbot.analyze', 'Analyze request processed', {
       ...baseMeta,
-      misalignments: misalignments.length,
+      commitCount: commitMessages.length,
       durationMs: Date.now() - startedAt,
       success: true,
-    })
-    return jsonResponse({ commitMessages })
+    });
+    return jsonResponse({ commitMessages });
   } catch (error) {
     logError('chatbot.analyze', 'Analyze request failed', {
       sessionId: input.data.sessionId,
@@ -185,54 +221,58 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
       durationMs: Date.now() - startedAt,
       error: error instanceof Error ? error.message : error,
       success: false,
-    })
-    throw error
+    });
+    throw error;
   }
 }
 
 const TEXT_STREAM_HEADERS = {
   'content-type': 'text/plain; charset=utf-8',
-}
+};
 
 interface SessionStreamOptions {
-  sessionId: string
-  prompt: string
-  clientMessageId?: string
-  metadata?: ChatRemediationMetadata
-  modelId: string
-  startedAt: number
+  sessionId: string;
+  prompt: string;
+  clientMessageId?: string;
+  metadata?: ChatRemediationMetadata;
+  modelId: string;
+  startedAt: number;
 }
 
 interface GeneralStreamOptions {
-  sessionId: string
-  prompt: string
-  clientMessageId?: string
-  modelId: string
-  startedAt: number
+  sessionId: string;
+  prompt: string;
+  clientMessageId?: string;
+  modelId: string;
+  startedAt: number;
 }
 
 async function handleSessionChatStream(options: SessionStreamOptions) {
-  const snapshot = await loadSessionSnapshot(options.sessionId)
-  const rules = await loadAgentRules()
-  const existingMisalignments = await listMisalignments(options.sessionId)
-  const history = await listChatMessages(options.sessionId, 'session')
+  const snapshot = await loadSessionSnapshot(options.sessionId);
+  const rules = await loadAgentRules();
+  const existingMisalignments = await listMisalignments(options.sessionId);
+  const history = await listChatMessages(options.sessionId, 'session');
   const userMessage = await appendChatMessage({
     sessionId: options.sessionId,
     mode: 'session',
     role: 'user',
     content: options.prompt,
     clientMessageId: options.clientMessageId,
-  })
-  history.push(userMessage)
+  });
+  history.push(userMessage);
 
-  const detected = detectMisalignments({ snapshot, agentRules: rules, existing: existingMisalignments })
+  const detected = detectMisalignments({
+    snapshot,
+    agentRules: rules,
+    existing: existingMisalignments,
+  });
   if (detected.misalignments.length > 0) {
-    await ingestMisalignmentCandidates(options.sessionId, detected.misalignments)
+    await ingestMisalignmentCandidates(options.sessionId, detected.misalignments);
   }
-  detected.warnings.forEach((warning) => logWarn('chatbot.misalignment', warning))
+  detected.warnings.forEach((warning) => logWarn('chatbot.misalignment', warning));
 
-  const refreshedMisalignments: MisalignmentRecord[] = await listMisalignments(options.sessionId)
-  const modelDefinition = getChatModelDefinition(options.modelId)
+  const refreshedMisalignments: MisalignmentRecord[] = await listMisalignments(options.sessionId);
+  const modelDefinition = getChatModelDefinition(options.modelId);
   const context = buildChatContext({
     snapshot,
     misalignments: refreshedMisalignments,
@@ -242,16 +282,16 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
       maxContextTokens: modelDefinition.contextWindow,
       maxOutputTokens: modelDefinition.maxOutputTokens,
     },
-  })
+  });
 
   const runtime = generateSessionCoachReply({
     history,
     contextPrompt: context.prompt,
     metadata: options.metadata,
     modelId: options.modelId,
-  })
+  });
 
-  const evidence = buildAssistantEvidence(options.metadata, refreshedMisalignments)
+  const evidence = buildAssistantEvidence(options.metadata, refreshedMisalignments);
   const responseStream = streamResultToResponse(runtime, {
     onComplete: async (assistantText) => {
       const assistantRecord = await appendChatMessage({
@@ -261,7 +301,7 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
         content: assistantText,
         misalignmentId: options.metadata?.misalignmentId,
         evidence,
-      })
+      });
       logInfo('chatbot.stream', 'Streaming response', {
         sessionId: options.sessionId,
         mode: 'session',
@@ -274,7 +314,7 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
         finishReason: await runtime.finishReason.catch(() => 'unknown'),
         usage: await runtime.totalUsage.catch(() => null),
         success: true,
-      })
+      });
     },
     onError: async (error) => {
       logError('chatbot.stream', 'Streaming response failed mid-stream', {
@@ -285,25 +325,25 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
         error: error instanceof Error ? error.message : error,
         metadata: options.metadata ?? null,
         success: false,
-      })
+      });
     },
-  })
+  });
 
-  return new Response(responseStream, { headers: TEXT_STREAM_HEADERS })
+  return new Response(responseStream, { headers: TEXT_STREAM_HEADERS });
 }
 
 async function handleGeneralChatStream(options: GeneralStreamOptions) {
-  const history = await listChatMessages(options.sessionId, 'general')
+  const history = await listChatMessages(options.sessionId, 'general');
   const userMessage = await appendChatMessage({
     sessionId: options.sessionId,
     mode: 'general',
     role: 'user',
     content: options.prompt,
     clientMessageId: options.clientMessageId,
-  })
-  history.push(userMessage)
+  });
+  history.push(userMessage);
 
-  const runtime = runGeneralChatTurn({ history, modelId: options.modelId })
+  const runtime = runGeneralChatTurn({ history, modelId: options.modelId });
   const responseStream = streamResultToResponse(runtime, {
     onComplete: async (assistantText) => {
       const assistantRecord = await appendChatMessage({
@@ -311,7 +351,7 @@ async function handleGeneralChatStream(options: GeneralStreamOptions) {
         mode: 'general',
         role: 'assistant',
         content: assistantText,
-      })
+      });
       logInfo('chatbot.stream', 'Streaming response', {
         sessionId: options.sessionId,
         mode: 'general',
@@ -321,7 +361,7 @@ async function handleGeneralChatStream(options: GeneralStreamOptions) {
         finishReason: await runtime.finishReason.catch(() => 'unknown'),
         usage: await runtime.totalUsage.catch(() => null),
         success: true,
-      })
+      });
     },
     onError: async (error) => {
       logError('chatbot.stream', 'Streaming response failed mid-stream', {
@@ -331,52 +371,60 @@ async function handleGeneralChatStream(options: GeneralStreamOptions) {
         durationMs: Date.now() - options.startedAt,
         error: error instanceof Error ? error.message : error,
         success: false,
-      })
+      });
     },
-  })
-  return new Response(responseStream, { headers: TEXT_STREAM_HEADERS })
+  });
+  return new Response(responseStream, { headers: TEXT_STREAM_HEADERS });
 }
 
 function streamResultToResponse(
   runtime: ChatStreamResult,
-  handlers: { onComplete: (text: string) => Promise<void>; onError?: (error: unknown) => Promise<void> | void },
+  handlers: {
+    onComplete: (text: string) => Promise<void>;
+    onError?: (error: unknown) => Promise<void> | void;
+  }
 ) {
-  const encoder = new TextEncoder()
+  const encoder = new TextEncoder();
   return new ReadableStream<Uint8Array>({
     async start(controller) {
-      let buffer = ''
+      let buffer = '';
       try {
         for await (const chunk of runtime.textStream) {
-          buffer += chunk
-          controller.enqueue(encoder.encode(chunk))
+          buffer += chunk;
+          controller.enqueue(encoder.encode(chunk));
         }
-        await handlers.onComplete(buffer)
-        controller.close()
+        await handlers.onComplete(buffer);
+        controller.close();
       } catch (error) {
-        controller.error(error)
+        controller.error(error);
         if (handlers.onError) {
-          await handlers.onError(error)
+          await handlers.onError(error);
         }
       }
     },
-  })
+  });
 }
 
-export function buildAssistantEvidence(metadata: ChatRemediationMetadata | undefined, misalignments: MisalignmentRecord[]) {
+export function buildAssistantEvidence(
+  metadata: ChatRemediationMetadata | undefined,
+  misalignments: MisalignmentRecord[]
+) {
   if (!metadata?.misalignmentId) {
-    return undefined
+    return undefined;
   }
-  const record = misalignments.find((item) => item.id === metadata.misalignmentId)
+  const record = misalignments.find((item) => item.id === metadata.misalignmentId);
   if (!record || !record.evidence?.length) {
-    return undefined
+    return undefined;
   }
   return record.evidence.map<ChatMessageEvidence>((entry, index) => ({
-    path: entry.eventId ?? (typeof entry.eventIndex === 'number' ? `event-${entry.eventIndex}` : undefined),
+    path:
+      entry.eventId ??
+      (typeof entry.eventIndex === 'number' ? `event-${entry.eventIndex}` : undefined),
     ruleId: record.ruleId,
     snippet: entry.highlight ?? entry.message,
     severity: record.severity,
     label: entry.message ?? `Evidence #${index + 1}`,
-  }))
+  }));
 }
 
 function jsonResponse(payload: unknown, status = 200) {
@@ -385,5 +433,5 @@ function jsonResponse(payload: unknown, status = 200) {
     headers: {
       'content-type': 'application/json; charset=utf-8',
     },
-  })
+  });
 }

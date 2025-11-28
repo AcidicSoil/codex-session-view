@@ -112,3 +112,7 @@ node_modules/
 # Task files
 # tasks.json
 # tasks/
+
+# Generated log files
+dev-server-output.txt
+test-results.txt
