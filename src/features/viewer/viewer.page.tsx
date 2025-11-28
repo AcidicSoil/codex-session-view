@@ -56,18 +56,48 @@ export function ViewerClient() {
     return buildFlaggedEventMap(misalignments)
   }, [misalignments, sessionCoach?.featureEnabled])
   const [coachPrefill, setCoachPrefill] = useState<SessionCoachPrefill | null>(null)
+
+  const handleNavChange = useCallback(
+    (nextValue: string) => {
+      if (nextValue === 'timeline' || nextValue === 'explorer' || nextValue === 'chat') {
+        setNavValue(nextValue);
+        if (nextValue === 'timeline' || nextValue === 'explorer') {
+          setTabValue(nextValue);
+        }
+        if (typeof document !== 'undefined') {
+          const targetId = nextValue === 'chat' ? 'viewer-chat' : 'viewer-tabs';
+          document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    [],
+  );
+
   const handleAddTimelineEventToChat = (event: TimelineEvent, index: number) => {
     logInfo('viewer.chatdock', 'Timeline event add-to-chat requested', {
       eventType: event.type,
       index,
     });
+
+    const snippet = JSON.stringify(event, null, 2);
+    const prompt = `Analyze this timeline event #${index + 1} (${event.type}):\n\n\`\`\`json\n${snippet}\n\`\`\`\n\nWhat are the implications of this event?`;
+
+    setCoachPrefill({ prompt });
+    handleNavChange('chat');
   };
+
   const handleAddSessionToChat = (asset: DiscoveredSessionAsset) => {
     logInfo('viewer.chatdock', 'Session add-to-chat requested', {
       path: asset.path,
       repo: asset.repoLabel ?? asset.repoName,
     });
+
+    const prompt = `I am looking at session file: ${asset.path}\nRepo: ${asset.repoLabel ?? asset.repoName ?? 'unknown'}\n\nPlease analyze this session context.`;
+
+    setCoachPrefill({ prompt });
+    handleNavChange('chat');
   };
+
   const navItems = useMemo(
     () => [
       {
@@ -93,22 +123,6 @@ export function ViewerClient() {
       },
     ],
     [discovery.sessionAssets.length, loader.state.events.length],
-  );
-
-  const handleNavChange = useCallback(
-    (nextValue: string) => {
-      if (nextValue === 'timeline' || nextValue === 'explorer' || nextValue === 'chat') {
-        setNavValue(nextValue);
-        if (nextValue === 'timeline' || nextValue === 'explorer') {
-          setTabValue(nextValue);
-        }
-        if (typeof document !== 'undefined') {
-          const targetId = nextValue === 'chat' ? 'viewer-chat' : 'viewer-tabs';
-          document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-    },
-    [],
   );
 
   const handleTimelineFiltersRender = useCallback((node: ReactNode | null) => {

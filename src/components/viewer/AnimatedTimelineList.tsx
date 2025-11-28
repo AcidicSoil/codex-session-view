@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode, MouseEvent } from 'react'
-import { motion } from 'motion/react'
-import { BorderBeam } from '~/components/ui/border-beam'
-import { ShimmerButton } from '~/components/ui/shimmer-button'
+import { useEffect, useMemo, useState, type ReactNode, MouseEvent } from 'react';
+import { motion } from 'motion/react';
+import { BorderBeam } from '~/components/ui/border-beam';
+import { ShimmerButton } from '~/components/ui/shimmer-button';
 import {
   Snippet,
   SnippetCopyButton,
@@ -9,7 +9,7 @@ import {
   SnippetTabsContent,
   SnippetTabsList,
   SnippetTabsTrigger,
-} from '~/components/kibo-ui/snippet'
+} from '~/components/kibo-ui/snippet';
 import {
   CodeBlock,
   CodeBlockBody,
@@ -19,43 +19,43 @@ import {
   CodeBlockHeader,
   CodeBlockItem,
   CodeBlockContent,
-} from '~/components/kibo-ui/code-block'
-import type { BundledLanguage } from '~/components/kibo-ui/code-block'
-import type { ResponseItem, MessageEvent, MessagePart } from '~/lib/viewer-types'
-import type { ResponseItemParsed } from '~/lib/session-parser'
-import { TimelineView } from '~/components/viewer/TimelineView'
-import { eventKey } from '~/utils/event-key'
-import { formatClockTime } from '~/utils/intl'
-import type { SearchMatcher } from '~/utils/search'
-import { HighlightedText } from '~/components/ui/highlighted-text'
-import type { MisalignmentRecord, MisalignmentSeverity } from '~/lib/sessions/model'
-import { Badge } from '~/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
-import { truncateRuleTitle } from '~/lib/agents-rules/format'
-import { getSeverityVisuals, toSeverityLabel } from '~/features/chatbot/severity'
+} from '~/components/kibo-ui/code-block';
+import type { BundledLanguage } from '~/components/kibo-ui/code-block';
+import type { ResponseItem, MessageEvent, MessagePart } from '~/lib/viewer-types';
+import type { ResponseItemParsed } from '~/lib/session-parser';
+import { TimelineView } from '~/components/viewer/TimelineView';
+import { eventKey } from '~/utils/event-key';
+import { formatClockTime } from '~/utils/intl';
+import type { SearchMatcher } from '~/utils/search';
+import { HighlightedText } from '~/components/ui/highlighted-text';
+import type { MisalignmentRecord, MisalignmentSeverity } from '~/lib/sessions/model';
+import { Badge } from '~/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
+import { truncateRuleTitle } from '~/lib/agents-rules/format';
+import { getSeverityVisuals, toSeverityLabel } from '~/features/chatbot/severity';
 
-export type TimelineEvent = ResponseItem | ResponseItemParsed
+export type TimelineEvent = ResponseItem | ResponseItemParsed;
 
 interface AnimatedTimelineListProps {
-  events: readonly TimelineEvent[]
-  className?: string
-  onSelect?: (event: TimelineEvent, index: number) => void
-  searchQuery?: string
-  activeMatchIndex?: number | null
-  onAddEventToChat?: (event: TimelineEvent, index: number) => void
-  searchMatchers?: SearchMatcher[]
-  getDisplayNumber?: (event: TimelineEvent, index: number) => number | null | undefined
-  height?: number
-  flaggedEvents?: Map<number, TimelineFlagMarker>
-  onFlaggedEventClick?: (marker: TimelineFlagMarker) => void
+  events: readonly TimelineEvent[];
+  className?: string;
+  onSelect?: (event: TimelineEvent, index: number) => void;
+  searchQuery?: string;
+  activeMatchIndex?: number | null;
+  onAddEventToChat?: (event: TimelineEvent, index: number) => void;
+  searchMatchers?: SearchMatcher[];
+  getDisplayNumber?: (event: TimelineEvent, index: number) => number | null | undefined;
+  height?: number;
+  flaggedEvents?: Map<number, TimelineFlagMarker>;
+  onFlaggedEventClick?: (marker: TimelineFlagMarker) => void;
 }
 
 export interface TimelineFlagMarker {
-  severity: MisalignmentSeverity
-  misalignments: MisalignmentRecord[]
+  severity: MisalignmentSeverity;
+  misalignments: MisalignmentRecord[];
 }
 
-const SNIPPET_LENGTH = 100
+const SNIPPET_LENGTH = 100;
 
 /**
  * Virtualized, animated timeline list used by the viewer. Rendering an empty
@@ -74,11 +74,11 @@ export function AnimatedTimelineList({
   flaggedEvents,
   onFlaggedEventClick,
 }: AnimatedTimelineListProps) {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
-  const [scrollTarget, setScrollTarget] = useState<number | null>(null)
-  const [gradients, setGradients] = useState({ top: 0, bottom: 0 })
-  const [beamThumb, setBeamThumb] = useState({ top: 24, height: 140 })
-  const dedupedEvents = useMemo(() => dedupeTimelineEvents(events), [events])
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [scrollTarget, setScrollTarget] = useState<number | null>(null);
+  const [gradients, setGradients] = useState({ top: 0, bottom: 0 });
+  const [beamThumb, setBeamThumb] = useState({ top: 24, height: 140 });
+  const dedupedEvents = useMemo(() => dedupeTimelineEvents(events), [events]);
   const items = useMemo<{ event: TimelineEvent; index: number; key: string }[]>(
     () =>
       dedupedEvents.map((event, index) => ({
@@ -86,33 +86,41 @@ export function AnimatedTimelineList({
         index,
         key: eventKey(event as ResponseItem, index),
       })),
-    [dedupedEvents],
-  )
+    [dedupedEvents]
+  );
 
   useEffect(() => {
-    if (scrollTarget === null) return
-    const id = requestAnimationFrame(() => setScrollTarget(null))
-    return () => cancelAnimationFrame(id)
-  }, [scrollTarget])
+    if (scrollTarget === null) return;
+    const id = requestAnimationFrame(() => setScrollTarget(null));
+    return () => cancelAnimationFrame(id);
+  }, [scrollTarget]);
 
   useEffect(() => {
-    if (activeMatchIndex == null) return
-    if (activeMatchIndex < 0 || activeMatchIndex >= items.length) return
-    setExpandedIndex(activeMatchIndex)
-    setScrollTarget(activeMatchIndex)
-  }, [activeMatchIndex, items.length])
+    if (activeMatchIndex == null) return;
+    if (activeMatchIndex < 0 || activeMatchIndex >= items.length) return;
+    setExpandedIndex(activeMatchIndex);
+    setScrollTarget(activeMatchIndex);
+  }, [activeMatchIndex, items.length]);
 
-  const handleScrollChange = ({ scrollTop, totalHeight, height }: { scrollTop: number; totalHeight: number; height: number }) => {
-    const top = Math.min(scrollTop / 80, 1)
-    const bottomDistance = totalHeight - (scrollTop + height)
-    const bottom = totalHeight <= height ? 0 : Math.min(bottomDistance / 80, 1)
-    setGradients({ top, bottom })
-    const denominator = Math.max(totalHeight - height, 1)
-    const ratio = totalHeight <= height ? 0 : Math.min(Math.max(scrollTop / denominator, 0), 1)
-    const visibleRatio = totalHeight <= height ? 1 : height / totalHeight
-    const nextHeight = Math.max(height * visibleRatio * 0.6, 60)
-    setBeamThumb({ top: ratio * (height - nextHeight) + 24, height: nextHeight })
-  }
+  const handleScrollChange = ({
+    scrollTop,
+    totalHeight,
+    height,
+  }: {
+    scrollTop: number;
+    totalHeight: number;
+    height: number;
+  }) => {
+    const top = Math.min(scrollTop / 80, 1);
+    const bottomDistance = totalHeight - (scrollTop + height);
+    const bottom = totalHeight <= height ? 0 : Math.min(bottomDistance / 80, 1);
+    setGradients({ top, bottom });
+    const denominator = Math.max(totalHeight - height, 1);
+    const ratio = totalHeight <= height ? 0 : Math.min(Math.max(scrollTop / denominator, 0), 1);
+    const visibleRatio = totalHeight <= height ? 1 : height / totalHeight;
+    const nextHeight = Math.max(height * visibleRatio * 0.6, 60);
+    setBeamThumb({ top: ratio * (height - nextHeight) + 24, height: nextHeight });
+  };
 
   return (
     <div className={`relative ${className ?? ''}`}>
@@ -129,16 +137,27 @@ export function AnimatedTimelineList({
             viewport={{ once: false, amount: 0.2 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
-            {renderTimelineItem(item.event, item.index, expandedIndex === item.index, () => {
-              setExpandedIndex((prev) => {
-                const next = prev === item.index ? null : item.index
-                if (next !== null) {
-                  setScrollTarget(next)
-                }
-                return next
-              })
-              onSelect?.(item.event, item.index)
-            }, searchQuery, onAddEventToChat, searchMatchers, getDisplayNumber, flaggedEvents, onFlaggedEventClick)}
+            {renderTimelineItem(
+              item.event,
+              item.index,
+              expandedIndex === item.index,
+              () => {
+                setExpandedIndex((prev) => {
+                  const next = prev === item.index ? null : item.index;
+                  if (next !== null) {
+                    setScrollTarget(next);
+                  }
+                  return next;
+                });
+                onSelect?.(item.event, item.index);
+              },
+              searchQuery,
+              onAddEventToChat,
+              searchMatchers,
+              getDisplayNumber,
+              flaggedEvents,
+              onFlaggedEventClick
+            )}
           </motion.div>
         )}
         scrollToIndex={scrollTarget}
@@ -162,44 +181,44 @@ export function AnimatedTimelineList({
         style={{ opacity: gradients.bottom }}
       />
     </div>
-  )
+  );
 }
 
 export function dedupeTimelineEvents(events: readonly TimelineEvent[]) {
-  const seenIds = new Set<string>()
-  const seenPayloads = new Set<string>()
+  const seenIds = new Set<string>();
+  const seenPayloads = new Set<string>();
   return events.filter((event) => {
     if (event.id) {
-      const id = String(event.id)
-      if (seenIds.has(id)) return false
-      seenIds.add(id)
-      return true
+      const id = String(event.id);
+      if (seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
     }
-    const signature = buildEventSignature(event)
-    if (seenPayloads.has(signature)) return false
-    seenPayloads.add(signature)
-    return true
-  })
+    const signature = buildEventSignature(event);
+    if (seenPayloads.has(signature)) return false;
+    seenPayloads.add(signature);
+    return true;
+  });
 }
 
 function buildEventSignature(event: TimelineEvent) {
   switch (event.type) {
     case 'Message':
-      return `msg|${event.role ?? ''}|${extractMessageText(event.content) ?? ''}`
+      return `msg|${event.role ?? ''}|${extractMessageText(event.content) ?? ''}`;
     case 'Reasoning':
-      return `reason|${event.content ?? ''}`
+      return `reason|${event.content ?? ''}`;
     case 'FunctionCall':
-      return `call|${event.name ?? ''}|${safeStringify(event.args)}|${safeStringify(event.result)}`
+      return `call|${event.name ?? ''}|${safeStringify(event.args)}|${safeStringify(event.result)}`;
     case 'LocalShellCall':
-      return `shell|${event.command ?? ''}|${event.stdout ?? ''}|${event.stderr ?? ''}`
+      return `shell|${event.command ?? ''}|${event.stdout ?? ''}|${event.stderr ?? ''}`;
     case 'WebSearchCall':
-      return `search|${event.query ?? ''}`
+      return `search|${event.query ?? ''}`;
     case 'CustomToolCall':
-      return `tool|${event.toolName ?? ''}|${safeStringify(event.input)}|${safeStringify(event.output)}`
+      return `tool|${event.toolName ?? ''}|${safeStringify(event.input)}|${safeStringify(event.output)}`;
     case 'FileChange':
-      return `file|${event.path ?? ''}|${event.diff ?? ''}`
+      return `file|${event.path ?? ''}|${event.diff ?? ''}`;
     default:
-      return safeStringify(event)
+      return safeStringify(event);
   }
 }
 
@@ -213,22 +232,34 @@ function renderTimelineItem(
   searchMatchers?: SearchMatcher[],
   getDisplayNumber?: (event: TimelineEvent, index: number) => number | null | undefined,
   flaggedEvents?: Map<number, TimelineFlagMarker>,
-  onFlaggedEventClick?: (marker: TimelineFlagMarker) => void,
+  onFlaggedEventClick?: (marker: TimelineFlagMarker) => void
 ) {
   const handleAddToChat = (mouseEvent: MouseEvent<HTMLButtonElement>) => {
-    mouseEvent.preventDefault()
-    mouseEvent.stopPropagation()
-    onAddEventToChat?.(event, index)
-  }
-  const timestampLabel = event.at ? formatTimestamp(event.at) : null
-  const eventIndex = typeof (event as { index?: number }).index === 'number' ? (event as { index?: number }).index : null
-  const marker = eventIndex != null ? flaggedEvents?.get(eventIndex) : undefined
-  const severityVisual = marker ? getSeverityVisuals(marker.severity) : null
-  const resolvedDisplayNumber = getDisplayNumber?.(event, index)
+    mouseEvent.preventDefault();
+    mouseEvent.stopPropagation();
+    onAddEventToChat?.(event, index);
+  };
+  const timestampLabel = event.at ? formatTimestamp(event.at) : null;
+  const eventIndex =
+    typeof (event as { index?: number }).index === 'number'
+      ? (event as { index?: number }).index
+      : null;
+  const marker = eventIndex != null ? flaggedEvents?.get(eventIndex) : undefined;
+  const severityVisual = marker ? getSeverityVisuals(marker.severity) : null;
+  const resolvedDisplayNumber = getDisplayNumber?.(event, index);
   const labelNumber =
     typeof resolvedDisplayNumber === 'number' && Number.isFinite(resolvedDisplayNumber)
       ? resolvedDisplayNumber
-      : index + 1
+      : index + 1;
+
+  const isChattable = [
+    'Message',
+    'FunctionCall',
+    'LocalShellCall',
+    'WebSearchCall',
+    'CustomToolCall',
+  ].includes(event.type);
+
   return (
     <div
       className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30 p-4 cursor-pointer"
@@ -275,23 +306,24 @@ function renderTimelineItem(
                     type="button"
                     className="outline-none"
                     onClick={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      onFlaggedEventClick?.(marker)
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onFlaggedEventClick?.(marker);
                     }}
                   >
                     <Badge
                       variant={severityVisual.badgeVariant}
                       className={`text-[10px] font-semibold uppercase tracking-wide ${severityVisual.textClass} ${severityVisual.borderClass}`}
                     >
-                      {marker.misalignments.length} issue{marker.misalignments.length === 1 ? '' : 's'}
+                      {marker.misalignments.length} issue
+                      {marker.misalignments.length === 1 ? '' : 's'}
                     </Badge>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>{formatMisalignmentTooltip(marker)}</TooltipContent>
               </Tooltip>
             ) : null}
-            {event.type === 'Message' ? (
+            {isChattable ? (
               <ShimmerButton
                 type="button"
                 className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide"
@@ -313,89 +345,94 @@ function renderTimelineItem(
 }
 
 function buildLabel(event: TimelineEvent, displayNumber: number) {
-  const prefix = `#${displayNumber}`
-  const summary = summarizeEvent(event)
-  return `${prefix} — ${summary}`
+  const prefix = `#${displayNumber}`;
+  const summary = summarizeEvent(event);
+  return `${prefix} — ${summary}`;
 }
 
 function summarizeEvent(event: TimelineEvent) {
   switch (event.type) {
     case 'Message': {
-      const role = capitalize(event.role ?? 'message')
-      return `${role}: ${truncate(extractMessageText(event.content))}`
+      const role = capitalize(event.role ?? 'message');
+      return `${role}: ${truncate(extractMessageText(event.content))}`;
     }
     case 'Reasoning':
-      return `Reasoning: ${truncate(event.content ?? '')}`
+      return `Reasoning: ${truncate(event.content ?? '')}`;
     case 'FunctionCall': {
-      const name = event.name ?? 'function'
-      return `Function ${name}(${event.durationMs ? `${event.durationMs}ms` : 'call'})`
+      const name = event.name ?? 'function';
+      return `Function ${name}(${event.durationMs ? `${event.durationMs}ms` : 'call'})`;
     }
     case 'LocalShellCall': {
-      const snippet = summarizeCommand(event.command ?? event.stdout ?? event.stderr)
-      return snippet ? `Shell ${snippet}` : 'Shell call'
+      const snippet = summarizeCommand(event.command ?? event.stdout ?? event.stderr);
+      return snippet ? `Shell ${snippet}` : 'Shell call';
     }
     case 'WebSearchCall':
-      return `Web search: ${truncate(event.query ?? '')}`
+      return `Web search: ${truncate(event.query ?? '')}`;
     case 'CustomToolCall':
-      return `Tool ${event.toolName}`
+      return `Tool ${event.toolName}`;
     case 'FileChange':
-      return `File change: ${event.path}`
+      return `File change: ${event.path}`;
     default:
-      return event.type ?? 'Event'
+      return event.type ?? 'Event';
   }
 }
 
 function buildMetaLine(event: TimelineEvent) {
-  let value: string | undefined
+  let value: string | undefined;
   switch (event.type) {
     case 'Message':
-      value = [capitalize(event.role ?? 'message'), event.model].filter(Boolean).join(' · ')
-      break
+      value = [capitalize(event.role ?? 'message'), event.model].filter(Boolean).join(' · ');
+      break;
     case 'FunctionCall': {
-      const duration = event.durationMs ? `${event.durationMs}ms` : null
-      value = [event.name, duration].filter(Boolean).join(' · ')
-      break
+      const duration = event.durationMs ? `${event.durationMs}ms` : null;
+      value = [event.name, duration].filter(Boolean).join(' · ');
+      break;
     }
     case 'LocalShellCall': {
-      const exit = typeof event.exitCode === 'number' ? `exit ${event.exitCode}` : null
-      const command = summarizeCommand(event.command)
-      value = [command, exit].filter(Boolean).join(' · ')
-      break
+      const exit = typeof event.exitCode === 'number' ? `exit ${event.exitCode}` : null;
+      const command = summarizeCommand(event.command);
+      value = [command, exit].filter(Boolean).join(' · ');
+      break;
     }
     case 'WebSearchCall':
-      value = event.query ?? 'Search'
-      break
+      value = event.query ?? 'Search';
+      break;
     case 'FileChange':
-      value = event.path
-      break
+      value = event.path;
+      break;
     case 'CustomToolCall':
-      value = event.toolName
-      break
+      value = event.toolName;
+      break;
     default:
-      value = event.at ? formatTimestamp(event.at) : 'Event'
+      value = event.at ? formatTimestamp(event.at) : 'Event';
   }
-  return value && value.length > 0 ? value : 'Event'
+  return value && value.length > 0 ? value : 'Event';
 }
 
 function renderEventDetail(event: TimelineEvent, searchQuery?: string, matchers?: SearchMatcher[]) {
   switch (event.type) {
     case 'Message': {
-      const text = extractMessageText(event.content)
+      const text = extractMessageText(event.content);
       return text ? (
         <DetailText value={text} label="Content" highlightQuery={searchQuery} matchers={matchers} />
       ) : (
         <EmptyDetail message="No message content." />
-      )
+      );
     }
     case 'Reasoning':
       return event.content ? (
-        <DetailText value={event.content} label="Trace" highlightQuery={searchQuery} matchers={matchers} />
+        <DetailText
+          value={event.content}
+          label="Trace"
+          highlightQuery={searchQuery}
+          matchers={matchers}
+        />
       ) : (
         <EmptyDetail message="No reasoning trace." />
-      )
+      );
     case 'FunctionCall': {
-      const args = safeStringify(event.args)
-      const result = safeStringify(event.result)
+      const args = safeStringify(event.args);
+      const result = safeStringify(event.result);
       return (
         <div className="space-y-3">
           <DetailText
@@ -413,16 +450,22 @@ function renderEventDetail(event: TimelineEvent, searchQuery?: string, matchers?
             highlightQuery={searchQuery}
           />
         </div>
-      )
+      );
     }
     case 'LocalShellCall': {
-      const stdout = event.stdout ?? ''
-      const stderr = event.stderr ?? ''
-      const command = event.command ?? ''
+      const stdout = event.stdout ?? '';
+      const stderr = event.stderr ?? '';
+      const command = event.command ?? '';
       return (
         <div className="space-y-3">
           {command ? (
-            <DetailText value={command} label="Command" format="code" language="bash" highlightQuery={searchQuery} />
+            <DetailText
+              value={command}
+              label="Command"
+              format="code"
+              language="bash"
+              highlightQuery={searchQuery}
+            />
           ) : null}
           {stdout ? (
             <DetailText
@@ -446,14 +489,19 @@ function renderEventDetail(event: TimelineEvent, searchQuery?: string, matchers?
           ) : null}
           {!command && !stdout && !stderr ? <EmptyDetail message="No captured output." /> : null}
         </div>
-      )
+      );
     }
     case 'WebSearchCall':
       return event.query ? (
-        <DetailText value={event.query} label="Query" highlightQuery={searchQuery} matchers={matchers} />
+        <DetailText
+          value={event.query}
+          label="Query"
+          highlightQuery={searchQuery}
+          matchers={matchers}
+        />
       ) : (
         <EmptyDetail message="No query string." />
-      )
+      );
     case 'CustomToolCall':
       return (
         <div className="space-y-3">
@@ -472,20 +520,32 @@ function renderEventDetail(event: TimelineEvent, searchQuery?: string, matchers?
             highlightQuery={searchQuery}
           />
         </div>
-      )
+      );
     case 'FileChange':
       return event.diff ? (
-        <DetailText value={event.diff} label="Diff" format="code" language="diff" highlightQuery={searchQuery} />
+        <DetailText
+          value={event.diff}
+          label="Diff"
+          format="code"
+          language="diff"
+          highlightQuery={searchQuery}
+        />
       ) : (
         <EmptyDetail message="No diff provided." />
-      )
+      );
     default: {
-      const payload = safeStringify(event)
+      const payload = safeStringify(event);
       return payload ? (
-        <DetailText value={payload} label="Event" format="code" language="json" highlightQuery={searchQuery} />
+        <DetailText
+          value={payload}
+          label="Event"
+          format="code"
+          language="json"
+          highlightQuery={searchQuery}
+        />
       ) : (
         <EmptyDetail message="No additional data." />
-      )
+      );
     }
   }
 }
@@ -493,30 +553,32 @@ function renderEventDetail(event: TimelineEvent, searchQuery?: string, matchers?
 function DetailText({
   value,
   label,
-  format = "text",
+  format = 'text',
   language,
   highlightQuery,
   matchers,
 }: {
-  value: string
-  label: string
-  format?: "text" | "code"
-  language?: BundledLanguage
-  highlightQuery?: string
-  matchers?: SearchMatcher[]
+  value: string;
+  label: string;
+  format?: 'text' | 'code';
+  language?: BundledLanguage;
+  highlightQuery?: string;
+  matchers?: SearchMatcher[];
 }) {
-  if (!value) return null
+  if (!value) return null;
 
-  if (format === "code") {
-    const codeLanguage = (language ?? "json") as BundledLanguage
-    const data = [{ language: codeLanguage, filename: label, code: value }]
+  if (format === 'code') {
+    const codeLanguage = (language ?? 'json') as BundledLanguage;
+    const data = [{ language: codeLanguage, filename: label, code: value }];
     return (
       <div
         className="space-y-1"
         onClick={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
         <CodeBlock data={data} defaultValue={codeLanguage} className="bg-background/80">
           <CodeBlockHeader className="items-center justify-between">
             <CodeBlockFiles>
@@ -539,10 +601,10 @@ function DetailText({
           </CodeBlockBody>
         </CodeBlock>
       </div>
-    )
+    );
   }
 
-  const tabValue = "value"
+  const tabValue = 'value';
 
   return (
     <div
@@ -550,7 +612,9 @@ function DetailText({
       onClick={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
       <Snippet defaultValue={tabValue}>
         <SnippetHeader>
           <SnippetTabsList>
@@ -563,7 +627,7 @@ function DetailText({
         </SnippetTabsContent>
       </Snippet>
     </div>
-  )
+  );
 }
 
 function EmptyDetail({ message }: { message: string }) {
@@ -572,54 +636,54 @@ function EmptyDetail({ message }: { message: string }) {
 
 function extractMessageText(content: MessageEvent['content'] | undefined) {
   if (typeof content === 'string') {
-    return content
+    return content;
   }
   if (Array.isArray(content)) {
     return content
-      .map((part) => (typeof part === 'string' ? part : (part as MessagePart).text ?? ''))
-      .join(' ')
+      .map((part) => (typeof part === 'string' ? part : ((part as MessagePart).text ?? '')))
+      .join(' ');
   }
-  return ''
+  return '';
 }
 
 function summarizeCommand(value?: string | null, limit = 72) {
-  if (!value) return ''
-  const firstLine = value.split('\n').find((line) => line.trim().length > 0)
-  const trimmed = (firstLine ?? value).trim()
-  return truncate(trimmed, limit)
+  if (!value) return '';
+  const firstLine = value.split('\n').find((line) => line.trim().length > 0);
+  const trimmed = (firstLine ?? value).trim();
+  return truncate(trimmed, limit);
 }
 
 function truncate(value: string, limit = SNIPPET_LENGTH) {
-  if (!value) return ''
-  return value.length > limit ? `${value.slice(0, limit - 1)}…` : value
+  if (!value) return '';
+  return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 }
 
 function formatTimestamp(date: string | number | Date) {
-  return formatClockTime(date)
+  return formatClockTime(date);
 }
 
 function capitalize(value: string) {
-  return value ? value.charAt(0).toUpperCase() + value.slice(1) : ''
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
 }
 
 function formatMisalignmentTooltip(marker: TimelineFlagMarker) {
-  const severityLabel = toSeverityLabel(marker.severity)
+  const severityLabel = toSeverityLabel(marker.severity);
   const entries = marker.misalignments
     .map((record) => `${record.ruleId.toUpperCase()} “${truncateRuleTitle(record.title)}”`)
-    .join(', ')
-  return `${severityLabel} severity: ${entries}`
+    .join(', ');
+  return `${severityLabel} severity: ${entries}`;
 }
 
 function safeStringify(value: unknown) {
-  if (value == null) return ''
+  if (value == null) return '';
   try {
     if (typeof value === 'string') {
-      return value
+      return value;
     }
-    return JSON.stringify(value, null, 2)
+    return JSON.stringify(value, null, 2);
   } catch (error) {
-    return String(value)
+    return String(value);
   }
 }
 
-export default AnimatedTimelineList
+export default AnimatedTimelineList;
