@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import { motion } from 'motion/react';
 import { Copy, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Badge } from '~/components/ui/badge';
@@ -47,7 +55,12 @@ import {
 } from '~/components/ui/command';
 import { TracingBeam } from '~/components/aceternity/tracing-beam';
 import { Separator } from '~/components/ui/separator';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '~/components/ui/accordion';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '~/components/ui/accordion';
 
 interface BranchGroup {
   id: string;
@@ -137,7 +150,10 @@ export function SessionList({
   const [loadingRepoId, setLoadingRepoId] = useState<string | null>(null);
   const [sessionPreset, setSessionPreset] = useState<SessionPreset>('all');
   const [isQuickFilterOpen, setIsQuickFilterOpen] = useState(false);
-  const searchMatchers = useMemo(() => buildSearchMatchers(filters.searchText), [filters.searchText]);
+  const searchMatchers = useMemo(
+    () => buildSearchMatchers(filters.searchText),
+    [filters.searchText]
+  );
   const quickFilterOptions = useMemo(
     () => [
       {
@@ -184,48 +200,57 @@ export function SessionList({
         },
       },
     ],
-    [snapshotTimestamp],
+    [snapshotTimestamp]
   );
-  const filterLogRef = useRef<{ modelKey: string; count: number }>({ modelKey: '', count: sessionAssets.length });
+  const filterLogRef = useRef<{ modelKey: string; count: number }>({
+    modelKey: '',
+    count: sessionAssets.length,
+  });
   const viewModelLogRef = useRef<{ total: number; groups: number } | null>(null);
   const sizeMinBytes = toBytes(filters.sizeMinValue, filters.sizeMinUnit);
   const sizeMaxBytes = toBytes(filters.sizeMaxValue, filters.sizeMaxUnit);
   const timestampFromMs = toTimestampMs(filters.timestampFrom);
   const timestampToMs = toTimestampMs(filters.timestampTo);
   const { sortKey, sortDir } = filters;
-  const updateFilter = useCallback(<K extends keyof SessionExplorerFilterState>(key: K, value: SessionExplorerFilterState[K]) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  }, []);
-  const applyPreset = useCallback((value: SessionPreset) => {
-    setSessionPreset(value);
-    if (value === 'all') {
-      setFilters((prev) => ({
-        ...prev,
-        timestampFrom: '',
-        timestampTo: '',
-        sizeMinValue: '',
-        sizeMaxValue: '',
-      }));
-      return;
-    }
-    if (value === 'recent') {
-      const fromIso = toLocalDateTimeInput(snapshotTimestamp - 1000 * 60 * 60 * 24 * 2);
-      setFilters((prev) => ({
-        ...prev,
-        timestampFrom: fromIso,
-        timestampTo: '',
-      }));
-      return;
-    }
-    if (value === 'heavy') {
-      setFilters((prev) => ({
-        ...prev,
-        sizeMinValue: '25',
-        sizeMinUnit: 'MB',
-        sizeMaxValue: '',
-      }));
-    }
-  }, [snapshotTimestamp]);
+  const updateFilter = useCallback(
+    <K extends keyof SessionExplorerFilterState>(key: K, value: SessionExplorerFilterState[K]) => {
+      setFilters((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
+  const applyPreset = useCallback(
+    (value: SessionPreset) => {
+      setSessionPreset(value);
+      if (value === 'all') {
+        setFilters((prev) => ({
+          ...prev,
+          timestampFrom: '',
+          timestampTo: '',
+          sizeMinValue: '',
+          sizeMaxValue: '',
+        }));
+        return;
+      }
+      if (value === 'recent') {
+        const fromIso = toLocalDateTimeInput(snapshotTimestamp - 1000 * 60 * 60 * 24 * 2);
+        setFilters((prev) => ({
+          ...prev,
+          timestampFrom: fromIso,
+          timestampTo: '',
+        }));
+        return;
+      }
+      if (value === 'heavy') {
+        setFilters((prev) => ({
+          ...prev,
+          sizeMinValue: '25',
+          sizeMinUnit: 'MB',
+          sizeMaxValue: '',
+        }));
+      }
+    },
+    [snapshotTimestamp]
+  );
 
   useEffect(() => {
     if (sizeMinBytes !== undefined && sizeMaxBytes !== undefined && sizeMinBytes > sizeMaxBytes) {
@@ -246,19 +271,25 @@ export function SessionList({
   }, [timestampFromMs, timestampToMs]);
 
   const accessibleAssets = useMemo(
-    () => sessionAssets.filter((asset) => typeof asset.url === 'string' && asset.url.includes('/api/uploads/')),
-    [sessionAssets],
+    () =>
+      sessionAssets.filter(
+        (asset) => typeof asset.url === 'string' && asset.url.includes('/api/uploads/')
+      ),
+    [sessionAssets]
   );
 
   const repositoryGroups = useMemo(
     () => aggregateByRepository(accessibleAssets),
-    [accessibleAssets],
+    [accessibleAssets]
   );
 
   useEffect(() => {
     const repoCount = new Set(repositoryGroups.map((group) => group.repoName)).size;
     const modelKey = `${accessibleAssets.length}:${repositoryGroups.length}`;
-    if (viewModelLogRef.current?.total === accessibleAssets.length && viewModelLogRef.current?.groups === repositoryGroups.length) {
+    if (
+      viewModelLogRef.current?.total === accessibleAssets.length &&
+      viewModelLogRef.current?.groups === repositoryGroups.length
+    ) {
       return;
     }
     logInfo('viewer.explorer', 'Computed session explorer view model', {
@@ -311,12 +342,16 @@ export function SessionList({
 
         if (!sortedBranches.length) return null;
         const flattenedSessions = sortedBranches.flatMap((branch) => branch.sessions);
-        const primarySortValue = sortedBranches[0]?.primarySortValue ?? getSortValue(flattenedSessions[0], sortKey);
+        const primarySortValue =
+          sortedBranches[0]?.primarySortValue ?? getSortValue(flattenedSessions[0], sortKey);
         const filteredNamedBranches = sortedBranches.filter(
-          (branch) => branch.name && branch.name.trim().length > 0 && branch.name.toLowerCase() !== 'unknown'
+          (branch) =>
+            branch.name && branch.name.trim().length > 0 && branch.name.toLowerCase() !== 'unknown'
         );
         const branchCount = filteredNamedBranches.length;
-        const hasUnknownBranch = sortedBranches.some((branch) => branch.name.toLowerCase() === 'unknown');
+        const hasUnknownBranch = sortedBranches.some(
+          (branch) => branch.name.toLowerCase() === 'unknown'
+        );
         return {
           ...group,
           sessions: flattenedSessions,
@@ -339,7 +374,16 @@ export function SessionList({
 
     const total = sortedGroups.reduce((count, group) => count + group.sessions.length, 0);
     return { groups: sortedGroups, filteredSessionCount: total };
-  }, [repositoryGroups, searchMatchers, sizeMinBytes, sizeMaxBytes, sortKey, sortDir, timestampFromMs, timestampToMs]);
+  }, [
+    repositoryGroups,
+    searchMatchers,
+    sizeMinBytes,
+    sizeMaxBytes,
+    sortKey,
+    sortDir,
+    timestampFromMs,
+    timestampToMs,
+  ]);
 
   useEffect(() => {
     const filterModel = buildFilterModel(filters, {
@@ -349,7 +393,10 @@ export function SessionList({
       timestampToMs,
     });
     const modelKey = JSON.stringify(filterModel);
-    if (filterLogRef.current.modelKey === modelKey && filterLogRef.current.count === filteredSessionCount) {
+    if (
+      filterLogRef.current.modelKey === modelKey &&
+      filterLogRef.current.count === filteredSessionCount
+    ) {
       return;
     }
     logInfo('viewer.filters', 'Session explorer filters updated', {
@@ -364,10 +411,12 @@ export function SessionList({
   useEffect(() => {
     if (!selectedSessionPath) return;
     const stillVisible = filteredGroups.some((group) =>
-      group.sessions.some((session) => session.path === selectedSessionPath),
+      group.sessions.some((session) => session.path === selectedSessionPath)
     );
     if (!stillVisible) {
-      const existsInMemory = accessibleAssets.some((session) => session.path === selectedSessionPath);
+      const existsInMemory = accessibleAssets.some(
+        (session) => session.path === selectedSessionPath
+      );
       if (existsInMemory) {
         logDebug('viewer.explorer', 'Selected session hidden by filters', {
           selectedSessionPath,
@@ -412,7 +461,16 @@ export function SessionList({
         groupSamples: repositoryGroups.slice(0, 5).map((group) => group.id),
       });
     }
-  }, [accessibleAssets.length, filteredSessionCount, filters, repositoryGroups, sizeMaxBytes, sizeMinBytes, timestampFromMs, timestampToMs]);
+  }, [
+    accessibleAssets.length,
+    filteredSessionCount,
+    filters,
+    repositoryGroups,
+    sizeMaxBytes,
+    sizeMinBytes,
+    timestampFromMs,
+    timestampToMs,
+  ]);
 
   const handleRepoToggle = (group: RepositoryGroup, shouldExpand: boolean) => {
     logDebug('viewer.explorer', 'Toggled repository group', {
@@ -424,7 +482,8 @@ export function SessionList({
     });
     if (shouldExpand) {
       setLoadingRepoId(group.id);
-      const simulatedDelay = group.sessions.length > 20 ? 400 : group.sessions.length > 8 ? 260 : 160;
+      const simulatedDelay =
+        group.sessions.length > 20 ? 400 : group.sessions.length > 8 ? 260 : 160;
       setTimeout(() => {
         setLoadingRepoId((current) => (current === group.id ? null : current));
       }, simulatedDelay);
@@ -475,34 +534,47 @@ export function SessionList({
   const hasResults = filteredGroups.length > 0;
   const datasetEmpty = accessibleAssets.length === 0;
 
+  const searchBar = useMemo(
+    () => (
+      <div className="w-full">
+        <InputGroup className="w-full">
+          <InputGroupText>
+            <Search className="size-4" />
+          </InputGroupText>
+          <Input
+            type="search"
+            aria-label="Search sessions"
+            value={filters.searchText}
+            onChange={(event) => updateFilter('searchText', event.target.value)}
+            placeholder="Search repo, branch, file label, tag, or year"
+            className="border-0 focus-visible:ring-0"
+          />
+        </InputGroup>
+      </div>
+    ),
+    [filters.searchText, updateFilter]
+  );
+
   const filterToolbar = useMemo(
     () => (
       <div className="space-y-4">
-        <Tabs value={sessionPreset} onValueChange={(value) => applyPreset(value as SessionPreset)} className="w-full">
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="recent">Recent</TabsTrigger>
-            <TabsTrigger value="heavy">Large</TabsTrigger>
-          </TabsList>
-        </Tabs>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex-1">
-            <InputGroup>
-              <InputGroupText>
-                <Search className="size-4" />
-              </InputGroupText>
-              <Input
-                type="search"
-                aria-label="Search sessions"
-                value={filters.searchText}
-                onChange={(event) => updateFilter('searchText', event.target.value)}
-                placeholder="Search repo, branch, file label, tag, or year"
-                className="border-0 focus-visible:ring-0"
-              />
-            </InputGroup>
-          </div>
+          <Tabs
+            value={sessionPreset}
+            onValueChange={(value) => applyPreset(value as SessionPreset)}
+            className="w-full lg:w-auto min-w-0 flex-1"
+          >
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="recent">Recent</TabsTrigger>
+              <TabsTrigger value="heavy">Large</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={filters.sortKey} onValueChange={(value: SortKey) => updateFilter('sortKey', value)}>
+            <Select
+              value={filters.sortKey}
+              onValueChange={(value: SortKey) => updateFilter('sortKey', value)}
+            >
               <SelectTrigger aria-label="Sort by" className="w-32">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
@@ -558,7 +630,12 @@ export function SessionList({
                 </Command>
               </PopoverContent>
             </Popover>
-            <Button type="button" variant="secondary" className="gap-2" onClick={() => setIsFilterSheetOpen(true)}>
+            <Button
+              type="button"
+              variant="secondary"
+              className="gap-2"
+              onClick={() => setIsFilterSheetOpen(true)}
+            >
               Advanced
             </Button>
             <Button type="button" variant="ghost" onClick={resetFilters}>
@@ -567,9 +644,16 @@ export function SessionList({
           </div>
         </div>
         {activeBadges.length ? (
-          <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible" data-testid="active-filter-badges">
+          <div
+            className="flex flex-nowrap gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible"
+            data-testid="active-filter-badges"
+          >
             {activeBadges.map((badge) => (
-              <Badge key={badge.key} variant="secondary" className="flex items-center gap-2 whitespace-nowrap">
+              <Badge
+                key={badge.key}
+                variant="secondary"
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
                 {badge.label}
                 <button
                   type="button"
@@ -595,7 +679,7 @@ export function SessionList({
       resetFilters,
       sessionPreset,
       updateFilter,
-    ],
+    ]
   );
 
   useEffect(() => {
@@ -612,17 +696,32 @@ export function SessionList({
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="space-y-1">
                 <CardTitle className="text-lg font-semibold">Session explorer</CardTitle>
-                <CardDescription>Discover JSONL session logs grouped by repository and branch.</CardDescription>
+                <CardDescription>
+                  Discover JSONL session logs grouped by repository and branch.
+                </CardDescription>
               </div>
-              <Badge variant="secondary" className="text-[10px] font-semibold uppercase tracking-wide">
-                {formatCount(filteredSessionCount)} / {formatCount(accessibleAssets.length)} sessions
+              <Badge
+                variant="secondary"
+                className="text-[10px] font-semibold uppercase tracking-wide"
+              >
+                {formatCount(filteredSessionCount)} / {formatCount(accessibleAssets.length)}{' '}
+                sessions
               </Badge>
             </div>
+            {/* Search Bar Moved into Banner (CardHeader) */}
+            {searchBar}
             {onFiltersRender ? null : filterToolbar}
             {activeBadges.length ? (
-              <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible" data-testid="active-filter-badges">
+              <div
+                className="flex flex-nowrap gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible"
+                data-testid="active-filter-badges"
+              >
                 {activeBadges.map((badge) => (
-                  <Badge key={badge.key} variant="secondary" className="flex items-center gap-2 whitespace-nowrap">
+                  <Badge
+                    key={badge.key}
+                    variant="secondary"
+                    className="flex items-center gap-2 whitespace-nowrap"
+                  >
                     {badge.label}
                     <button
                       type="button"
@@ -640,10 +739,17 @@ export function SessionList({
           <CardContent className="flex flex-1 flex-col overflow-hidden px-0">
             <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Session repositories</p>
-                <p className="text-xs text-muted-foreground">{formatCount(filteredGroups.length)} grouped results</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Session repositories
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatCount(filteredGroups.length)} grouped results
+                </p>
               </div>
-              <Badge variant="outline" className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              <Badge
+                variant="outline"
+                className="text-[10px] uppercase tracking-wide text-muted-foreground"
+              >
                 Snapshot {formatDateTime(snapshotTimestamp, { fallback: 'N/A' })}
               </Badge>
             </div>
@@ -653,7 +759,9 @@ export function SessionList({
                 {!hasResults ? (
                   <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 p-6 text-center">
                     <p className="text-sm font-semibold">
-                      {datasetEmpty ? 'No session logs discovered yet.' : 'No repositories match the selected filters.'}
+                      {datasetEmpty
+                        ? 'No session logs discovered yet.'
+                        : 'No repositories match the selected filters.'}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {datasetEmpty
@@ -665,7 +773,9 @@ export function SessionList({
                   <Accordion
                     type="multiple"
                     value={expandedGroupIds}
-                    onValueChange={(value) => handleAccordionChange(Array.isArray(value) ? value : [value])}
+                    onValueChange={(value) =>
+                      handleAccordionChange(Array.isArray(value) ? value : [value])
+                    }
                     className="space-y-4"
                   >
                     {filteredGroups.map((repo, index) => {
@@ -678,21 +788,36 @@ export function SessionList({
                               className={cn(
                                 'rounded-2xl border border-transparent px-4 py-3 text-left transition-colors hover:no-underline focus-visible:ring-2 focus-visible:ring-ring',
                                 intentClass,
-                                'data-[state=open]:shadow-sm',
+                                'data-[state=open]:shadow-sm'
                               )}
                             >
                               <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="flex flex-wrap items-center gap-3">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="cursor-default text-xs font-semibold uppercase tracking-wide">
-                                        <HighlightedText text={repo.label} matchers={searchMatchers} />
+                                      <Badge
+                                        variant="outline"
+                                        className="cursor-default text-xs font-semibold uppercase tracking-wide"
+                                      >
+                                        <HighlightedText
+                                          text={repo.label}
+                                          matchers={searchMatchers}
+                                        />
                                       </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <HighlightedText as="p" className="text-xs font-semibold" text={repo.label} matchers={searchMatchers} />
+                                      <HighlightedText
+                                        as="p"
+                                        className="text-xs font-semibold"
+                                        text={repo.label}
+                                        matchers={searchMatchers}
+                                      />
                                       <p className="text-xs opacity-80">
-                                        Repo: <HighlightedText text={repo.repoName} matchers={searchMatchers} />
+                                        Repo:{' '}
+                                        <HighlightedText
+                                          text={repo.repoName}
+                                          matchers={searchMatchers}
+                                        />
                                       </p>
                                       <p className="text-xs opacity-80">
                                         Branches:{' '}
@@ -701,21 +826,35 @@ export function SessionList({
                                           matchers={searchMatchers}
                                         />
                                       </p>
-                                      <p className="text-xs opacity-80">Total size: {formatBytes(repo.totalSize)}</p>
-                                      <p className="text-xs opacity-80">Last updated: {formatDate(repo.lastUpdated)}</p>
+                                      <p className="text-xs opacity-80">
+                                        Total size: {formatBytes(repo.totalSize)}
+                                      </p>
+                                      <p className="text-xs opacity-80">
+                                        Last updated: {formatDate(repo.lastUpdated)}
+                                      </p>
                                     </TooltipContent>
                                   </Tooltip>
-                                  <Badge variant="secondary" className="text-[10px] font-semibold uppercase tracking-wide">
-                                    {formatCount(repo.sessions.length)} {repo.sessions.length === 1 ? 'session' : 'sessions'}
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] font-semibold uppercase tracking-wide"
+                                  >
+                                    {formatCount(repo.sessions.length)}{' '}
+                                    {repo.sessions.length === 1 ? 'session' : 'sessions'}
                                   </Badge>
-                                  <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] font-semibold uppercase tracking-wide"
+                                  >
                                     Branches {formatCount(repo.branchCount)}
                                     {repo.hasUnknownBranch ? '*' : ''}
                                   </Badge>
                                 </div>
                                 <div className="text-right text-xs text-muted-foreground">
                                   <p>{formatBytes(repo.totalSize)}</p>
-                                  <p>Updated {formatRelativeTime(repo.lastUpdated, snapshotTimestamp)}</p>
+                                  <p>
+                                    Updated{' '}
+                                    {formatRelativeTime(repo.lastUpdated, snapshotTimestamp)}
+                                  </p>
                                 </div>
                               </div>
                             </AccordionTrigger>
@@ -731,10 +870,15 @@ export function SessionList({
                                     <div key={branch.id} className="space-y-2">
                                       <div className="flex flex-wrap items-center justify-between gap-2">
                                         <p className="text-xs font-semibold uppercase tracking-wide">
-                                          Branch <HighlightedText text={branch.name} matchers={searchMatchers} />
+                                          Branch{' '}
+                                          <HighlightedText
+                                            text={branch.name}
+                                            matchers={searchMatchers}
+                                          />
                                         </p>
                                         <span className="text-xs text-muted-foreground">
-                                          {formatCount(branch.sessions.length)} {branch.sessions.length === 1 ? 'session' : 'sessions'}
+                                          {formatCount(branch.sessions.length)}{' '}
+                                          {branch.sessions.length === 1 ? 'session' : 'sessions'}
                                         </span>
                                       </div>
                                       <SessionRepoVirtualList
@@ -749,14 +893,18 @@ export function SessionList({
                                         onAddSessionToChat={onAddSessionToChat}
                                         searchMatchers={searchMatchers}
                                       />
-                                      {branchIndex < repo.branches.length - 1 ? <Separator className="my-1 opacity-40" /> : null}
+                                      {branchIndex < repo.branches.length - 1 ? (
+                                        <Separator className="my-1 opacity-40" />
+                                      ) : null}
                                     </div>
                                   ))
                                 )}
                               </div>
                             </AccordionContent>
                           </AccordionItem>
-                          {index < filteredGroups.length - 1 ? <Separator className="my-2 opacity-50" /> : null}
+                          {index < filteredGroups.length - 1 ? (
+                            <Separator className="my-2 opacity-50" />
+                          ) : null}
                         </div>
                       );
                     })}
@@ -770,15 +918,22 @@ export function SessionList({
       <SheetContent side="right" className="w-full space-y-6 overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Advanced filters</SheetTitle>
-          <SheetDescription>Configure the v1 advanced filters (size range & timestamp range).</SheetDescription>
+          <SheetDescription>
+            Configure the v1 advanced filters (size range & timestamp range).
+          </SheetDescription>
         </SheetHeader>
         <div className="space-y-6">
           <div className="space-y-3">
             <p className="text-sm font-semibold">Size range</p>
-            <p className="text-xs text-muted-foreground">Limit sessions by minimum and maximum file size.</p>
+            <p className="text-xs text-muted-foreground">
+              Limit sessions by minimum and maximum file size.
+            </p>
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="filter-size-min">
+                <label
+                  className="text-xs font-medium text-muted-foreground"
+                  htmlFor="filter-size-min"
+                >
                   Minimum size
                 </label>
                 <div className="flex items-center gap-2">
@@ -790,7 +945,10 @@ export function SessionList({
                     onChange={(event) => updateFilter('sizeMinValue', event.target.value)}
                     placeholder="e.g. 10"
                   />
-                  <Select value={filters.sizeMinUnit} onValueChange={(value: SizeUnit) => updateFilter('sizeMinUnit', value)}>
+                  <Select
+                    value={filters.sizeMinUnit}
+                    onValueChange={(value: SizeUnit) => updateFilter('sizeMinUnit', value)}
+                  >
                     <SelectTrigger aria-label="Minimum size unit" className="w-[90px]">
                       <SelectValue />
                     </SelectTrigger>
@@ -805,7 +963,10 @@ export function SessionList({
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="filter-size-max">
+                <label
+                  className="text-xs font-medium text-muted-foreground"
+                  htmlFor="filter-size-max"
+                >
                   Maximum size
                 </label>
                 <div className="flex items-center gap-2">
@@ -817,7 +978,10 @@ export function SessionList({
                     onChange={(event) => updateFilter('sizeMaxValue', event.target.value)}
                     placeholder="e.g. 100"
                   />
-                  <Select value={filters.sizeMaxUnit} onValueChange={(value: SizeUnit) => updateFilter('sizeMaxUnit', value)}>
+                  <Select
+                    value={filters.sizeMaxUnit}
+                    onValueChange={(value: SizeUnit) => updateFilter('sizeMaxUnit', value)}
+                  >
                     <SelectTrigger aria-label="Maximum size unit" className="w-[90px]">
                       <SelectValue />
                     </SelectTrigger>
@@ -835,10 +999,15 @@ export function SessionList({
           </div>
           <div className="space-y-3">
             <p className="text-sm font-semibold">Timestamp range</p>
-            <p className="text-xs text-muted-foreground">Filter sessions by when they were last updated.</p>
+            <p className="text-xs text-muted-foreground">
+              Filter sessions by when they were last updated.
+            </p>
             <div className="grid gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground" htmlFor="filter-ts-from">
+                <label
+                  className="text-xs font-medium text-muted-foreground"
+                  htmlFor="filter-ts-from"
+                >
                   Start (UTC)
                 </label>
                 <Input
@@ -925,7 +1094,8 @@ function aggregateByRepository(sessionAssets: DiscoveredSessionAsset[]): Reposit
     }
     branch.sessions.push(asset);
     branch.totalSize += asset.size ?? 0;
-    branch.lastUpdated = Math.max(branch.lastUpdated ?? 0, asset.sortKey ?? 0) || branch.lastUpdated;
+    branch.lastUpdated =
+      Math.max(branch.lastUpdated ?? 0, asset.sortKey ?? 0) || branch.lastUpdated;
   }
 
   return Array.from(map.values()).map(({ group, branches }) => {
@@ -933,10 +1103,13 @@ function aggregateByRepository(sessionAssets: DiscoveredSessionAsset[]): Reposit
       (a, b) => (b.lastUpdated ?? 0) - (a.lastUpdated ?? 0) || a.name.localeCompare(b.name)
     );
     const namedBranches = sortedBranches.filter(
-      (branch) => branch.name && branch.name.trim().length > 0 && branch.name.toLowerCase() !== 'unknown'
+      (branch) =>
+        branch.name && branch.name.trim().length > 0 && branch.name.toLowerCase() !== 'unknown'
     );
     const branchCount = namedBranches.length;
-    const hasUnknownBranch = sortedBranches.some((branch) => branch.name.toLowerCase() === 'unknown');
+    const hasUnknownBranch = sortedBranches.some(
+      (branch) => branch.name.toLowerCase() === 'unknown'
+    );
     return {
       ...group,
       branches: sortedBranches,
@@ -946,7 +1119,11 @@ function aggregateByRepository(sessionAssets: DiscoveredSessionAsset[]): Reposit
   });
 }
 
-function matchesSearchText(matchers: SearchMatcher[], group: RepositoryGroup, session: DiscoveredSessionAsset) {
+function matchesSearchText(
+  matchers: SearchMatcher[],
+  group: RepositoryGroup,
+  session: DiscoveredSessionAsset
+) {
   if (!matchers.length) return true;
   const branchNames = group.branches.map((branch) => branch.name).join(' ');
   const haystack = [
@@ -975,7 +1152,11 @@ function describeBranches(branches: BranchGroup[]) {
   return `${preview} +${names.length - 3}`;
 }
 
-function sortSessions(sessions: DiscoveredSessionAsset[], sortKey: SortKey, sortDir: SortDirection) {
+function sortSessions(
+  sessions: DiscoveredSessionAsset[],
+  sortKey: SortKey,
+  sortDir: SortDirection
+) {
   const direction = sortDir === 'asc' ? 1 : -1;
   return [...sessions].sort((a, b) => {
     const diff = (getSortValue(a, sortKey) ?? 0) - (getSortValue(b, sortKey) ?? 0);
@@ -1017,7 +1198,12 @@ function toLocalDateTimeInput(ms: number) {
 
 function buildFilterModel(
   state: SessionExplorerFilterState,
-  derived: { sizeMinBytes?: number; sizeMaxBytes?: number; timestampFromMs?: number; timestampToMs?: number },
+  derived: {
+    sizeMinBytes?: number;
+    sizeMaxBytes?: number;
+    timestampFromMs?: number;
+    timestampToMs?: number;
+  }
 ) {
   return {
     textQuery: state.searchText.trim() || null,
@@ -1037,12 +1223,24 @@ function buildActiveFilterBadges(state: SessionExplorerFilterState) {
   if (state.sizeMinValue.trim() || state.sizeMaxValue.trim()) {
     const minLabel = state.sizeMinValue.trim() ? `${state.sizeMinValue} ${state.sizeMinUnit}` : '0';
     const maxLabel = state.sizeMaxValue.trim() ? `${state.sizeMaxValue} ${state.sizeMaxUnit}` : '∞';
-    badges.push({ key: 'size', label: `Size: ${minLabel} – ${maxLabel}`, description: 'size filter' });
+    badges.push({
+      key: 'size',
+      label: `Size: ${minLabel} – ${maxLabel}`,
+      description: 'size filter',
+    });
   }
   if (state.timestampFrom.trim() || state.timestampTo.trim()) {
-    const fromLabel = state.timestampFrom ? formatDateTime(state.timestampFrom, { fallback: 'Any' }) : 'Any';
-    const toLabel = state.timestampTo ? formatDateTime(state.timestampTo, { fallback: 'Any' }) : 'Any';
-    badges.push({ key: 'timestamp', label: `Updated: ${fromLabel} → ${toLabel}`, description: 'timestamp filter' });
+    const fromLabel = state.timestampFrom
+      ? formatDateTime(state.timestampFrom, { fallback: 'Any' })
+      : 'Any';
+    const toLabel = state.timestampTo
+      ? formatDateTime(state.timestampTo, { fallback: 'Any' })
+      : 'Any';
+    badges.push({
+      key: 'timestamp',
+      label: `Updated: ${fromLabel} → ${toLabel}`,
+      description: 'timestamp filter',
+    });
   }
   return badges;
 }
@@ -1116,7 +1314,7 @@ function SessionRepoVirtualList({
 }) {
   const items = useMemo<SessionTimelineItem[]>(
     () => sessions.map((session, index) => ({ session, index })),
-    [sessions],
+    [sessions]
   );
   const [gradients, setGradients] = useState({ top: 0, bottom: 0 });
   const viewportHeight = items.length ? Math.max(Math.min(items.length * 96, 520), 220) : 200;
@@ -1189,11 +1387,14 @@ function SessionCard({
   const displayName = session.displayLabel;
   const repoLabel = session.repoLabel ?? session.repoName;
   const branchName = session.repoMeta?.branch ?? session.branch;
-  const repoDisplay = session.repoName && session.repoName !== 'unknown-repo' ? session.repoName : null;
+  const repoDisplay =
+    session.repoName && session.repoName !== 'unknown-repo' ? session.repoName : null;
   const branchDisplay = branchName && branchName !== 'unknown' ? branchName : null;
   const sessionId = extractSessionId(displayName) ?? extractSessionId(session.path);
   const branchLine = branchDisplay ? `Branch ${branchDisplay}` : '';
-  const commitLine = session.repoMeta?.commit ? `Commit ${formatCommit(session.repoMeta.commit)}` : '';
+  const commitLine = session.repoMeta?.commit
+    ? `Commit ${formatCommit(session.repoMeta.commit)}`
+    : '';
   const branchMeta = [branchLine, commitLine].filter(Boolean).join(' · ');
 
   const handleCopySessionId = async () => {
@@ -1204,7 +1405,11 @@ function SessionCard({
       logInfo('viewer.explorer', 'Copied session id', { path: session.path, sessionId });
     } catch (error) {
       toast.error('Failed to copy session ID');
-      logError('viewer.explorer', 'Copy session id failed', error instanceof Error ? error : new Error('unknown error'));
+      logError(
+        'viewer.explorer',
+        'Copy session id failed',
+        error instanceof Error ? error : new Error('unknown error')
+      );
     }
   };
   const handleAddToChat = (event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -1264,7 +1469,10 @@ function SessionCard({
           <div className="text-right text-xs text-muted-foreground">
             <p>{formatBytes(session.size)}</p>
             {session.lastModifiedIso ? (
-              <p className="font-mono text-[10px] uppercase tracking-tight text-muted-foreground" aria-label="Last modified timestamp">
+              <p
+                className="font-mono text-[10px] uppercase tracking-tight text-muted-foreground"
+                aria-label="Last modified timestamp"
+              >
                 {session.lastModifiedIso}
               </p>
             ) : null}
@@ -1278,19 +1486,17 @@ function SessionCard({
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
           {session.tags?.slice(0, 3).map((tag) => (
-            <span key={`${session.path}-${tag}`} className="rounded-full border border-border/70 px-2 py-0.5">
+            <span
+              key={`${session.path}-${tag}`}
+              className="rounded-full border border-border/70 px-2 py-0.5"
+            >
               <HighlightedText text={tag} matchers={searchMatchers} />
             </span>
           ))}
           {session.tags && session.tags.length > 3 ? <span>+{session.tags.length - 3}</span> : null}
           <div className="ml-auto flex items-center gap-2">
             {sessionId ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleCopySessionId}
-              >
+              <Button type="button" size="sm" variant="outline" onClick={handleCopySessionId}>
                 <Copy className="mr-1 size-4" />
                 Copy ID
               </Button>
