@@ -119,8 +119,7 @@
 * Never update `.env`; update `.env.example` instead.
 * Never start the dev server with `pnpm run dev` or `npm run dev`.
 * Never create a local pnpm --store
-* Important: Do not remove, hide, or rename any existing features or
-  UI options (even temporarily) unless I explicitly ask for it. If something isn't fully wired yet, keep the UX surface intact and stub/annotate it instead of deleting it.
+* Preserve all existing features and UI options unless explicitly instructed to remove, hide, or rename them; if a feature isn't fully wired, maintain its UX surface and annotate it with `// TODO`.
 
 ## docs map
 
