@@ -48,17 +48,6 @@ export async function loadAgentRules() {
     absolute: true,
   });
 
-  // >>> LOGGING LOGIC ADDED HERE <<<
-  if (process.env.NODE_ENV === 'development') {
-    console.group('[Chatbot] Discovered Agent Rule Files:');
-    if (files.length === 0) {
-      console.log('  (None found)');
-    } else {
-      files.forEach((f) => console.log(`  - ${f}`));
-    }
-    console.groupEnd();
-  }
-  // >>> END LOGGING LOGIC <<<
 
   const nestedRules = await Promise.all(
     files.map(async (filePath) => {
