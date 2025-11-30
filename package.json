@@ -19,7 +19,7 @@
     "prepare": "ruler apply --nested",
     "code": "codefetch --include-dir src --exclude-dir .ruler,.cursor --exclude-files \"*.test.ts\", -o src.md",
     "code:task": "codefetch --include-dir .taskmaster --exclude-dir .taskmaster/docs -o tm.md",
-    "code:routes": "codefetch --include-dir src/routes --exclude-dir .ruler,.cursor -o routes.md",
+    "code:comp": "codefetch --include-dir src/components -o components.md",
     "code:hooks": "codefetch --include-dir src/hooks --exclude-dir .ruler,.cursor -o hooks.md",
     "code:serve": "codefetch --include-dir src/server --exclude-dir .ruler,.cursor -o server.md",
     "code:all": "pnpm code:src && pnpm code:comp && pnpm code:routes && pnpm code:hooks && pnpm code:serve"
