@@ -1,6 +1,0 @@
-./src/components/chatbot/ChatDockPanel.tsx	646
-./src/components/ui/filters.tsx	2137
-./src/components/viewer/SessionList.tsx	1560
-./src/components/viewer/AnimatedTimelineList.tsx	689
-./src/components/kibo-ui/code-block/index.tsx	721
-total	13503
