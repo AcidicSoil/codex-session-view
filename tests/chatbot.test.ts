@@ -52,11 +52,17 @@ describe('Misalignment detector', () => {
   it('flags fixture heuristics', () => {
     const detection = detectMisalignments({ snapshot: misalignmentSnapshot, agentRules })
     expect(detection.misalignments.length).toBeGreaterThanOrEqual(1)
+    expect(Array.isArray(detection.warnings)).toBe(true)
+    expect(detection.warnings.length).toBe(0)
   })
 })
 
 describe('Analysis helpers', () => {
   const detection = detectMisalignments({ snapshot: misalignmentSnapshot, agentRules })
+  it('exposes warnings array along with misalignments', () => {
+    expect(Array.isArray(detection.warnings)).toBe(true)
+    expect(detection.warnings.length).toBe(0)
+  })
 
   it('builds markdown with four required sections', () => {
     const markdown = generateSessionSummaryMarkdown({
@@ -164,6 +170,7 @@ describe('Assistant evidence mapping', () => {
 
       // Should find 1 misalignment
       expect(result.misalignments.length).toBe(1);
+      expect(result.warnings.length).toBe(0);
 
       // Check details
       const record = result.misalignments[0];
@@ -192,6 +199,23 @@ describe('Assistant evidence mapping', () => {
       });
 
       expect(result.misalignments.length).toBe(0);
+      expect(result.warnings.length).toBe(0);
+    });
+
+    it('emits warnings for invalid regex triggers', () => {
+      const invalidRule = [
+        {
+          id: 'invalid-rule',
+          severity: 'medium',
+          patterns: ['[(unterminated'],
+        },
+      ];
+      const result = detectMisalignments({
+        snapshot: badSnapshot,
+        agentRules: invalidRule,
+      });
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings[0]).toContain('Invalid regex trigger');
     });
   });
 })
