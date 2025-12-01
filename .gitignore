@@ -57,32 +57,40 @@ session-id.md
 #screenshots/
 #**/*screenshot*.png/**
 .todo/
-
+scripts
 
 # START Ruler Generated Files
 /.codex/config.toml
 /.codex/config.toml.bak
-/AGENTS.md
+
 /AGENTS.md.bak
+/codefetch/all-agents/.codex/config.toml
+/codefetch/all-agents/.codex/config.toml.bak
+/codefetch/all-agents/AGENTS.md
+/codefetch/all-agents/AGENTS.md.bak
+/codefetch/all-agents/src/components/.codex/config.toml
+/codefetch/all-agents/src/components/.codex/config.toml.bak
+/codefetch/all-agents/src/components/AGENTS.md
+/codefetch/all-agents/src/components/AGENTS.md.bak
 /src/.codex/config.toml
 /src/.codex/config.toml.bak
-/src/AGENTS.md
+
 /src/AGENTS.md.bak
 /src/components/.codex/config.toml
 /src/components/.codex/config.toml.bak
-/src/components/AGENTS.md
+
 /src/components/AGENTS.md.bak
 /src/db/schema/.codex/config.toml
 /src/db/schema/.codex/config.toml.bak
-/src/db/schema/AGENTS.md
+
 /src/db/schema/AGENTS.md.bak
 /src/routes/.codex/config.toml
 /src/routes/.codex/config.toml.bak
-/src/routes/AGENTS.md
+
 /src/routes/AGENTS.md.bak
 /src/server/function/.codex/config.toml
 /src/server/function/.codex/config.toml.bak
-/src/server/function/AGENTS.md
+
 /src/server/function/AGENTS.md.bak
 # END Ruler Generated Files
 
