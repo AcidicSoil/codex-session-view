@@ -12,6 +12,7 @@ import {
 } from '~/components/viewer/TimelineFilters'
 import { dedupeTimelineEvents } from '~/components/viewer/AnimatedTimelineList'
 import { buildSearchMatchers, matchesSearchMatchers, type SearchMatcher } from '~/utils/search'
+import { TimelineSearchBar } from '~/components/viewer/TimelineSearchBar'
 
 interface TimelineWithFiltersProps {
   /**
@@ -22,6 +23,7 @@ interface TimelineWithFiltersProps {
   onAddEventToChat?: (event: TimelineEvent, index: number) => void
   timelineHeight?: number
   registerFilters?: (node: React.ReactNode | null) => void
+  registerSearchBar?: (node: React.ReactNode | null) => void
   flaggedEvents?: Map<number, TimelineFlagMarker>
   onFlaggedEventClick?: (marker: TimelineFlagMarker) => void
 }
@@ -31,6 +33,7 @@ export function TimelineWithFilters({
   onAddEventToChat,
   timelineHeight,
   registerFilters,
+  registerSearchBar,
   flaggedEvents,
   onFlaggedEventClick,
 }: TimelineWithFiltersProps) {
@@ -112,9 +115,6 @@ export function TimelineWithFilters({
         filteredCount={filteredEvents.length}
         totalCount={events.length}
         searchMatchCount={searchMatches.length}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onSearchNext={handleSearchNext}
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
       />
@@ -126,10 +126,19 @@ export function TimelineWithFilters({
       roleFilter,
       filteredEvents.length,
       searchMatches.length,
-      searchQuery,
       sortOrder,
-      handleSearchNext,
     ],
+  )
+
+  const searchBarNode = useMemo(
+    () => (
+      <TimelineSearchBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onSearchNext={handleSearchNext}
+      />
+    ),
+    [handleSearchNext, searchQuery],
   )
 
   useEffect(() => {
@@ -138,8 +147,15 @@ export function TimelineWithFilters({
     return () => registerFilters(null)
   }, [registerFilters, filtersNode])
 
+  useEffect(() => {
+    if (!registerSearchBar) return
+    registerSearchBar(searchBarNode)
+    return () => registerSearchBar(null)
+  }, [registerSearchBar, searchBarNode])
+
   return (
     <div className="space-y-4">
+      {registerSearchBar ? null : searchBarNode}
       {registerFilters ? null : filtersNode}
       {!hasSourceEvents ? (
         <p className="text-sm text-muted-foreground">Load or drop a session to populate the timeline.</p>

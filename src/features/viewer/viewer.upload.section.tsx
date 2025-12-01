@@ -206,6 +206,7 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
   const loader = controller.loader
   const hasEvents = loader.state.events.length > 0
   const [timelineHeight, setTimelineHeight] = useState(720)
+  const [searchBarSlot, setSearchBarSlot] = useState<ReactNode | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -235,6 +236,7 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
           {controller.isEjecting ? 'Ejecting…' : 'Eject session'}
         </Button>
       </div>
+      {searchBarSlot ? <div className="mb-4">{searchBarSlot}</div> : null}
       {loader.state.phase === 'parsing' ? (
         <p className="text-sm text-muted-foreground">Streaming events… large sessions may take a moment.</p>
       ) : hasEvents ? (
@@ -244,6 +246,7 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
             onAddEventToChat={onAddTimelineEventToChat}
             timelineHeight={timelineHeight}
             registerFilters={onFiltersRender}
+            registerSearchBar={setSearchBarSlot}
             flaggedEvents={flaggedEvents}
             onFlaggedEventClick={onFlaggedEventClick}
           />

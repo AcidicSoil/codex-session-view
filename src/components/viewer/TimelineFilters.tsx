@@ -1,12 +1,9 @@
-import { useMemo, useRef } from 'react';
-import { Search } from 'lucide-react';
+import { useMemo } from 'react';
 import { Filters } from '~/components/ui/filters';
 import type { Filter, FilterFieldsConfig } from '~/components/ui/filters';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import type { ResponseItem } from '~/lib/viewer-types';
 import { formatCount } from '~/utils/intl';
-import { Input } from '~/components/ui/input';
-import { InputGroup, InputGroupText } from '~/components/ui/input-group';
 
 export type TimelineFilterFieldKey = 'type' | 'role';
 export type TimelineFilterValue = string;
@@ -27,9 +24,6 @@ interface TimelineFiltersProps {
   filteredCount: number;
   totalCount: number;
   searchMatchCount: number;
-  searchQuery: string;
-  onSearchChange: (next: string) => void;
-  onSearchNext?: () => void;
 }
 
 const defaultTypeOptions = [
@@ -67,45 +61,15 @@ export function TimelineFilters({
   filteredCount,
   totalCount,
   searchMatchCount,
-  searchQuery,
-  onSearchChange,
-  onSearchNext,
 }: TimelineFiltersProps) {
   const fieldOptions = useMemo(() => buildFieldConfig(events), [events]);
   const hasMessageEvents = useMemo(
     () => events.some((event) => event.type === 'Message'),
     [events]
   );
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <div className="rounded-xl border bg-muted/5 p-4">
-      {/* Banner Search Bar */}
-      <div className="mb-4">
-        <InputGroup className="bg-background">
-          <InputGroupText>
-            <Search className="size-4" />
-          </InputGroupText>
-          <Input
-            type="search"
-            value={searchQuery}
-            ref={searchInputRef}
-            onChange={(event) => onSearchChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                onSearchNext?.();
-                requestAnimationFrame(() => {
-                  searchInputRef.current?.focus();
-                });
-              }
-            }}
-            placeholder="Filter by content, path, or type…"
-            className="border-0 focus-visible:ring-0"
-          />
-        </InputGroup>
-      </div>
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-0.5">
           <p className="text-sm font-semibold">Filters</p>
