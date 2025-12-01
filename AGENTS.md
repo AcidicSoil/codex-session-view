@@ -132,6 +132,49 @@
 
 
 
+<!-- Source: .ruler/missin-docs-use-mcp.md -->
+
+# mcp-missin-docs
+
+## gitmcp Server and mcpdoc server usage 
+
+for ANY question about tech-stack specifics, use the <name>_Docs server for that repo:
+
+- call search_<name>_documentation to find relevant docs
+- call fetch_<name>_documentation to read the primary docs
+- reflect on the input question
+- call fetch_url_content for any external URLs referenced
+- call search_<name>_code if code locations are referenced or needed
+- use this to answer the question
+
+---
+
+## Doc Tool Selection
+
+for ANY work about tanstack, ai-sdks, vercel and/or providers use the <name>-docs-mcp server to help answer --
+
+- call list_doc_sources tool to get the available llms.txt file
+- call fetch_docs tool to read it
+- reflect on the urls in llms.txt
+- reflect on the input question
+- call fetch_docs on any urls relevant to the question
+- use this to answer the question
+
+---
+
+for ANY work about tanstack, ai-sdks, vercel, and/or providers use the <name>_docs server for that repo:
+
+- call search_<name>_documentation to find relevant docs
+- call fetch_<name>_documentation to read the primary docs
+- reflect on the input question
+- call fetch_url_content for any external URLs referenced
+- call search_<name>_code if code locations are referenced or needed
+- use this to answer the question
+
+---
+
+
+
 <!-- Source: .ruler/skill-usage.md -->
 
 ### Codex skills usage
