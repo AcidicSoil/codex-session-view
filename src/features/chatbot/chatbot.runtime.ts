@@ -13,7 +13,7 @@ export interface ChatStreamRequestBody {
 export interface ChatAnalyzeRequestBody {
   sessionId: string
   mode: ChatMode
-  analysisType: 'summary' | 'commits'
+  analysisType: 'summary' | 'commits' | 'hook-discovery'
   prompt?: string
 }
 

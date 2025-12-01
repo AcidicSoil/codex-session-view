@@ -19,6 +19,7 @@ import {
   type ChatStreamResult,
   ProviderUnavailableError,
 } from '~/server/lib/aiRuntime';
+import { ensureLmStudioModelsRegistered } from '~/server/lib/lmStudioModels';
 import type { ChatRemediationMetadata } from '~/lib/chatbot/types';
 
 const metadataSchema = z
@@ -47,7 +48,7 @@ const streamInputSchema = z.object({
 const analyzeInputSchema = z.object({
   sessionId: z.string().min(1),
   mode: z.union([z.literal('session'), z.literal('general')]).default('session'),
-  analysisType: z.enum(['summary', 'commits']).default('summary'),
+  analysisType: z.enum(['summary', 'commits', 'hook-discovery']).default('summary'),
   prompt: z.string().optional(),
 });
 
@@ -68,6 +69,7 @@ export async function streamChatFromPayload(payload: unknown): Promise<Response>
   if (!input.success) {
     return jsonResponse({ error: 'INVALID_INPUT', issues: input.error.flatten() }, 400);
   }
+  await ensureLmStudioModelsRegistered().catch(() => {});
   try {
     assertChatModeEnabled(input.data.mode);
   } catch (error) {
@@ -143,6 +145,7 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
   if (!input.success) {
     return jsonResponse({ error: 'INVALID_INPUT', issues: input.error.flatten() }, 400);
   }
+  await ensureLmStudioModelsRegistered().catch(() => {});
   if (input.data.mode !== 'session') {
     return jsonResponse({ code: 'MODE_NOT_ENABLED' }, 200);
   }
@@ -190,7 +193,10 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
       mode: input.data.mode,
     });
 
-    if (input.data.analysisType === 'summary') {
+    if (
+      input.data.analysisType === 'summary' ||
+      input.data.analysisType === 'hook-discovery'
+    ) {
       logInfo('chatbot.analyze', 'Analyze request processed', {
         ...baseMeta,
         durationMs: Date.now() - startedAt,
