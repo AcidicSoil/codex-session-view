@@ -11,12 +11,9 @@
 ---
 
 <p>
-<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/README-demo_UI-overhaul.gif" alt="demo-latest-look" />
+<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/demo.gif" alt="demo" />
 </p>
 
-<p>
-<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/README-demo_v4.gif" alt="demo-latest-look" />
-</p>
 
 ## Overview
 
