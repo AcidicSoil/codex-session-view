@@ -29,18 +29,24 @@ export interface AnalysisContext {
   rules: MisalignmentRule[];
 }
 
+interface MisalignmentDetectionResult {
+  misalignments: MisalignmentResult[];
+  warnings: string[];
+}
+
 export class MisalignmentDetector {
   /**
    * Analyzes a message against a set of dynamic rules to detect misalignments.
    * Checks both regex 'patterns' and simple string 'keywords'.
    * Synchronous implementation.
    */
-  analyze(text: string, context: AnalysisContext): { misalignments: MisalignmentResult[] } {
+  analyze(text: string, context: AnalysisContext): MisalignmentDetectionResult {
     const misalignments: MisalignmentResult[] = [];
+    const warnings: string[] = [];
     const { rules } = context;
 
     if (!rules || rules.length === 0) {
-      return { misalignments };
+      return { misalignments, warnings };
     }
 
     for (const rule of rules) {
@@ -56,7 +62,12 @@ export class MisalignmentDetector {
           // We use 'i' for case-insensitive matching
           const regex = new RegExp(trigger, 'i');
           return regex.test(text);
-        } catch {
+        } catch (error) {
+          warnings.push(
+            `Invalid regex trigger "${trigger}" for rule "${rule.id}": ${
+              error instanceof Error ? error.message : 'unknown error'
+            }`
+          );
           // Fallback to simple inclusion if regex fails
           return text.toLowerCase().includes(trigger.toLowerCase());
         }
@@ -73,7 +84,7 @@ export class MisalignmentDetector {
       }
     }
 
-    return { misalignments };
+    return { misalignments, warnings };
   }
 }
 
@@ -82,8 +93,13 @@ export class MisalignmentDetector {
  * Returns fully shaped MisalignmentRecord objects to satisfy test helpers.
  * This function is SYNCHRONOUS.
  */
-export function detectMisalignments(params: { snapshot: any; agentRules?: any[] }): {
+export function detectMisalignments(params: {
+  snapshot: any;
+  agentRules?: any[];
+  existing?: MisalignmentRecord[];
+}): {
   misalignments: MisalignmentRecord[];
+  warnings: string[];
 } {
   const { snapshot, agentRules } = params;
   const detector = new MisalignmentDetector();
@@ -148,5 +164,6 @@ export function detectMisalignments(params: { snapshot: any; agentRules?: any[] 
 
   return {
     misalignments: records,
+    warnings: result.warnings,
   };
 }
