@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '~/components/ui/select';
 import { Button } from '~/components/ui/button';
-import { SummaryPopout, CommitPopout } from '~/components/chatbot/SessionAnalysisPopouts';
+import { SessionAnalysisPopouts } from '~/components/chatbot/SessionAnalysisPopouts';
 import type { ChatMode } from '~/lib/sessions/model';
 import type { ViewerChatState } from '~/features/viewer/viewer.loader';
 
@@ -87,12 +87,7 @@ export function ChatDockHeader({
               ))}
             </SelectContent>
           </Select>
-          {mode === 'session' ? (
-            <>
-              <SummaryPopout sessionId={sessionId} mode={mode} />
-              <CommitPopout sessionId={sessionId} mode={mode} />
-            </>
-          ) : null}
+          {mode === 'session' ? <SessionAnalysisPopouts sessionId={sessionId} mode={mode} /> : null}
           <Button size="sm" variant="outline" onClick={onReset} disabled={isStreaming || isResetting}>
             {isResetting ? 'Resetting…' : 'New chat'}
           </Button>
