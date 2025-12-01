@@ -14,6 +14,7 @@ export interface MisalignmentRule {
   description?: string;
   heading?: string; // Support AgentRule heading
   summary?: string; // Support AgentRule summary
+  source?: 'bullet' | 'heading';
 }
 
 export interface MisalignmentResult {
@@ -108,8 +109,13 @@ export function detectMisalignments(params: {
   let rules: MisalignmentRule[] = [];
 
   if (agentRules && Array.isArray(agentRules)) {
-    // Cast the incoming AgentRules to our internal compatible interface
-    rules = agentRules as unknown as MisalignmentRule[];
+    const rawRules = agentRules as unknown as MisalignmentRule[];
+    rules = rawRules.filter((rule) => {
+      const hasTriggers = (rule.patterns?.length ?? 0) + (rule.keywords?.length ?? 0) > 0;
+      const isBullet = (rule.source ?? 'bullet') === 'bullet';
+      const isInformational = rule.severity === 'info';
+      return hasTriggers && isBullet && !isInformational;
+    });
   } else if (snapshot.rules || snapshot.misalignmentRules) {
     rules = (snapshot.rules || snapshot.misalignmentRules) as MisalignmentRule[];
   }
@@ -143,13 +149,23 @@ export function detectMisalignments(params: {
   const result = detector.analyze(text, context);
 
   // 5. Map to full MisalignmentRecord structure expected by tests
-  const records: MisalignmentRecord[] = result.misalignments.map((m, idx) => {
+  const grouped = new Map<string, MisalignmentRecord>();
+  const records: MisalignmentRecord[] = [];
+
+  result.misalignments.forEach((m) => {
     const evidenceItem: MisalignmentEvidence = {
       message: m.text,
     };
+    const stableId = `mis-${sessionId}-${m.ruleId}`;
+    const existingRecord = grouped.get(m.ruleId);
+    if (existingRecord) {
+      existingRecord.evidence = [...existingRecord.evidence, evidenceItem];
+      existingRecord.updatedAt = new Date().toISOString();
+      return;
+    }
 
-    return {
-      id: `temp-misalignment-${idx}`,
+    const nextRecord: MisalignmentRecord = {
+      id: stableId,
       sessionId,
       ruleId: m.ruleId,
       title: m.ruleTitle || m.ruleId,
@@ -160,6 +176,8 @@ export function detectMisalignments(params: {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    grouped.set(m.ruleId, nextRecord);
+    records.push(nextRecord);
   });
 
   return {

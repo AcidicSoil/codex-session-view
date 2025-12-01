@@ -129,7 +129,11 @@ function createMisalignmentSection(list: MisalignmentRecord[] | undefined): Prom
   if (!list || list.length === 0) {
     return null
   }
-  const content = list
+  const activeItems = list.filter((item) => item.status !== 'dismissed')
+  if (activeItems.length === 0) {
+    return null
+  }
+  const content = activeItems
     .map((item, index) => {
       const header = `${index + 1}. [${item.severity.toUpperCase()} | ${item.status}] ${item.title}`
       const summary = `Summary: ${item.summary}`

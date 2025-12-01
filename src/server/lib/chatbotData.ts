@@ -1,12 +1,13 @@
 import { parseAgentRules, type AgentRule } from '~/lib/agents-rules/parser';
 import type { SessionSnapshot } from '~/lib/sessions/model';
 
-let cachedSnapshot: SessionSnapshot | null = null;
 let cachedRules: AgentRule[] | null = null;
+const cachedSnapshots = new Map<string, SessionSnapshot>();
+let baseSnapshot: Omit<SessionSnapshot, 'sessionId'> | null = null;
 
-export async function loadSessionSnapshot(sessionId: string): Promise<SessionSnapshot> {
-  if (cachedSnapshot) {
-    return { ...cachedSnapshot, sessionId };
+async function loadBaseSnapshot(): Promise<Omit<SessionSnapshot, 'sessionId'>> {
+  if (baseSnapshot) {
+    return baseSnapshot;
   }
   const fs = await import('node:fs/promises');
   // Fallback to fixture if no live session is loaded yet, or implement live loading here if needed.
@@ -17,12 +18,26 @@ export async function loadSessionSnapshot(sessionId: string): Promise<SessionSna
     meta: SessionSnapshot['meta'];
     events: SessionSnapshot['events'];
   };
-  cachedSnapshot = {
-    sessionId,
+  baseSnapshot = {
     meta: parsed.meta,
     events: parsed.events,
   };
-  return cachedSnapshot;
+  return baseSnapshot;
+}
+
+export async function loadSessionSnapshot(sessionId: string): Promise<SessionSnapshot> {
+  const cached = cachedSnapshots.get(sessionId);
+  if (cached) {
+    return cached;
+  }
+  const fixture = await loadBaseSnapshot();
+  const snapshot: SessionSnapshot = {
+    sessionId,
+    meta: fixture.meta ? { ...fixture.meta } : undefined,
+    events: fixture.events.map((event) => ({ ...event })),
+  };
+  cachedSnapshots.set(sessionId, snapshot);
+  return snapshot;
 }
 
 export async function loadAgentRules() {

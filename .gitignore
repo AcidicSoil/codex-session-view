@@ -56,7 +56,7 @@ session-id.md
 #.taskmaster/docs/v2/
 #screenshots/
 #**/*screenshot*.png/**
-.todo/
+#.todo/
 scripts
 
 # START Ruler Generated Files
