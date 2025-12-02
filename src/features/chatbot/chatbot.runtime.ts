@@ -64,7 +64,20 @@ export async function requestChatAnalysis<T = unknown>(body: ChatAnalyzeRequestB
     body: JSON.stringify(body),
   })
   if (!response.ok) {
-    throw new Error(`Analyze request failed with status ${response.status}`)
+    const contentType = response.headers.get('content-type') ?? ''
+    const payload = contentType.includes('application/json') ? await response.json().catch(() => null) : null
+    const message =
+      (payload && typeof payload === 'object' && typeof (payload as { message?: string }).message === 'string'
+        ? (payload as { message: string }).message
+        : null) ?? `Analyze request failed with status ${response.status}`
+    const error = new Error(message) as Error & { code?: string }
+    const code = payload && typeof payload === 'object' && typeof (payload as { code?: string }).code === 'string'
+      ? (payload as { code: string }).code
+      : undefined
+    if (code) {
+      error.code = code
+    }
+    throw error
   }
   return (await response.json()) as T
 }
