@@ -55,7 +55,11 @@ Improve Prompt
 
 ## evidence
 
+- add embedding model for large sessions and/or multiple sessions before next stage of chatbot (i.e., output response)
+
 [for the flagged files not following instruction files](https://ai-sdk.dev/elements/components/sources)
+
+show evidence in chat
 
 ## model selector
 
