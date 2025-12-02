@@ -2,10 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '~/components/ui/card';
 import type { ViewerChatState } from '~/features/viewer/viewer.loader';
 import { fetchChatbotState } from '~/server/function/chatbotState';
-import {
-  useChatDockController,
-  type CoachPrefillPayload,
-} from '~/components/chatbot/hooks/useChatDockController';
+import { useChatDockController } from '~/components/chatbot/hooks/useChatDockController';
+import type { CoachPrefillPayload } from '~/lib/chatbot/types';
 import { ChatDockBootstrapCard } from '~/components/chatbot/ChatDockBootstrapCard';
 import { ChatDockHeader } from '~/components/chatbot/ChatDockHeader';
 import { ChatDockMessages, MisalignmentList } from '~/components/chatbot/ChatDockMessages';

@@ -18,13 +18,21 @@ import { VIEWER_ROUTE_ID } from './route-id'
 import type { ViewerSnapshot } from './viewer.loader'
 import type { TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
 import type { MisalignmentRecord } from '~/lib/sessions/model'
-import type { ChatRemediationMetadata } from '~/lib/chatbot/types'
+import type { CoachPrefillPayload, ChatRemediationMetadata } from '~/lib/chatbot/types'
 import { MisalignmentBanner } from '~/components/chatbot/MisalignmentBanner'
 import { pickHigherSeverity, selectPrimaryMisalignment } from '~/features/chatbot/severity'
+import { hookifyAddToChat } from '~/server/function/hookifyAddToChat'
+import { HookGateNotice } from '~/components/chatbot/HookGateNotice'
+import type { HookDecisionSeverity, HookRuleSummary, HookSource } from '~/server/lib/hookifyRuntime'
+import { toast } from 'sonner'
 
-interface SessionCoachPrefill {
-  prompt: string
-  metadata?: ChatRemediationMetadata
+interface HookGateState {
+  blocked: boolean
+  severity: HookDecisionSeverity
+  message?: string
+  annotations?: string
+  rules: HookRuleSummary[]
+  decisionId: string
 }
 
 export function ViewerPage() {
@@ -48,6 +56,7 @@ export function ViewerClient() {
   const [timelineFiltersSlot, setTimelineFiltersSlot] = useState<ReactNode | null>(null);
   const [explorerFiltersSlot, setExplorerFiltersSlot] = useState<ReactNode | null>(null);
   const sessionCoach = loaderData?.sessionCoach
+  const resolvedSessionId = loaderData?.sessionId ?? 'demo-session'
   const misalignments = sessionCoach?.misalignments ?? []
   const flaggedEventMarkers = useMemo(() => {
     if (!sessionCoach?.featureEnabled) {
@@ -55,7 +64,8 @@ export function ViewerClient() {
     }
     return buildFlaggedEventMap(misalignments)
   }, [misalignments, sessionCoach?.featureEnabled])
-  const [coachPrefill, setCoachPrefill] = useState<SessionCoachPrefill | null>(null)
+  const [coachPrefill, setCoachPrefill] = useState<CoachPrefillPayload | null>(null)
+  const [hookGate, setHookGate] = useState<HookGateState | null>(null)
 
   const handleNavChange = useCallback(
     (nextValue: string) => {
@@ -73,6 +83,53 @@ export function ViewerClient() {
     [],
   );
 
+  const runHookifyPrefill = useCallback(
+    async (
+      basePrompt: string,
+      source: HookSource,
+      extras?: { eventType?: string; filePath?: string },
+      metadataOverride?: ChatRemediationMetadata,
+    ) => {
+      setHookGate(null);
+      try {
+        const response = await hookifyAddToChat({
+          data: {
+            sessionId: resolvedSessionId,
+            source,
+            content: basePrompt,
+            eventType: extras?.eventType,
+            filePath: extras?.filePath,
+          },
+        });
+        setHookGate({
+          blocked: response.blocked,
+          severity: response.severity,
+          message: response.message,
+          annotations: response.annotations,
+          rules: response.rules,
+          decisionId: response.decisionId,
+        });
+        if (response.blocked || !response.prefill) {
+          toast.error('Add to chat blocked', {
+            description: response.message ?? 'Resolve AGENT violations before continuing.',
+          });
+          return;
+        }
+        const mergedPrefill: CoachPrefillPayload = {
+          prompt: response.prefill.prompt,
+          metadata: metadataOverride ?? response.prefill.metadata,
+        };
+        setCoachPrefill(mergedPrefill);
+        handleNavChange('chat');
+      } catch (error) {
+        toast.error('Hookify check failed', {
+          description: error instanceof Error ? error.message : 'Unable to evaluate AGENT rules.',
+        });
+      }
+    },
+    [handleNavChange, resolvedSessionId],
+  );
+
   const handleAddTimelineEventToChat = (event: TimelineEvent, index: number) => {
     logInfo('viewer.chatdock', 'Timeline event add-to-chat requested', {
       eventType: event.type,
@@ -82,8 +139,7 @@ export function ViewerClient() {
     const snippet = JSON.stringify(event, null, 2);
     const prompt = `Analyze this timeline event #${index + 1} (${event.type}):\n\n\`\`\`json\n${snippet}\n\`\`\`\n\nWhat are the implications of this event?`;
 
-    setCoachPrefill({ prompt });
-    handleNavChange('chat');
+    void runHookifyPrefill(prompt, 'timeline', { eventType: event.type });
   };
 
   const handleAddSessionToChat = (asset: DiscoveredSessionAsset) => {
@@ -94,8 +150,7 @@ export function ViewerClient() {
 
     const prompt = `I am looking at session file: ${asset.path}\nRepo: ${asset.repoLabel ?? asset.repoName ?? 'unknown'}\n\nPlease analyze this session context.`;
 
-    setCoachPrefill({ prompt });
-    handleNavChange('chat');
+    void runHookifyPrefill(prompt, 'session', { filePath: asset.path });
   };
 
   const navItems = useMemo(
@@ -137,10 +192,9 @@ export function ViewerClient() {
     (records: MisalignmentRecord[]) => {
       const payload = buildRemediationPrefill(records)
       if (!payload) return
-      setCoachPrefill(payload)
-      handleNavChange('chat')
+      void runHookifyPrefill(payload.prompt, 'manual', undefined, payload.metadata)
     },
-    [handleNavChange],
+    [runHookifyPrefill],
   )
 
   const handleFlaggedEventClick = useCallback(
@@ -235,12 +289,22 @@ export function ViewerClient() {
             {sessionCoach?.featureEnabled ? (
               <MisalignmentBanner misalignments={misalignments} onReview={handleRemediationPrefill} />
             ) : null}
+            {hookGate ? (
+              <HookGateNotice
+                blocked={hookGate.blocked}
+                severity={hookGate.severity}
+                message={hookGate.message}
+                annotations={hookGate.annotations}
+                rules={hookGate.rules}
+                onDismiss={() => setHookGate(null)}
+              />
+            ) : null}
             <aside
               id="viewer-chat"
               className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner"
             >
               <ChatDockPanel
-                sessionId={loaderData?.sessionId ?? 'demo-session'}
+                sessionId={resolvedSessionId}
                 state={sessionCoach}
                 prefill={coachPrefill}
                 onPrefillConsumed={() => setCoachPrefill(null)}
@@ -288,7 +352,7 @@ function buildFlaggedEventMap(misalignments: MisalignmentRecord[]): Map<number, 
   return map
 }
 
-function buildRemediationPrefill(records: MisalignmentRecord[]): SessionCoachPrefill | null {
+function buildRemediationPrefill(records: MisalignmentRecord[]): CoachPrefillPayload | null {
   if (!records.length) {
     return null
   }

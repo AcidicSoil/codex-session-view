@@ -10,7 +10,12 @@ import {
   listMisalignments,
 } from '~/server/persistence/misalignments';
 import type { MisalignmentRecord } from '~/lib/sessions/model';
-import { resolveModelForMode, getChatModelDefinition } from '~/lib/ai/client';
+import {
+  resolveModelForMode,
+  getChatModelDefinition,
+  generateSessionSummaryMarkdown,
+  generateCommitMessages,
+} from '~/lib/ai/client';
 import { loadAgentRules, loadSessionSnapshot } from '~/server/lib/chatbotData';
 import {
   generateSessionCoachReply,
@@ -62,6 +67,39 @@ function isProviderUnavailableError(error: unknown): error is ProviderUnavailabl
       'code' in error &&
       (error as { code?: string }).code === 'MODEL_UNAVAILABLE'
   );
+}
+
+type AiProviderError = Error & {
+  data?: {
+    error?: {
+      message?: string;
+    };
+  };
+};
+
+function isAiProviderError(error: unknown): error is AiProviderError {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      'data' in error &&
+      typeof (error as { data?: unknown }).data === 'object'
+  );
+}
+
+function getProviderErrorMessage(error: unknown): string {
+  if (isAiProviderError(error)) {
+    const aiMessage = (error.data?.error?.message as string | undefined) ?? error.message;
+    if (aiMessage) {
+      return aiMessage;
+    }
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'Model is not available right now.';
 }
 
 export async function streamChatFromPayload(payload: unknown): Promise<Response> {
@@ -160,8 +198,8 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
 
   const startedAt = Date.now();
   try {
-    const modelId = resolveModelForMode(input.data.mode);
-    const modelDefinition = getChatModelDefinition(modelId);
+    const resolvedModelId = resolveModelForMode(input.data.mode);
+    const modelDefinition = getChatModelDefinition(resolvedModelId);
 
     const snapshot = await loadSessionSnapshot(input.data.sessionId);
     const rules = await loadAgentRules();
@@ -182,44 +220,81 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
       sessionId: input.data.sessionId,
       mode: input.data.mode,
       analysisType: input.data.analysisType,
-      modelId,
+      modelId:
+        input.data.analysisType === 'hook-discovery'
+          ? resolvedModelId
+          : 'builtin:session-insights',
     };
 
-    const resultText = await generateSessionAnalysis({
-      history,
-      contextPrompt: context.prompt,
-      analysisType: input.data.analysisType,
-      modelId,
-      mode: input.data.mode,
-    });
+    const contextHeadings = context.sections.map((section) => section.heading);
 
-    if (
-      input.data.analysisType === 'summary' ||
-      input.data.analysisType === 'hook-discovery'
-    ) {
+    if (input.data.analysisType === 'summary') {
+      const summaryMarkdown = generateSessionSummaryMarkdown({
+        snapshot,
+        misalignments,
+        recentEvents: snapshot.events,
+        contextHeadings,
+        promptSummary: input.data.prompt,
+      });
+
       logInfo('chatbot.analyze', 'Analyze request processed', {
         ...baseMeta,
         durationMs: Date.now() - startedAt,
         success: true,
       });
-      return jsonResponse({ summaryMarkdown: resultText });
+      return jsonResponse({ summaryMarkdown });
     }
 
-    const commitMessages = resultText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0 && !line.startsWith('#'))
-      .map((line) => line.replace(/^[-*•]\s+/, ''))
-      .filter((line) => line.length > 5);
+    if (input.data.analysisType === 'commits') {
+      const commitMessages = generateCommitMessages({
+        snapshot,
+        misalignments,
+        recentEvents: snapshot.events,
+      });
+
+      logInfo('chatbot.analyze', 'Analyze request processed', {
+        ...baseMeta,
+        commitCount: commitMessages.length,
+        durationMs: Date.now() - startedAt,
+        success: true,
+      });
+      return jsonResponse({ commitMessages });
+    }
+
+    const resultText = await generateSessionAnalysis({
+      history,
+      contextPrompt: context.prompt,
+      analysisType: input.data.analysisType,
+      modelId: resolvedModelId,
+      mode: input.data.mode,
+    });
 
     logInfo('chatbot.analyze', 'Analyze request processed', {
       ...baseMeta,
-      commitCount: commitMessages.length,
       durationMs: Date.now() - startedAt,
       success: true,
     });
-    return jsonResponse({ commitMessages });
+    return jsonResponse({ summaryMarkdown: resultText });
   } catch (error) {
+    if (isProviderUnavailableError(error) || isAiProviderError(error)) {
+      const message = getProviderErrorMessage(error);
+      logWarn('chatbot.analyze', 'Analyze provider unavailable', {
+        sessionId: input.data.sessionId,
+        mode: input.data.mode,
+        analysisType: input.data.analysisType,
+        durationMs: Date.now() - startedAt,
+        error: message,
+        success: false,
+      });
+      return jsonResponse(
+        {
+          code: 'MODEL_UNAVAILABLE',
+          message,
+        },
+        503
+      );
+    }
+
     logError('chatbot.analyze', 'Analyze request failed', {
       sessionId: input.data.sessionId,
       mode: input.data.mode,

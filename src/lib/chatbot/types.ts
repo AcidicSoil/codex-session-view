@@ -6,3 +6,8 @@ export interface ChatRemediationMetadata {
   severity?: MisalignmentSeverity;
   eventRange?: { startIndex: number; endIndex: number };
 }
+
+export interface CoachPrefillPayload {
+  prompt: string;
+  metadata?: ChatRemediationMetadata;
+}

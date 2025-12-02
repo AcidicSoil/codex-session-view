@@ -8,7 +8,7 @@ import {
 } from 'react';
 import type { ViewerChatState } from '~/features/viewer/viewer.loader';
 import type { ChatMessageRecord, ChatMode, MisalignmentRecord } from '~/lib/sessions/model';
-import type { ChatRemediationMetadata } from '~/lib/chatbot/types';
+import type { ChatRemediationMetadata, CoachPrefillPayload } from '~/lib/chatbot/types';
 import { mutateMisalignmentStatus } from '~/server/function/misalignments';
 import { requestChatStream } from '~/features/chatbot/chatbot.runtime';
 import { fetchChatbotState } from '~/server/function/chatbotState';
@@ -24,11 +24,6 @@ interface UseChatDockControllerOptions {
   initialState: ViewerChatState;
   prefill?: CoachPrefillPayload | null;
   onPrefillConsumed?: () => void;
-}
-
-export interface CoachPrefillPayload {
-  prompt: string;
-  metadata?: ChatRemediationMetadata;
 }
 
 export interface UseChatDockControllerResult {
