@@ -12,6 +12,8 @@ import {
 const isServerRuntime = typeof process !== 'undefined' && !!process.versions?.node;
 
 const PROJECT_FILE_INCLUDE_GLOBS = [
+  '/.git',
+  '/app/**/*',
   '/src/**/*',
   '/scripts/**/*',
   '/public/**/*',
