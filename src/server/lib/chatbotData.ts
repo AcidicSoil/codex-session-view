@@ -1,9 +1,9 @@
 import { parseAgentRules, type AgentRule } from '~/lib/agents-rules/parser';
 import type { SessionSnapshot } from '~/lib/sessions/model';
 
-let cachedRules: AgentRule[] | null = null;
 const cachedSnapshots = new Map<string, SessionSnapshot>();
 let baseSnapshot: Omit<SessionSnapshot, 'sessionId'> | null = null;
+const rulesCache = new Map<string, AgentRule[]>();
 
 async function loadBaseSnapshot(): Promise<Omit<SessionSnapshot, 'sessionId'>> {
   if (baseSnapshot) {
@@ -40,29 +40,28 @@ export async function loadSessionSnapshot(sessionId: string): Promise<SessionSna
   return snapshot;
 }
 
-export async function loadAgentRules() {
-  if (cachedRules) {
-    return cachedRules;
+export async function loadAgentRules(rootDir: string = process.cwd()) {
+  const normalizedRoot = normalizeRoot(rootDir);
+  const cached = rulesCache.get(normalizedRoot);
+  if (cached) {
+    return cached;
   }
 
   const fs = await import('node:fs/promises');
   const { default: fg } = await import('fast-glob');
 
-  // Define patterns to find instruction files across the project
   const patterns = [
-    '**/.ruler/*.md', // Standard ruler definition files
-    '**/.cursor/rules/*.md', // Cursor-specific rule definitions
-    '**/AGENTS.md', // Nested agent instruction files
-    'docs/agents/**/*.md', // Dedicated documentation folder for agents
+    '**/.ruler/*.md',
+    '**/.cursor/rules/*.md',
+    '**/AGENTS.md',
+    'docs/agents/**/*.md',
   ];
 
-  // Scan the project root, excluding noise
   const files = await fg(patterns, {
-    cwd: process.cwd(),
+    cwd: normalizedRoot,
     ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/tests/fixtures/**'],
     absolute: true,
   });
-
 
   const nestedRules = await Promise.all(
     files.map(async (filePath) => {
@@ -76,13 +75,26 @@ export async function loadAgentRules() {
     })
   );
 
-  cachedRules = nestedRules.flat();
+  const flattened = nestedRules.flat();
+  rulesCache.set(normalizedRoot, flattened);
 
   if (process.env.NODE_ENV === 'development') {
     console.info(
-      `[Chatbot] Loaded ${cachedRules.length} agent rules from ${files.length} sources.`
+      `[Chatbot] Loaded ${flattened.length} agent rules from ${files.length} sources in ${normalizedRoot}.`
     );
   }
 
-  return cachedRules;
+  return flattened;
+}
+
+export function clearAgentRulesCache(rootDir?: string) {
+  if (!rootDir) {
+    rulesCache.clear();
+    return;
+  }
+  rulesCache.delete(normalizeRoot(rootDir));
+}
+
+function normalizeRoot(rootDir: string) {
+  return rootDir.replace(/\\/g, '/').replace(/\/+$/, '');
 }

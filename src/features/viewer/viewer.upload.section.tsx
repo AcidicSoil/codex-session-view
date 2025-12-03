@@ -200,9 +200,10 @@ interface UploadTimelineSectionProps {
   onFiltersRender?: (node: ReactNode | null) => void
   flaggedEvents?: Map<number, import('~/components/viewer/AnimatedTimelineList').TimelineFlagMarker>
   onFlaggedEventClick?: (marker: import('~/components/viewer/AnimatedTimelineList').TimelineFlagMarker) => void
+  focusEventIndex?: number | null
 }
 
-export function UploadTimelineSection({ controller, onAddTimelineEventToChat, className, onFiltersRender, flaggedEvents, onFlaggedEventClick }: UploadTimelineSectionProps) {
+export function UploadTimelineSection({ controller, onAddTimelineEventToChat, className, onFiltersRender, flaggedEvents, onFlaggedEventClick, focusEventIndex }: UploadTimelineSectionProps) {
   const loader = controller.loader
   const hasEvents = loader.state.events.length > 0
   const [timelineHeight, setTimelineHeight] = useState(720)
@@ -249,6 +250,7 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
             registerSearchBar={setSearchBarSlot}
             flaggedEvents={flaggedEvents}
             onFlaggedEventClick={onFlaggedEventClick}
+            focusEventIndex={focusEventIndex}
           />
         </TimelineTracingBeam>
       ) : (

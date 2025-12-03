@@ -26,6 +26,7 @@ import {
 } from '~/server/lib/aiRuntime';
 import { ensureLmStudioModelsRegistered } from '~/server/lib/lmStudioModels';
 import type { ChatRemediationMetadata } from '~/lib/chatbot/types';
+import { getSessionRepoBinding } from '~/server/persistence/sessionRepoBindings';
 
 const metadataSchema = z
   .object({
@@ -202,7 +203,13 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
     const modelDefinition = getChatModelDefinition(resolvedModelId);
 
     const snapshot = await loadSessionSnapshot(input.data.sessionId);
-    const rules = await loadAgentRules();
+    const repoBinding = getSessionRepoBinding(input.data.sessionId);
+    const rules = repoBinding ? await loadAgentRules(repoBinding.rootDir) : [];
+    if (!repoBinding) {
+      logWarn('chatbot.analyze', 'Missing repo root for session; continuing without AGENT rules', {
+        sessionId: input.data.sessionId,
+      });
+    }
     const misalignments = await listMisalignments(input.data.sessionId);
     const history = await listChatMessages(input.data.sessionId, input.data.mode);
     const context = buildChatContext({
@@ -330,7 +337,13 @@ interface GeneralStreamOptions {
 
 async function handleSessionChatStream(options: SessionStreamOptions) {
   const snapshot = await loadSessionSnapshot(options.sessionId);
-  const rules = await loadAgentRules();
+  const repoBinding = getSessionRepoBinding(options.sessionId);
+  const rules = repoBinding ? await loadAgentRules(repoBinding.rootDir) : [];
+  if (!repoBinding) {
+    logWarn('chatbot.stream', 'Missing repo root for session; continuing without AGENT rules', {
+      sessionId: options.sessionId,
+    });
+  }
   const existingMisalignments = await listMisalignments(options.sessionId);
   const history = await listChatMessages(options.sessionId, 'session');
   const userMessage = await appendChatMessage({

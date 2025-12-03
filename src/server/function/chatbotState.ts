@@ -6,6 +6,8 @@ import { listChatMessages, resetChatThread } from '~/server/persistence/chatMess
 import { listMisalignments } from '~/server/persistence/misalignments'
 import { getChatModelOptions, getDefaultModelForMode } from '~/lib/ai/client'
 import { ensureLmStudioModelsRegistered } from '~/server/lib/lmStudioModels'
+import { logWarn } from '~/lib/logger'
+import { getSessionRepoBinding } from '~/server/persistence/sessionRepoBindings'
 
 const inputSchema = z.object({
   sessionId: z.string().min(1),
@@ -22,7 +24,13 @@ export const fetchChatbotState = createServerFn({ method: 'POST' })
       await resetChatThread(data.sessionId, data.mode)
     }
     const snapshot = await loadSessionSnapshot(data.sessionId)
-    const agentRules = data.mode === 'session' ? await loadAgentRules() : []
+    const repoBinding = data.mode === 'session' ? getSessionRepoBinding(data.sessionId) : null
+    const agentRules = repoBinding ? await loadAgentRules(repoBinding.rootDir) : []
+    if (data.mode === 'session' && !repoBinding) {
+      logWarn('chatbot.state', 'No repo root bound to session; skipping AGENT rules', {
+        sessionId: data.sessionId,
+      })
+    }
     const messages = await listChatMessages(data.sessionId, data.mode)
     const misalignments = data.mode === 'session' ? await listMisalignments(data.sessionId) : []
     const contextPreview =
@@ -34,6 +42,7 @@ export const fetchChatbotState = createServerFn({ method: 'POST' })
       sessionId: data.sessionId,
       mode: data.mode,
       featureEnabled: featureFlags.sessionCoach.enabled(),
+      repoContext: repoBinding,
       snapshot,
       misalignments,
       messages,

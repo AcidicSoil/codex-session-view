@@ -1,5 +1,5 @@
 import type { AgentRule } from '~/lib/agents-rules/parser'
-import type { MisalignmentRecord, MisalignmentSeverity } from '~/lib/sessions/model'
+import type { MisalignmentEvidence, MisalignmentRecord, MisalignmentSeverity, SessionEventRange, SessionSnapshot } from '~/lib/sessions/model'
 import type { ChatRemediationMetadata, CoachPrefillPayload } from '~/lib/chatbot/types'
 import { detectMisalignments } from '~/features/chatbot/misalignment-detector'
 import { selectPrimaryMisalignment } from '~/features/chatbot/severity'
@@ -12,6 +12,8 @@ export interface HookRuleSummary {
   title: string
   summary: string
   severity: MisalignmentSeverity
+  eventRange?: SessionEventRange
+  evidence: MisalignmentEvidence[]
 }
 
 interface EvaluateHookInput {
@@ -19,6 +21,7 @@ interface EvaluateHookInput {
   source: HookSource
   content: string
   agentRules: AgentRule[]
+  sessionSnapshot?: SessionSnapshot | null
 }
 
 export interface HookEvaluationResult {
@@ -47,10 +50,12 @@ export function evaluateAddToChatContent(input: EvaluateHookInput): HookEvaluati
     return baseResult
   }
 
-  const snapshot = {
-    sessionId: input.sessionId,
-    text: decorateContentForDetection(input.content, input.source),
-  }
+  const snapshot = input.sessionSnapshot
+    ? { ...input.sessionSnapshot }
+    : {
+        sessionId: input.sessionId,
+        text: decorateContentForDetection(input.content, input.source),
+      }
 
   const detection = detectMisalignments({ snapshot, agentRules: input.agentRules })
   if (!detection.misalignments.length) {
@@ -105,6 +110,8 @@ function mapRecordToSummary(record: MisalignmentRecord): HookRuleSummary {
     title: record.title,
     summary: record.summary,
     severity: record.severity,
+    eventRange: record.eventRange,
+    evidence: record.evidence ?? [],
   }
 }
 

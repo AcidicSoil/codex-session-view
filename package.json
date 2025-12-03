@@ -22,7 +22,7 @@
     "code:comp": "codefetch --include-dir src/components -o components.md",
     "code:agents": "codefetch --include-dir codefetch/all-agents -o agents-all.md",
     "code:serve": "codefetch --include-dir src/server --exclude-dir .ruler,.cursor -o server.md",
-    "code:all": "pnpm code:src && pnpm code:comp && pnpm code:routes && pnpm code:hooks && pnpm code:serve"
+    "code:all": "codefetch --include-dir src,docs,.todo --exclude-files \"*.test.ts\", -o all.md"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.43",

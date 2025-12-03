@@ -13,6 +13,7 @@ export interface RepoMetadata {
 export interface RepoDetails {
   repoLabel?: string
   repoMeta?: RepoMetadata
+  workspaceRoot?: string
 }
 
 type MetaParseResult = ReturnType<typeof parseSessionMetaLine>
@@ -45,9 +46,11 @@ export function buildRepoDetailsFromMeta(meta?: SessionMetaParsed | null): RepoD
     dirty: meta.git?.dirty,
   }
   const hasMeta = Object.values(repoMeta).some((value) => value !== undefined && value !== '')
+  const cwdValue = (meta as Record<string, unknown>)?.cwd
   return {
     repoLabel: repoLabel && isMeaningfulLabel(repoLabel) ? repoLabel : undefined,
     repoMeta: hasMeta ? repoMeta : undefined,
+    workspaceRoot: typeof cwdValue === 'string' && cwdValue.trim().length > 0 ? cwdValue.trim() : undefined,
   }
 }
 

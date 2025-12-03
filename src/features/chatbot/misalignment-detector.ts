@@ -4,6 +4,7 @@ import type {
   MisalignmentSeverity,
   MisalignmentStatus,
   MisalignmentEvidence,
+  SessionEventRange,
 } from '~/lib/sessions/model';
 
 export interface MisalignmentRule {
@@ -94,6 +95,13 @@ export class MisalignmentDetector {
  * Returns fully shaped MisalignmentRecord objects to satisfy test helpers.
  * This function is SYNCHRONOUS.
  */
+type TextSource = {
+  text: string;
+  eventIndex?: number;
+  eventId?: string;
+  eventAt?: string;
+};
+
 export function detectMisalignments(params: {
   snapshot: any;
   agentRules?: any[];
@@ -121,20 +129,26 @@ export function detectMisalignments(params: {
   }
 
   // 2. Extract text content from various snapshot formats
-  let text = '';
+  const textSources: TextSource[] = [];
 
-  if (typeof snapshot.text === 'string') {
-    text = snapshot.text;
-  } else if (typeof snapshot.content === 'string') {
-    text = snapshot.content;
-  } else if (Array.isArray(snapshot.events)) {
-    // Handle 'events' array common in SessionSnapshot
-    text = snapshot.events
-      .filter((e: any) => e.type === 'Message' && e.content)
-      .map((e: any) => e.content)
-      .join('\n');
-  } else if (Array.isArray(snapshot.messages)) {
-    text = snapshot.messages.map((m: any) => m.content || '').join('\n');
+  if (Array.isArray(snapshot.events) && snapshot.events.length > 0) {
+    snapshot.events.forEach((event: any, index: number) => {
+      const content = extractEventContent(event);
+      if (!content) return;
+      textSources.push({
+        text: content,
+        eventIndex: typeof event.index === 'number' ? event.index : index,
+        eventId: typeof event.id === 'string' ? event.id : undefined,
+        eventAt: typeof event.at === 'string' ? event.at : undefined,
+      });
+    });
+  }
+
+  if (textSources.length === 0) {
+    const fallbackText = extractSnapshotText(snapshot);
+    if (fallbackText) {
+      textSources.push({ text: fallbackText });
+    }
   }
 
   const sessionId = snapshot.id || snapshot.sessionId || 'test-session';
@@ -146,42 +160,130 @@ export function detectMisalignments(params: {
   };
 
   // 4. Analyze (Synchronously)
-  const result = detector.analyze(text, context);
-
-  // 5. Map to full MisalignmentRecord structure expected by tests
   const grouped = new Map<string, MisalignmentRecord>();
-  const records: MisalignmentRecord[] = [];
+  const warnings: string[] = [];
 
-  result.misalignments.forEach((m) => {
-    const evidenceItem: MisalignmentEvidence = {
-      message: m.text,
-    };
-    const stableId = `mis-${sessionId}-${m.ruleId}`;
-    const existingRecord = grouped.get(m.ruleId);
-    if (existingRecord) {
-      existingRecord.evidence = [...existingRecord.evidence, evidenceItem];
-      existingRecord.updatedAt = new Date().toISOString();
+  textSources.forEach((source) => {
+    if (!source.text || source.text.trim().length === 0) {
       return;
     }
+    const result = detector.analyze(source.text, context);
+    warnings.push(...result.warnings);
+    result.misalignments.forEach((m) => {
+      const evidenceItem: MisalignmentEvidence = {
+        message: source.text,
+        eventIndex: typeof source.eventIndex === 'number' ? source.eventIndex : undefined,
+        eventId: source.eventId,
+        highlight: buildEvidenceHighlight(source),
+      };
+      const stableId = `mis-${sessionId}-${m.ruleId}`;
+      const existingRecord = grouped.get(m.ruleId);
+      if (existingRecord) {
+        existingRecord.evidence = [...existingRecord.evidence, evidenceItem];
+        existingRecord.updatedAt = new Date().toISOString();
+        if (typeof evidenceItem.eventIndex === 'number') {
+          existingRecord.eventRange = updateEventRange(existingRecord.eventRange, evidenceItem, source);
+        }
+        return;
+      }
 
-    const nextRecord: MisalignmentRecord = {
-      id: stableId,
-      sessionId,
-      ruleId: m.ruleId,
-      title: m.ruleTitle || m.ruleId,
-      summary: m.ruleSummary || '',
-      severity: m.severity,
-      status: 'open' as MisalignmentStatus,
-      evidence: [evidenceItem],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    grouped.set(m.ruleId, nextRecord);
-    records.push(nextRecord);
+      const nextRecord: MisalignmentRecord = {
+        id: stableId,
+        sessionId,
+        ruleId: m.ruleId,
+        title: m.ruleTitle || m.ruleId,
+        summary: m.ruleSummary || '',
+        severity: m.severity,
+        status: 'open' as MisalignmentStatus,
+        evidence: [evidenceItem],
+        eventRange:
+          typeof evidenceItem.eventIndex === 'number'
+            ? buildInitialRange(evidenceItem, source)
+            : undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      grouped.set(m.ruleId, nextRecord);
+    });
   });
 
   return {
-    misalignments: records,
-    warnings: result.warnings,
+    misalignments: Array.from(grouped.values()),
+    warnings,
   };
+}
+
+function extractSnapshotText(snapshot: any) {
+  if (typeof snapshot.text === 'string') {
+    return snapshot.text
+  }
+  if (typeof snapshot.content === 'string') {
+    return snapshot.content
+  }
+  if (Array.isArray(snapshot.messages)) {
+    return snapshot.messages.map((m: any) => m.content || '').join('\n')
+  }
+  return ''
+}
+
+function extractEventContent(event: any) {
+  if (!event) return ''
+  if (typeof event.content === 'string') return event.content
+  if (Array.isArray(event.content)) {
+    return event.content
+      .map((part) => {
+        if (typeof part === 'string') return part
+        if (typeof part?.text === 'string') return part.text
+        return ''
+      })
+      .filter(Boolean)
+      .join('\n')
+  }
+  if (typeof event.command === 'string') return event.command
+  if (typeof event.path === 'string') return event.path
+  return ''
+}
+
+function buildEvidenceHighlight(source: TextSource) {
+  if (typeof source.eventIndex === 'number') {
+    const base = `event #${source.eventIndex + 1}`
+    if (source.eventAt) {
+      return `${base} • ${source.eventAt}`
+    }
+    return base
+  }
+  return undefined
+}
+
+function buildInitialRange(evidence: MisalignmentEvidence, source: TextSource): SessionEventRange {
+  const index = evidence.eventIndex ?? 0
+  const at = source.eventAt ?? ''
+  return {
+    startIndex: index,
+    endIndex: index,
+    startAt: at,
+    endAt: at,
+  }
+}
+
+function updateEventRange(
+  range: SessionEventRange | undefined,
+  evidence: MisalignmentEvidence,
+  source: TextSource,
+): SessionEventRange {
+  const index = evidence.eventIndex ?? 0
+  const at = source.eventAt ?? ''
+  if (!range) {
+    return buildInitialRange(evidence, source)
+  }
+  const startIndex = Math.min(range.startIndex, index)
+  const endIndex = Math.max(range.endIndex, index)
+  const startAt = range.startAt && range.startAt.length ? range.startAt : at
+  const endAt = at || range.endAt
+  return {
+    startIndex,
+    endIndex,
+    startAt,
+    endAt,
+  }
 }

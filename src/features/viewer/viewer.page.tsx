@@ -1,5 +1,5 @@
 import { ClientOnly, useLoaderData } from '@tanstack/react-router'
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useFileLoader } from '~/hooks/useFileLoader'
 import { DiscoverySection, useViewerDiscovery } from './viewer.discovery.section'
 import { UploadControlsCard, UploadTimelineSection, useUploadController } from './viewer.upload.section'
@@ -25,6 +25,11 @@ import { hookifyAddToChat } from '~/server/function/hookifyAddToChat'
 import { HookGateNotice } from '~/components/chatbot/HookGateNotice'
 import type { HookDecisionSeverity, HookRuleSummary, HookSource } from '~/server/lib/hookifyRuntime'
 import { toast } from 'sonner'
+import { SessionRepoSelector } from '~/components/chatbot/SessionRepoSelector'
+import { SessionRuleSheet } from '~/components/chatbot/SessionRuleSheet'
+import { fetchChatbotState } from '~/server/function/chatbotState'
+import { sessionRepoContext } from '~/server/function/sessionRepoContext'
+import { fetchRuleInventory } from '~/server/function/ruleInventory'
 
 interface HookGateState {
   blocked: boolean
@@ -46,6 +51,8 @@ export function ViewerPage() {
 export function ViewerClient() {
   const loaderData = useLoaderData({ from: VIEWER_ROUTE_ID }) as ViewerSnapshot | undefined
   const loader = useFileLoader();
+  const initialSessionId = loaderData?.sessionId ?? 'demo-session'
+  const [activeSessionId, setActiveSessionId] = useState(initialSessionId)
   const discovery = useViewerDiscovery({ loader });
   const uploadController = useUploadController({
     loader,
@@ -55,17 +62,80 @@ export function ViewerClient() {
   const [tabValue, setTabValue] = useState<'timeline' | 'explorer'>('timeline');
   const [timelineFiltersSlot, setTimelineFiltersSlot] = useState<ReactNode | null>(null);
   const [explorerFiltersSlot, setExplorerFiltersSlot] = useState<ReactNode | null>(null);
-  const sessionCoach = loaderData?.sessionCoach
-  const resolvedSessionId = loaderData?.sessionId ?? 'demo-session'
-  const misalignments = sessionCoach?.misalignments ?? []
+  const [sessionCoachState, setSessionCoachState] = useState(loaderData?.sessionCoach ?? null)
+  const [ruleSheetEntries, setRuleSheetEntries] = useState(loaderData?.ruleSheet ?? [])
+  const [focusEventIndex, setFocusEventIndex] = useState<number | null>(null)
+  const misalignments = sessionCoachState?.misalignments ?? []
   const flaggedEventMarkers = useMemo(() => {
-    if (!sessionCoach?.featureEnabled) {
+    if (!sessionCoachState?.featureEnabled) {
       return new Map<number, TimelineFlagMarker>()
     }
     return buildFlaggedEventMap(misalignments)
-  }, [misalignments, sessionCoach?.featureEnabled])
+  }, [misalignments, sessionCoachState?.featureEnabled])
   const [coachPrefill, setCoachPrefill] = useState<CoachPrefillPayload | null>(null)
   const [hookGate, setHookGate] = useState<HookGateState | null>(null)
+
+  const refreshSessionCoach = useCallback(async (sessionId: string) => {
+    try {
+      const next = await fetchChatbotState({ data: { sessionId, mode: 'session' } })
+      setSessionCoachState(next)
+    } catch (error) {
+      toast.error('Failed to refresh Session Coach', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }, [])
+
+  const bindSessionToAsset = useCallback(
+    async (sessionId: string, assetPath: string) => {
+      try {
+        await sessionRepoContext({
+          data: {
+            action: 'set',
+            sessionId,
+            assetPath,
+          },
+        })
+      } catch (error) {
+        toast.error('Failed to bind repo instructions', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        })
+      } finally {
+        await refreshSessionCoach(sessionId)
+        try {
+          const inventory = await fetchRuleInventory({ data: {} })
+          setRuleSheetEntries(inventory)
+        } catch (error) {
+          toast.error('Failed to refresh rule sheet', {
+            description: error instanceof Error ? error.message : 'Unknown error',
+          })
+        }
+      }
+    },
+    [refreshSessionCoach],
+  )
+
+  const selectedAsset = useMemo(() => {
+    if (!discovery.selectedSessionPath) return null
+    return discovery.sessionAssets.find((asset) => asset.path === discovery.selectedSessionPath) ?? null
+  }, [discovery.sessionAssets, discovery.selectedSessionPath])
+
+  const activeAssetPath = selectedAsset?.path ?? sessionCoachState?.repoContext?.assetPath ?? null
+
+  useEffect(() => {
+    if (focusEventIndex == null) return
+    if (typeof window === 'undefined') return
+    const timeout = window.setTimeout(() => setFocusEventIndex(null), 1200)
+    return () => window.clearTimeout(timeout)
+  }, [focusEventIndex])
+
+  useEffect(() => {
+    if (!selectedAsset) return
+    const nextSessionId = deriveSessionId(selectedAsset.path)
+    if (nextSessionId === activeSessionId) return
+    setActiveSessionId(nextSessionId)
+    void bindSessionToAsset(nextSessionId, selectedAsset.path)
+  }, [selectedAsset, activeSessionId, bindSessionToAsset])
 
   const handleNavChange = useCallback(
     (nextValue: string) => {
@@ -94,7 +164,7 @@ export function ViewerClient() {
       try {
         const response = await hookifyAddToChat({
           data: {
-            sessionId: resolvedSessionId,
+            sessionId: activeSessionId,
             source,
             content: basePrompt,
             eventType: extras?.eventType,
@@ -127,7 +197,7 @@ export function ViewerClient() {
         });
       }
     },
-    [handleNavChange, resolvedSessionId],
+    [handleNavChange, activeSessionId],
   );
 
   const handleAddTimelineEventToChat = (event: TimelineEvent, index: number) => {
@@ -139,19 +209,39 @@ export function ViewerClient() {
     const snippet = JSON.stringify(event, null, 2);
     const prompt = `Analyze this timeline event #${index + 1} (${event.type}):\n\n\`\`\`json\n${snippet}\n\`\`\`\n\nWhat are the implications of this event?`;
 
-    void runHookifyPrefill(prompt, 'timeline', { eventType: event.type });
-  };
-
-  const handleAddSessionToChat = (asset: DiscoveredSessionAsset) => {
-    logInfo('viewer.chatdock', 'Session add-to-chat requested', {
-      path: asset.path,
-      repo: asset.repoLabel ?? asset.repoName,
+    void runHookifyPrefill(prompt, 'timeline', {
+      eventType: event.type,
+      filePath: activeAssetPath ?? undefined,
     });
-
-    const prompt = `I am looking at session file: ${asset.path}\nRepo: ${asset.repoLabel ?? asset.repoName ?? 'unknown'}\n\nPlease analyze this session context.`;
-
-    void runHookifyPrefill(prompt, 'session', { filePath: asset.path });
   };
+
+  const handleAddSessionToChat = useCallback(
+    (asset: DiscoveredSessionAsset) => {
+      void (async () => {
+        const targetSessionId = deriveSessionId(asset.path)
+        let bindingPromise: Promise<void> | null = null
+        if (targetSessionId !== activeSessionId) {
+          setActiveSessionId(targetSessionId)
+          discovery.setSelectedSessionPath(asset.path)
+          bindingPromise = bindSessionToAsset(targetSessionId, asset.path)
+        }
+
+        if (bindingPromise) {
+          await bindingPromise
+        }
+
+        logInfo('viewer.chatdock', 'Session add-to-chat requested', {
+          path: asset.path,
+          repo: asset.repoLabel ?? asset.repoName,
+        })
+
+        const prompt = `I am looking at session file: ${asset.path}\nRepo: ${asset.repoLabel ?? asset.repoName ?? 'unknown'}\n\nPlease analyze this session context.`
+
+        await runHookifyPrefill(prompt, 'session', { filePath: asset.path })
+      })()
+    },
+    [activeSessionId, bindSessionToAsset, discovery, runHookifyPrefill],
+  )
 
   const navItems = useMemo(
     () => [
@@ -192,9 +282,14 @@ export function ViewerClient() {
     (records: MisalignmentRecord[]) => {
       const payload = buildRemediationPrefill(records)
       if (!payload) return
-      void runHookifyPrefill(payload.prompt, 'manual', undefined, payload.metadata)
+      void runHookifyPrefill(
+        payload.prompt,
+        'manual',
+        { filePath: activeAssetPath ?? undefined },
+        payload.metadata,
+      )
     },
-    [runHookifyPrefill],
+    [runHookifyPrefill, activeAssetPath],
   )
 
   const handleFlaggedEventClick = useCallback(
@@ -203,6 +298,12 @@ export function ViewerClient() {
     },
     [handleRemediationPrefill],
   )
+
+  const handleHookGateJump = useCallback((index: number) => {
+    setNavValue('timeline')
+    setTabValue('timeline')
+    setFocusEventIndex(index)
+  }, [])
 
   const timelineSections: StickySection[] = [
     {
@@ -218,6 +319,7 @@ export function ViewerClient() {
           onFiltersRender={handleTimelineFiltersRender}
           flaggedEvents={flaggedEventMarkers}
           onFlaggedEventClick={handleFlaggedEventClick}
+          focusEventIndex={focusEventIndex}
         />
       ),
     },
@@ -286,7 +388,28 @@ export function ViewerClient() {
             <section>
               <UploadControlsCard controller={uploadController} className="rounded-3xl border border-white/15 bg-background/80 p-5" />
             </section>
-            {sessionCoach?.featureEnabled ? (
+            <section>
+              <SessionRepoSelector
+                sessionId={activeSessionId}
+                assets={discovery.sessionAssets}
+                repoContext={sessionCoachState?.repoContext}
+                onRepoContextChange={async () => {
+                  await refreshSessionCoach(activeSessionId)
+                  try {
+                    const inventory = await fetchRuleInventory({ data: {} })
+                    setRuleSheetEntries(inventory)
+                  } catch (error) {
+                    toast.error('Failed to refresh rule sheet', {
+                      description: error instanceof Error ? error.message : 'Unknown error',
+                    })
+                  }
+                }}
+              />
+            </section>
+            <section>
+              <SessionRuleSheet entries={ruleSheetEntries} activeSessionId={activeSessionId} />
+            </section>
+            {sessionCoachState?.featureEnabled ? (
               <MisalignmentBanner misalignments={misalignments} onReview={handleRemediationPrefill} />
             ) : null}
             {hookGate ? (
@@ -297,6 +420,7 @@ export function ViewerClient() {
                 annotations={hookGate.annotations}
                 rules={hookGate.rules}
                 onDismiss={() => setHookGate(null)}
+                onJumpToEvent={handleHookGateJump}
               />
             ) : null}
             <aside
@@ -304,8 +428,8 @@ export function ViewerClient() {
               className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner"
             >
               <ChatDockPanel
-                sessionId={resolvedSessionId}
-                state={sessionCoach}
+                sessionId={activeSessionId}
+                state={sessionCoachState}
                 prefill={coachPrefill}
                 onPrefillConsumed={() => setCoachPrefill(null)}
               />
@@ -327,6 +451,25 @@ function ViewerSkeleton() {
       <div className="h-96 animate-pulse rounded-3xl bg-muted" />
     </main>
   )
+}
+
+function deriveSessionId(assetPath: string) {
+  const trimmed = assetPath.trim()
+  if (!trimmed) return 'session-unbound'
+  if (typeof TextEncoder !== 'undefined') {
+    const encoder = new TextEncoder()
+    const bytes = encoder.encode(trimmed)
+    let hex = ''
+    for (const byte of bytes) {
+      hex += byte.toString(16).padStart(2, '0')
+      if (hex.length >= 40) break
+    }
+    if (hex) {
+      return `session-${hex}`
+    }
+  }
+  const slug = trimmed.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return slug ? `session-${slug}` : 'session-unbound'
 }
 
 function buildFlaggedEventMap(misalignments: MisalignmentRecord[]): Map<number, TimelineFlagMarker> {
