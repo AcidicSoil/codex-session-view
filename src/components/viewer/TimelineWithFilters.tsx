@@ -26,6 +26,7 @@ interface TimelineWithFiltersProps {
   registerSearchBar?: (node: React.ReactNode | null) => void
   flaggedEvents?: Map<number, TimelineFlagMarker>
   onFlaggedEventClick?: (marker: TimelineFlagMarker) => void
+  focusEventIndex?: number | null
 }
 
 export function TimelineWithFilters({
@@ -36,6 +37,7 @@ export function TimelineWithFilters({
   registerSearchBar,
   flaggedEvents,
   onFlaggedEventClick,
+  focusEventIndex,
 }: TimelineWithFiltersProps) {
   const [filters, setFilters] = useState<Filter<TimelineFilterValue>[]>([])
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
@@ -153,6 +155,18 @@ export function TimelineWithFilters({
     return () => registerSearchBar(null)
   }, [registerSearchBar, searchBarNode])
 
+  const focusTimelineIndex = useMemo(() => {
+    if (focusEventIndex == null) return null
+    const target = orderedEvents.findIndex((event) => {
+      const anyEvent = event as any
+      if (typeof anyEvent.index === 'number') {
+        return anyEvent.index === focusEventIndex
+      }
+      return false
+    })
+    return target >= 0 ? target : null
+  }, [focusEventIndex, orderedEvents])
+
   return (
     <div className="space-y-4">
       {registerSearchBar ? null : searchBarNode}
@@ -172,6 +186,7 @@ export function TimelineWithFilters({
           height={timelineHeight}
           flaggedEvents={flaggedEvents}
           onFlaggedEventClick={onFlaggedEventClick}
+          externalFocusIndex={focusTimelineIndex}
         />
       )}
     </div>

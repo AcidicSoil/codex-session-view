@@ -48,6 +48,7 @@ interface AnimatedTimelineListProps {
   height?: number;
   flaggedEvents?: Map<number, TimelineFlagMarker>;
   onFlaggedEventClick?: (marker: TimelineFlagMarker) => void;
+  externalFocusIndex?: number | null;
 }
 
 export interface TimelineFlagMarker {
@@ -73,6 +74,7 @@ export function AnimatedTimelineList({
   height = 720,
   flaggedEvents,
   onFlaggedEventClick,
+  externalFocusIndex,
 }: AnimatedTimelineListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [scrollTarget, setScrollTarget] = useState<number | null>(null);
@@ -101,6 +103,13 @@ export function AnimatedTimelineList({
     setExpandedIndex(activeMatchIndex);
     setScrollTarget(activeMatchIndex);
   }, [activeMatchIndex, items.length]);
+
+  useEffect(() => {
+    if (externalFocusIndex == null) return;
+    if (externalFocusIndex < 0 || externalFocusIndex >= items.length) return;
+    setExpandedIndex(externalFocusIndex);
+    setScrollTarget(externalFocusIndex);
+  }, [externalFocusIndex, items.length]);
 
   const handleScrollChange = ({
     scrollTop,

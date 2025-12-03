@@ -1,4 +1,5 @@
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
+import path from 'node:path'
 import type { SessionAssetSource } from '~/lib/viewerDiscovery'
 import { deriveRepoDetailsFromLine, deriveSessionTimestampMs, type RepoMetadata } from '~/lib/repo-metadata'
 
@@ -24,6 +25,18 @@ interface SessionUploadRecord {
   sourceUpdatedAt?: number
   lastModifiedMs?: number
   lastModifiedIso?: string
+  workspaceRoot?: string
+}
+
+export interface SessionUploadRecordDetails {
+  id: string
+  originalName: string
+  storedAt: string
+  source: SessionAssetSource
+  sourcePath?: string
+  repoLabel?: string
+  repoMeta?: RepoMetadata
+  workspaceRoot?: string
 }
 
 export interface SessionUploadSummary {
@@ -60,6 +73,7 @@ export async function saveSessionUpload(originalName: string, content: string): 
     source: 'upload',
     lastModifiedMs,
     lastModifiedIso: new Date(lastModifiedMs).toISOString(),
+    workspaceRoot: repoDetails.workspaceRoot,
   }
   await sessionUploadsCollection.insert(record)
   return toRecordView(record)
@@ -67,6 +81,28 @@ export async function saveSessionUpload(originalName: string, content: string): 
 
 export async function listSessionUploadRecords(): Promise<SessionUploadSummary[]> {
   return sessionUploadsCollection.toArray.map(toRecordView)
+}
+
+export function findSessionUploadRecordByOriginalName(originalName: string): SessionUploadRecordDetails | null {
+  const record = sessionUploadsCollection.toArray.find((entry) => entry.originalName === originalName)
+  return record ? toRecordDetails(record) : null
+}
+
+export function findSessionUploadRecordById(id: string): SessionUploadRecordDetails | null {
+  const record = sessionUploadsCollection.get(id)
+  return record ? toRecordDetails(record) : null
+}
+
+export function getSessionUploadContentByOriginalName(originalName: string) {
+  const record = sessionUploadsCollection.toArray.find((entry) => entry.originalName === originalName)
+  if (!record) return null
+  return record.content
+}
+
+export async function clearSessionUploadRecords() {
+  for (const record of sessionUploadsCollection.toArray) {
+    await sessionUploadsCollection.delete(record.id)
+  }
 }
 
 export async function getSessionUploadContent(id: string) {
@@ -94,6 +130,19 @@ function toRecordView(record: SessionUploadRecord): SessionUploadSummary {
   }
 }
 
+function toRecordDetails(record: SessionUploadRecord): SessionUploadRecordDetails {
+  return {
+    id: record.id,
+    originalName: record.originalName,
+    storedAt: record.storedAt,
+    source: record.source,
+    sourcePath: record.sourcePath,
+    repoLabel: record.repoLabel,
+    repoMeta: record.repoMeta,
+    workspaceRoot: record.workspaceRoot,
+  }
+}
+
 export async function ensureSessionUploadForFile(options: {
   relativePath: string
   absolutePath: string
@@ -109,14 +158,22 @@ export async function ensureSessionUploadForFile(options: {
   const canonicalLastModifiedMs = resolveLastModifiedMs(options.sessionTimestampMs, updatedAt)
   const canonicalLastModifiedIso = new Date(canonicalLastModifiedMs).toISOString()
   const existing = findRecordBySource(normalizedPath, options.source)
+  const content = await fs.readFile(options.absolutePath, 'utf8')
+  const derivedRepoDetails = deriveRepoDetailsFromContent(content)
+  const resolvedRepoLabel = options.repoLabel ?? derivedRepoDetails.repoLabel
+  const resolvedRepoMeta = options.repoMeta ?? derivedRepoDetails.repoMeta
   if (existing && existing.sourceUpdatedAt === updatedAt) {
-    const needsMetadataUpdate = (!!options.repoLabel && !existing.repoLabel) || (!!options.repoMeta && !existing.repoMeta)
+    const needsMetadataUpdate = (!!resolvedRepoLabel && !existing.repoLabel) || (!!resolvedRepoMeta && !existing.repoMeta)
     const needsTimestampUpdate =
       existing.lastModifiedMs !== canonicalLastModifiedMs || existing.lastModifiedIso !== canonicalLastModifiedIso
-    if (needsMetadataUpdate || needsTimestampUpdate) {
+    const needsWorkspaceUpdate = !!derivedRepoDetails.workspaceRoot && !existing.workspaceRoot
+    if (needsMetadataUpdate || needsTimestampUpdate || needsWorkspaceUpdate) {
       await sessionUploadsCollection.update(existing.id, (draft) => {
-        draft.repoLabel = draft.repoLabel ?? options.repoLabel
-        draft.repoMeta = draft.repoMeta ?? options.repoMeta
+        draft.repoLabel = draft.repoLabel ?? resolvedRepoLabel
+        draft.repoMeta = draft.repoMeta ?? resolvedRepoMeta
+        if (needsWorkspaceUpdate) {
+          draft.workspaceRoot = derivedRepoDetails.workspaceRoot
+        }
         if (needsTimestampUpdate) {
           draft.lastModifiedMs = canonicalLastModifiedMs
           draft.lastModifiedIso = canonicalLastModifiedIso
@@ -130,7 +187,6 @@ export async function ensureSessionUploadForFile(options: {
     return toRecordView(existing)
   }
 
-  const content = await fs.readFile(options.absolutePath, 'utf8')
   const size = measureContentSize(content)
   if (existing) {
     await sessionUploadsCollection.update(existing.id, (draft) => {
@@ -138,13 +194,16 @@ export async function ensureSessionUploadForFile(options: {
       draft.size = size
       draft.content = content
       draft.storedAt = new Date().toISOString()
-      draft.repoLabel = options.repoLabel ?? draft.repoLabel
-      draft.repoMeta = options.repoMeta ?? draft.repoMeta
+      draft.repoLabel = resolvedRepoLabel ?? draft.repoLabel
+      draft.repoMeta = resolvedRepoMeta ?? draft.repoMeta
       draft.source = options.source
       draft.sourcePath = normalizedPath
       draft.sourceUpdatedAt = updatedAt
       draft.lastModifiedMs = canonicalLastModifiedMs
       draft.lastModifiedIso = canonicalLastModifiedIso
+      if (derivedRepoDetails.workspaceRoot) {
+        draft.workspaceRoot = derivedRepoDetails.workspaceRoot
+      }
     })
     const refreshed = sessionUploadsCollection.get(existing.id)
     if (!refreshed) {
@@ -159,13 +218,14 @@ export async function ensureSessionUploadForFile(options: {
     storedAt: new Date().toISOString(),
     size,
     content,
-    repoLabel: options.repoLabel,
-    repoMeta: options.repoMeta,
+    repoLabel: resolvedRepoLabel,
+    repoMeta: resolvedRepoMeta,
     source: options.source,
     sourcePath: normalizedPath,
     sourceUpdatedAt: updatedAt,
     lastModifiedMs: canonicalLastModifiedMs,
     lastModifiedIso: canonicalLastModifiedIso,
+    workspaceRoot: derivedRepoDetails.workspaceRoot,
   }
   await sessionUploadsCollection.insert(record)
   return toRecordView(record)
@@ -191,7 +251,14 @@ function measureContentSize(content: string) {
 function deriveRepoDetailsFromContent(content: string) {
   const firstLine = content.split(/\r?\n/, 1)[0] ?? ''
   if (!firstLine) return {}
-  return deriveRepoDetailsFromLine(firstLine)
+  const details = deriveRepoDetailsFromLine(firstLine)
+  if (details.workspaceRoot) {
+    return {
+      ...details,
+      workspaceRoot: normalizeWorkspaceRootPath(details.workspaceRoot),
+    }
+  }
+  return details
 }
 
 function deriveSessionTimestampFromContent(content: string) {
@@ -221,6 +288,23 @@ function normalizeTimestamp(value: number | undefined) {
 
 function normalizeAbsolutePath(path: string) {
   return path.replace(/\\/g, '/').replace(/\/+$/, '')
+}
+
+function normalizeWorkspaceRootPath(input?: string) {
+  if (!input) return undefined
+  const trimmed = input.trim()
+  if (!trimmed) return undefined
+  let resolved = trimmed
+  if (trimmed.startsWith('~')) {
+    const home = process.env.HOME ?? process.env.USERPROFILE
+    if (home) {
+      resolved = path.join(home, trimmed.slice(1))
+    }
+  }
+  if (!path.isAbsolute(resolved)) {
+    resolved = path.resolve(resolved)
+  }
+  return normalizeAbsolutePath(resolved)
 }
 
 function findRecordBySource(absolutePath: string, source: SessionAssetSource) {
