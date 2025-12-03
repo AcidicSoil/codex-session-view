@@ -56,9 +56,9 @@ session-id.md
 #.taskmaster/docs/v2/
 #screenshots/
 #**/*screenshot*.png/**
-#.todo/
+.todo
 scripts
-
+.taskmaster
 # START Ruler Generated Files
 /.codex/config.toml
 /.codex/config.toml.bak

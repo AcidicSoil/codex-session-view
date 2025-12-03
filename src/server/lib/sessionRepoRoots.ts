@@ -130,6 +130,7 @@ async function findInstructionRoot(startDir: string): Promise<string | null> {
 async function containsInstructionFiles(dir: string) {
   const candidates = [
     path.join(dir, 'AGENTS.md'),
+    path.join(dir, 'CLAUDE.md'),
     path.join(dir, '.ruler'),
     path.join(dir, '.cursor', 'rules'),
     path.join(dir, 'docs', 'agents'),

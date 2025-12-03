@@ -51,6 +51,7 @@ export async function loadAgentRules(rootDir: string = process.cwd()) {
   const { default: fg } = await import('fast-glob');
 
   const patterns = [
+    '**/CLAUDE.md',
     '**/.ruler/*.md',
     '**/.cursor/rules/*.md',
     '**/AGENTS.md',

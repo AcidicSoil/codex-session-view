@@ -46,7 +46,7 @@ export function parseAgentRules(markdown: string): AgentRule[] {
     const bullets = section.lines
       .map((line) => line.trim())
       .filter((line) => /^[-*+]|^\d+\./.test(line))
-      .map((line) => line.replace(/^[-*+\d\.\s]+/, '').trim());
+      .map((line) => line.replace(/^[-*+\d.\s]+/, '').trim());
 
     const bulletRules: AgentRule[] = [];
 

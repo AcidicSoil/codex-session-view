@@ -168,7 +168,7 @@ function isCodeLike(command: string, output: string): boolean {
   if (command.includes('git diff') || command.includes('diff ')) return true
   if (command.includes('cat ') && /\*\*\* Begin Patch/.test(output)) return true
   if (/^diff --git/m.test(output)) return true
-  if (/^@@/.test(output)) return true
+  if (output.startsWith('@@')) return true
   return false
 }
 
