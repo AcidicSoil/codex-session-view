@@ -60,7 +60,10 @@ export async function loadAgentRules(rootDir: string = process.cwd()) {
 
   const files = await fg(patterns, {
     cwd: normalizedRoot,
-    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/tests/fixtures/**'],
+    ignore: ['**/node_modules/**',
+      '**/dist/**',
+      '**/.git/**',
+      '**/tests/fixtures/**'],
     absolute: true,
   });
 

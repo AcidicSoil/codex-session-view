@@ -1,0 +1,47 @@
+# .peakypanes.yml
+session_name: codex-session-view
+root: ~/code/codex-session-view   # adjust to your clone path
+
+windows:
+  - name: editor
+    layout: even-horizontal
+    panes:
+      - title: nvim
+        cmd: ""
+      - title: shell
+        cmd: ""
+
+  - name: dev
+    layout: main-vertical
+    panes:
+      - title: dev-server
+        # replace with whatever you actually use to run TanStack Start locally
+        cmd: "pnpm dev"
+      - title: typecheck
+        cmd: "pnpm test:types || pnpm test:types"   # or your typecheck script
+
+  - name: tests
+    layout: tiled
+    panes:
+      - title: unit-tests
+        cmd: "pnpm test"              # unit / vitest / jest, etc.
+      - title: e2e-playwright
+        cmd: "pnpm playwright test"   # from docs
+      - title: lint
+        cmd: "pnpm lint || pnpm lint"
+
+  - name: prod
+    layout: main-horizontal
+    panes:
+      - title: build
+        cmd: "pnpm build"
+      - title: start-prod
+        cmd: "pnpm start"
+
+  - name: ops
+    layout: even-vertical
+    panes:
+      - title: git
+        cmd: ""
+      - title: misc
+        cmd: ""
