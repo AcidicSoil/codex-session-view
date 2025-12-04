@@ -1,18 +1,20 @@
-import { Search } from 'lucide-react';
-import { Input } from '~/components/ui/input';
-import { InputGroup, InputGroupText } from '~/components/ui/input-group';
-import type { SessionExplorerFilterState } from './sessionExplorerTypes';
+import { Search } from 'lucide-react'
+import { Input } from '~/components/ui/input'
+import { InputGroup, InputGroupText } from '~/components/ui/input-group'
+import { cn } from '~/lib/utils'
+import type { SessionExplorerFilterState } from './sessionExplorerTypes'
 
 interface SessionSearchBarProps {
-  filters: SessionExplorerFilterState;
-  updateFilter: <K extends keyof SessionExplorerFilterState>(key: K, value: SessionExplorerFilterState[K]) => void;
+  filters: SessionExplorerFilterState
+  updateFilter: <K extends keyof SessionExplorerFilterState>(key: K, value: SessionExplorerFilterState[K]) => void
+  className?: string
 }
 
-export function SessionSearchBar({ filters, updateFilter }: SessionSearchBarProps) {
+export function SessionSearchBar({ filters, updateFilter, className }: SessionSearchBarProps) {
   return (
-    <div className="w-full">
+    <div className={cn('w-full', className)}>
       <InputGroup className="w-full">
-        <InputGroupText>
+        <InputGroupText className="border-white/15 bg-white/5 text-white">
           <Search className="size-4" />
         </InputGroupText>
         <Input
@@ -20,10 +22,10 @@ export function SessionSearchBar({ filters, updateFilter }: SessionSearchBarProp
           aria-label="Search sessions"
           value={filters.searchText}
           onChange={(event) => updateFilter('searchText', event.target.value)}
-          placeholder="Search repo, branch, file label, tag, or year"
-          className="border-0 focus-visible:ring-0"
+          placeholder="Search repo, branch, tag, or session id"
+          className="border-white/15 bg-[#060910]/80 text-white placeholder:text-white/40 focus-visible:ring-0"
         />
       </InputGroup>
     </div>
-  );
+  )
 }

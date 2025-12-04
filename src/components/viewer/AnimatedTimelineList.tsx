@@ -24,6 +24,7 @@ import type { BundledLanguage } from '~/components/kibo-ui/code-block';
 import type { ResponseItem, MessageEvent, MessagePart } from '~/lib/viewer-types';
 import type { ResponseItemParsed } from '~/lib/session-parser';
 import { TimelineView } from '~/components/viewer/TimelineView';
+import { useTimelineBeamScrollRegistrar } from '~/components/viewer/TimelineTracingBeam'
 import { eventKey } from '~/utils/event-key';
 import { formatClockTime } from '~/utils/intl';
 import type { SearchMatcher } from '~/utils/search';
@@ -76,6 +77,7 @@ export function AnimatedTimelineList({
   onFlaggedEventClick,
   externalFocusIndex,
 }: AnimatedTimelineListProps) {
+  const beamScrollRegistrar = useTimelineBeamScrollRegistrar()
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [scrollTarget, setScrollTarget] = useState<number | null>(null);
   const [gradients, setGradients] = useState({ top: 0, bottom: 0 });
@@ -172,6 +174,7 @@ export function AnimatedTimelineList({
         scrollToIndex={scrollTarget}
         onScrollChange={handleScrollChange}
         className="pr-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        registerScrollContainer={beamScrollRegistrar ?? undefined}
       />
       <div className="pointer-events-none absolute inset-y-6 left-1 w-[3px] rounded-full bg-white/10">
         <motion.span

@@ -87,7 +87,8 @@
     "tailwindcss": "^4.1.16",
     "vaul": "^1.1.2",
     "vite": "^7.1.12",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.2",

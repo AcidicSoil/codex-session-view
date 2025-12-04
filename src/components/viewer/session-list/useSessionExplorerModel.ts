@@ -2,27 +2,41 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { logDebug, logError, logInfo, logWarn } from '~/lib/logger';
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import { buildSearchMatchers } from '~/utils/search';
+import type { MultiSelectorGroup, MultiSelectorOption, MultiSelectorValue } from '~/components/ui/multi-selector';
 import {
   type ActiveFilterBadge,
   type BranchGroup,
   type FilterBadgeKey,
-  type QuickFilterOption,
   type RepositoryGroup,
   type SessionExplorerFilterState,
   type SessionPreset,
+  type SessionRecencyPreset,
   defaultFilterState,
 } from './sessionExplorerTypes';
 import {
   aggregateByRepository,
   buildActiveFilterBadges,
+  buildFilterDimensions,
   buildFilterModel,
+  getRecencyWindowMs,
   getSortValue,
   matchesSearchText,
+  RECENCY_PRESETS,
   sortSessions,
   toBytes,
   toLocalDateTimeInput,
   toTimestampMs,
-} from './sessionExplorerUtils';
+} from './sessionExplorerUtils'
+import { useUiSettingsStore } from '~/stores/uiSettingsStore'
+
+function cloneFilters(input: SessionExplorerFilterState): SessionExplorerFilterState {
+  return {
+    ...input,
+    sourceFilters: [...input.sourceFilters],
+    branchFilters: [...input.branchFilters],
+    tagFilters: [...input.tagFilters],
+  }
+}
 
 interface UseSessionExplorerModelOptions {
   sessionAssets: DiscoveredSessionAsset[];
@@ -37,111 +51,103 @@ export function useSessionExplorerModel({
   selectedSessionPath,
   onSelectionChange,
 }: UseSessionExplorerModelOptions) {
-  const [filters, setFilters] = useState<SessionExplorerFilterState>(() => ({
-    ...defaultFilterState,
-  }));
+  const sessionExplorerState = useUiSettingsStore((state) => state.sessionExplorer)
+  const updateSessionExplorer = useUiSettingsStore((state) => state.updateSessionExplorer)
+  const [filters, setFilters] = useState<SessionExplorerFilterState>(() => cloneFilters(sessionExplorerState.filters));
+  const normalizedBranchFilters = useMemo(
+    () => filters.branchFilters.map((branch) => branch.toLowerCase()),
+    [filters.branchFilters],
+  )
+  const normalizedTagFilters = useMemo(
+    () => filters.tagFilters.map((tag) => tag.toLowerCase()),
+    [filters.tagFilters],
+  )
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
   const [loadingRepoId, setLoadingRepoId] = useState<string | null>(null);
-  const [sessionPreset, setSessionPreset] = useState<SessionPreset>('all');
-  const [isQuickFilterOpen, setIsQuickFilterOpen] = useState(false);
+  const [sessionPreset, setSessionPreset] = useState<SessionPreset>(sessionExplorerState.sessionPreset);
   const searchMatchers = useMemo(
     () => buildSearchMatchers(filters.searchText),
     [filters.searchText]
   );
 
-  const sizeMinBytes = toBytes(filters.sizeMinValue, filters.sizeMinUnit);
-  const sizeMaxBytes = toBytes(filters.sizeMaxValue, filters.sizeMaxUnit);
-  const timestampFromMs = toTimestampMs(filters.timestampFrom);
-  const timestampToMs = toTimestampMs(filters.timestampTo);
+  const sizeMinBytes = toBytes(filters.sizeMinValue, filters.sizeMinUnit)
+  const sizeMaxBytes = toBytes(filters.sizeMaxValue, filters.sizeMaxUnit)
+  const manualTimestampFromMs = toTimestampMs(filters.timestampFrom)
+  const timestampToMs = toTimestampMs(filters.timestampTo)
+  const recencyWindowMs = getRecencyWindowMs(filters.recency)
+  const recencyFromMs = typeof recencyWindowMs === 'number' ? snapshotTimestamp - recencyWindowMs : undefined
+  const timestampFromMs = resolveTimestampFrom(manualTimestampFromMs, recencyFromMs)
+
+  useEffect(() => {
+    setFilters((prev) => {
+      if (prev === sessionExplorerState.filters) return prev
+      return cloneFilters(sessionExplorerState.filters)
+    })
+  }, [sessionExplorerState.filters])
+
+  useEffect(() => {
+    setSessionPreset(sessionExplorerState.sessionPreset)
+  }, [sessionExplorerState.sessionPreset])
+
+  const persistFilters = useCallback(
+    (updater: (prev: SessionExplorerFilterState) => SessionExplorerFilterState) => {
+      setFilters((prev) => {
+        const next = updater(prev)
+        updateSessionExplorer((state) => ({ ...state, filters: next }))
+        return next
+      })
+    },
+    [updateSessionExplorer],
+  )
 
   const updateFilter = useCallback(
     <K extends keyof SessionExplorerFilterState>(key: K, value: SessionExplorerFilterState[K]) => {
-      setFilters((prev) => ({ ...prev, [key]: value }));
+      persistFilters((prev) => ({ ...prev, [key]: value }))
     },
-    []
-  );
+    [persistFilters],
+  )
+
+  const commitSessionPreset = useCallback(
+    (next: SessionPreset) => {
+      setSessionPreset(next)
+      updateSessionExplorer((state) => ({ ...state, sessionPreset: next }))
+    },
+    [updateSessionExplorer],
+  )
 
   const applyPreset = useCallback(
     (value: SessionPreset) => {
-      setSessionPreset(value);
+      commitSessionPreset(value);
       if (value === 'all') {
-        setFilters((prev) => ({
+        persistFilters((prev) => ({
           ...prev,
           timestampFrom: '',
           timestampTo: '',
           sizeMinValue: '',
           sizeMaxValue: '',
-        }));
+        }))
         return;
       }
       if (value === 'recent') {
         const fromIso = toLocalDateTimeInput(snapshotTimestamp - 1000 * 60 * 60 * 24 * 2);
-        setFilters((prev) => ({
+        persistFilters((prev) => ({
           ...prev,
           timestampFrom: fromIso,
           timestampTo: '',
-        }));
+        }))
         return;
       }
       if (value === 'heavy') {
-        setFilters((prev) => ({
+        persistFilters((prev) => ({
           ...prev,
           sizeMinValue: '25',
           sizeMinUnit: 'MB',
           sizeMaxValue: '',
-        }));
+        }))
+        return
       }
     },
-    [snapshotTimestamp]
-  );
-
-  const quickFilterOptions = useMemo<QuickFilterOption[]>(
-    () => [
-      {
-        key: 'week',
-        label: 'Updated last 7 days',
-        description: 'Shows sessions refreshed this week',
-        apply: () => {
-          const fromIso = toLocalDateTimeInput(snapshotTimestamp - 1000 * 60 * 60 * 24 * 7);
-          setFilters((prev) => ({
-            ...prev,
-            timestampFrom: fromIso,
-            timestampTo: '',
-          }));
-          setSessionPreset('recent');
-        },
-      },
-      {
-        key: 'compact',
-        label: 'Smaller than 5 MB',
-        description: 'Useful when scanning quick traces',
-        apply: () => {
-          setFilters((prev) => ({
-            ...prev,
-            sizeMinValue: '',
-            sizeMaxValue: '5',
-            sizeMaxUnit: 'MB',
-          }));
-          setSessionPreset('all');
-        },
-      },
-      {
-        key: 'clear',
-        label: 'Clear quick filters',
-        description: 'Reset preset overrides',
-        apply: () => {
-          setFilters((prev) => ({
-            ...prev,
-            sizeMinValue: '',
-            sizeMaxValue: '',
-            timestampFrom: '',
-            timestampTo: '',
-          }));
-          setSessionPreset('all');
-        },
-      },
-    ],
-    [snapshotTimestamp]
+    [commitSessionPreset, persistFilters, snapshotTimestamp]
   );
 
   useEffect(() => {
@@ -163,6 +169,99 @@ export function useSessionExplorerModel({
     () => sessionAssets.filter((asset) => typeof asset.url === 'string' && asset.url.includes('/api/uploads/')),
     [sessionAssets]
   );
+
+  const filterDimensions = useMemo(() => buildFilterDimensions(accessibleAssets), [accessibleAssets])
+
+  const multiSelectorGroups = useMemo<MultiSelectorGroup[]>(
+    () => [
+      {
+        id: 'sourceFilters',
+        label: 'Sources',
+        description: 'Bundled, external, or upload sessions',
+        allowMultiple: true,
+      },
+      {
+        id: 'branchFilters',
+        label: 'Branches',
+        description: 'Highlight specific repo branches',
+        allowMultiple: true,
+      },
+      {
+        id: 'tagFilters',
+        label: 'Tags',
+        description: 'Filter by session tags',
+        allowMultiple: true,
+      },
+      {
+        id: 'recency',
+        label: 'Recency',
+        description: 'Time window',
+        allowMultiple: false,
+      },
+    ],
+    [],
+  )
+
+  const multiSelectorOptions = useMemo<MultiSelectorOption[]>(() => {
+    const formatCountLabel = (count: number) => `${count} session${count === 1 ? '' : 's'}`
+    const options: MultiSelectorOption[] = []
+    filterDimensions.sources.forEach((option) => {
+      options.push({
+        id: option.id,
+        label: option.label,
+        description: formatCountLabel(option.count),
+        groupId: 'sourceFilters',
+        count: option.count,
+      })
+    })
+    filterDimensions.branches.forEach((option) => {
+      options.push({
+        id: option.id,
+        label: option.label,
+        description: formatCountLabel(option.count),
+        groupId: 'branchFilters',
+        count: option.count,
+      })
+    })
+    filterDimensions.tags.forEach((option) => {
+      options.push({
+        id: option.id,
+        label: option.label,
+        description: formatCountLabel(option.count),
+        groupId: 'tagFilters',
+        count: option.count,
+      })
+    })
+    RECENCY_PRESETS.forEach((option) => {
+      options.push({
+        id: option.id,
+        label: option.label,
+        description: option.description,
+        groupId: 'recency',
+      })
+    })
+    return options
+  }, [filterDimensions])
+
+  const multiSelectorValue = useMemo<MultiSelectorValue>(
+    () => ({
+      sourceFilters: filters.sourceFilters,
+      branchFilters: filters.branchFilters,
+      tagFilters: filters.tagFilters,
+      recency: filters.recency === 'all' ? [] : [filters.recency],
+    }),
+    [filters.branchFilters, filters.recency, filters.sourceFilters, filters.tagFilters],
+  )
+
+  const handleMultiSelectorChange = useCallback((value: MultiSelectorValue) => {
+    persistFilters((prev) => ({
+      ...prev,
+      sourceFilters: value.sourceFilters ?? [],
+      branchFilters: value.branchFilters ?? [],
+      tagFilters: value.tagFilters ?? [],
+      recency: (value.recency?.[0] as SessionRecencyPreset | undefined) ?? 'all',
+    }))
+  }, [persistFilters])
 
   const repositoryGroups = useMemo(
     () => aggregateByRepository(accessibleAssets),
@@ -200,6 +299,17 @@ export function useSessionExplorerModel({
                 ? matchesSearchText(searchMatchers, group, session)
                 : true;
               if (!matchesSearch) return false;
+              const matchesSource =
+                filters.sourceFilters.length === 0 || filters.sourceFilters.includes(session.source);
+              if (!matchesSource) return false;
+              const branchName = (session.branch || 'unknown').toLowerCase();
+              const matchesBranch =
+                normalizedBranchFilters.length === 0 || normalizedBranchFilters.includes(branchName);
+              if (!matchesBranch) return false;
+              const tagSet = session.tags?.map((tag) => tag.toLowerCase()) ?? [];
+              const matchesTags =
+                normalizedTagFilters.length === 0 || tagSet.some((tag) => normalizedTagFilters.includes(tag));
+              if (!matchesTags) return false;
               const size = session.size ?? 0;
               const meetsMin = min === undefined || size >= min;
               const meetsMax = max === undefined || size <= max;
@@ -267,6 +377,9 @@ export function useSessionExplorerModel({
     filters.sortDir,
     timestampFromMs,
     timestampToMs,
+    filters.sourceFilters,
+    normalizedBranchFilters,
+    normalizedTagFilters,
   ]);
 
   const filterLogRef = useRef<{ modelKey: string; count: number }>({
@@ -399,15 +512,15 @@ export function useSessionExplorerModel({
   );
 
   const resetFilters = useCallback(() => {
-    setFilters({ ...defaultFilterState });
+    persistFilters(() => cloneFilters(defaultFilterState));
     setExpandedGroupIds([]);
-    setSessionPreset('all');
+    commitSessionPreset('all');
     onSelectionChange?.(null);
-  }, [onSelectionChange]);
+  }, [commitSessionPreset, onSelectionChange, persistFilters]);
 
   const activeBadges = useMemo<ActiveFilterBadge[]>(() => buildActiveFilterBadges(filters), [filters]);
   const handleBadgeClear = useCallback((badgeKey: FilterBadgeKey) => {
-    setFilters((prev) => {
+    persistFilters((prev) => {
       if (badgeKey === 'size') {
         return { ...prev, sizeMinValue: '', sizeMaxValue: '' };
       }
@@ -416,7 +529,7 @@ export function useSessionExplorerModel({
       }
       return prev;
     });
-  }, []);
+  }, [persistFilters]);
 
   const hasResults = filteredGroups.length > 0;
   const datasetEmpty = accessibleAssets.length === 0;
@@ -426,9 +539,6 @@ export function useSessionExplorerModel({
     sessionPreset,
     applyPreset,
     updateFilter,
-    quickFilterOptions,
-    isQuickFilterOpen,
-    setIsQuickFilterOpen,
     resetFilters,
     activeBadges,
     handleBadgeClear,
@@ -441,6 +551,11 @@ export function useSessionExplorerModel({
     loadingRepoId,
     hasResults,
     searchMatchers,
+    filterDimensions,
+    multiSelectorGroups,
+    multiSelectorOptions,
+    multiSelectorValue,
+    handleMultiSelectorChange,
   };
 }
 
@@ -455,5 +570,17 @@ function defaultState() {
     sizeMaxUnit: 'MB' as const,
     timestampFrom: '',
     timestampTo: '',
+    sourceFilters: [],
+    branchFilters: [],
+    tagFilters: [],
+    recency: 'all' as const,
   } satisfies SessionExplorerFilterState;
+}
+
+function resolveTimestampFrom(manual?: number, recency?: number) {
+  const sentinel = Number.NEGATIVE_INFINITY
+  const normalizedManual = typeof manual === 'number' && Number.isFinite(manual) ? manual : sentinel
+  const normalizedRecency = typeof recency === 'number' && Number.isFinite(recency) ? recency : sentinel
+  const candidate = Math.max(normalizedManual, normalizedRecency)
+  return candidate === sentinel ? undefined : candidate
 }

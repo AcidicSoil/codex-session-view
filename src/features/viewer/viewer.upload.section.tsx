@@ -223,21 +223,23 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
 
   return (
     <section className={cn('rounded-2xl border p-4', className)}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-sm font-semibold">Timeline</p>
+          <p className="text-sm font-semibold text-white">Timeline</p>
           <p className="text-xs text-muted-foreground">Animated list of parsed events.</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={controller.ejectSession}
-          disabled={!controller.hasEvents || controller.isEjecting}
-        >
-          {controller.isEjecting ? 'Ejecting…' : 'Eject session'}
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {searchBarSlot ? <div className="min-w-[240px] sm:w-72">{searchBarSlot}</div> : null}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={controller.ejectSession}
+            disabled={!controller.hasEvents || controller.isEjecting}
+          >
+            {controller.isEjecting ? 'Ejecting…' : 'Eject session'}
+          </Button>
+        </div>
       </div>
-      {searchBarSlot ? <div className="mb-4">{searchBarSlot}</div> : null}
       {loader.state.phase === 'parsing' ? (
         <p className="text-sm text-muted-foreground">Streaming events… large sessions may take a moment.</p>
       ) : hasEvents ? (

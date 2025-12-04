@@ -63,6 +63,7 @@ export function parseAgentRules(markdown: string, source?: string): AgentRule[] 
     const bulletRules: AgentRule[] = [];
 
     bullets.forEach((bullet, index) => {
+      const ruleSource = source ?? 'bullet';
       // Treat each substantive bullet as a rule.
       // Keywords come only from the bullet text to avoid "heading pollution".
       let trigger = bullet;
@@ -97,7 +98,7 @@ export function parseAgentRules(markdown: string, source?: string): AgentRule[] 
         bullets: [],
         severity: inferSeverity(section.heading, bullet),
         keywords: deriveKeywords(keywordsSource, []), // strict keywords from bullet only
-        source,
+        source: ruleSource,
       });
     });
 

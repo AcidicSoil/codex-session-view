@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - 2025-11-26
 
 ### Added
+- **Hook Gate rule inspector** with a neon sheet UI, evidence flip cards, and bookmark toggles powered by a new zustand-backed settings store plus automatic session loading for “jump to event”.
 - **AI runtime** wired to the Vercel AI SDK plus OpenAI-compatible, Gemini CLI, and offline demo providers with selectable models surfaced to the chat UI.
 - **General chat enablement** including a client-side mode toggle, Enter-to-send ergonomics, aceternity-inspired send/stream effects, and evidence callouts under assistant replies.
 - **Playwright coverage** for Session Coach and General Chat flows along with a `pnpm test:e2e:prod` script that validates `pnpm start -- --prod` using the deterministic demo models in CI.

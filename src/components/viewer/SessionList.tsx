@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/com
 import { Badge } from '~/components/ui/badge';
 import { Separator } from '~/components/ui/separator';
 import { TracingBeam } from '~/components/aceternity/tracing-beam';
+import { MeteorsField } from '~/components/aceternity/meteors';
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import { formatCount, formatDateTime } from '~/utils/intl';
 import { SessionFiltersToolbar } from '~/components/viewer/session-list/SessionFiltersToolbar';
@@ -38,9 +39,6 @@ export function SessionList({
     sessionPreset,
     applyPreset,
     updateFilter,
-    quickFilterOptions,
-    isQuickFilterOpen,
-    setIsQuickFilterOpen,
     resetFilters,
     activeBadges,
     handleBadgeClear,
@@ -53,6 +51,10 @@ export function SessionList({
     loadingRepoId,
     hasResults,
     searchMatchers,
+    multiSelectorGroups,
+    multiSelectorOptions,
+    multiSelectorValue,
+    handleMultiSelectorChange,
   } = useSessionExplorerModel({
     sessionAssets,
     snapshotTimestamp,
@@ -71,14 +73,15 @@ export function SessionList({
         sessionPreset={sessionPreset as SessionPreset}
         applyPreset={applyPreset}
         updateFilter={updateFilter}
-        quickFilterOptions={quickFilterOptions}
-        isQuickFilterOpen={isQuickFilterOpen}
-        onQuickFilterOpenChange={setIsQuickFilterOpen}
         onAdvancedToggle={handleAdvancedToggle}
         advancedOpen={advancedSections.length > 0}
         onResetFilters={resetFilters}
         activeBadges={activeBadges}
         onBadgeClear={handleBadgeClear}
+        multiSelectorGroups={multiSelectorGroups}
+        multiSelectorOptions={multiSelectorOptions}
+        multiSelectorValue={multiSelectorValue}
+        onMultiSelectorChange={handleMultiSelectorChange}
       />
     ),
     [
@@ -87,11 +90,12 @@ export function SessionList({
       applyPreset,
       filters,
       handleBadgeClear,
-      isQuickFilterOpen,
-      quickFilterOptions,
+      handleMultiSelectorChange,
+      multiSelectorGroups,
+      multiSelectorOptions,
+      multiSelectorValue,
       resetFilters,
       sessionPreset,
-      setIsQuickFilterOpen,
       updateFilter,
       handleAdvancedToggle,
     ]
@@ -106,19 +110,23 @@ export function SessionList({
   const shouldRenderInlineFilters = !onFiltersRender;
 
   return (
-    <div className="w-full">
-      <Card className="flex min-h-[70vh] flex-col overflow-hidden p-0">
+    <MeteorsField className="w-full">
+      <Card className="flex min-h-[70vh] flex-col overflow-hidden border border-white/10 bg-black/70 p-0 backdrop-blur-xl">
         <CardHeader className="space-y-4 border-b border-border/80 px-6 py-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-1">
-              <CardTitle className="text-lg font-semibold">Session explorer</CardTitle>
-              <CardDescription>Discover JSONL session logs grouped by repository and branch.</CardDescription>
+              <CardTitle className="text-lg font-semibold text-white">Session explorer</CardTitle>
+              <CardDescription className="text-sm text-white/60">
+                Discover JSONL session logs grouped by repository and branch.
+              </CardDescription>
             </div>
-            <Badge variant="secondary" className="text-[10px] font-semibold uppercase tracking-wide">
-              {formatCount(filteredSessionCount)} / {formatCount(accessibleAssets.length)} sessions
-            </Badge>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <SessionSearchBar filters={filters} updateFilter={updateFilter} className="sm:w-72" />
+              <Badge variant="secondary" className="justify-center text-[10px] font-semibold uppercase tracking-wide">
+                {formatCount(filteredSessionCount)} / {formatCount(accessibleAssets.length)} sessions
+              </Badge>
+            </div>
           </div>
-          <SessionSearchBar filters={filters} updateFilter={updateFilter} />
           {shouldRenderInlineFilters ? filterToolbarNode : null}
           <AdvancedFilterAccordion
             filters={filters}
@@ -172,6 +180,6 @@ export function SessionList({
           </TracingBeam>
         </CardContent>
       </Card>
-    </div>
+    </MeteorsField>
   );
 }

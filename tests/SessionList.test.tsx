@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 import { SessionList } from "~/components/viewer/SessionList"
 import { createDiscoveredSessionAsset } from "~/lib/viewerDiscovery"
 import type { SessionAssetInput } from "~/lib/viewerDiscovery"
+import { useUiSettingsStore } from "~/stores/uiSettingsStore"
 
 class ResizeObserverStub {
   observe() {}
@@ -51,6 +52,9 @@ const sampleInputs: SessionAssetInput[] = [
 const sampleSessions = sampleInputs.map((entry) => createDiscoveredSessionAsset(entry))
 
 describe("SessionList", () => {
+  beforeEach(() => {
+    useUiSettingsStore.getState().resetSessionExplorer()
+  })
   it("filters repositories with search input", async () => {
     const user = userEvent.setup()
     render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)

@@ -1,15 +1,13 @@
-import { SlidersHorizontal, X } from 'lucide-react';
-import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs';
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '~/components/ui/command';
+import { X } from 'lucide-react'
+import { Badge } from '~/components/ui/badge'
+import { Button } from '~/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
+import { MultiSelector, type MultiSelectorGroup, type MultiSelectorOption, type MultiSelectorValue } from '~/components/ui/multi-selector'
 import type {
   ActiveFilterBadge,
   FilterBadgeKey,
-  QuickFilterOption,
   SessionExplorerFilterState,
   SessionPreset,
   SortDirection,
@@ -21,14 +19,15 @@ interface SessionFiltersToolbarProps {
   sessionPreset: SessionPreset;
   applyPreset: (value: SessionPreset) => void;
   updateFilter: <K extends keyof SessionExplorerFilterState>(key: K, value: SessionExplorerFilterState[K]) => void;
-  quickFilterOptions: QuickFilterOption[];
-  isQuickFilterOpen: boolean;
-  onQuickFilterOpenChange: (open: boolean) => void;
   onAdvancedToggle?: () => void;
   advancedOpen?: boolean;
   onResetFilters: () => void;
   activeBadges: ActiveFilterBadge[];
   onBadgeClear: (key: FilterBadgeKey) => void;
+  multiSelectorGroups: MultiSelectorGroup[];
+  multiSelectorOptions: MultiSelectorOption[];
+  multiSelectorValue: MultiSelectorValue;
+  onMultiSelectorChange: (value: MultiSelectorValue) => void;
 }
 
 export function SessionFiltersToolbar({
@@ -36,22 +35,24 @@ export function SessionFiltersToolbar({
   sessionPreset,
   applyPreset,
   updateFilter,
-  quickFilterOptions,
-  isQuickFilterOpen,
-  onQuickFilterOpenChange,
   onAdvancedToggle,
   advancedOpen,
   onResetFilters,
   activeBadges,
   onBadgeClear,
+  multiSelectorGroups,
+  multiSelectorOptions,
+  multiSelectorValue,
+  onMultiSelectorChange,
 }: SessionFiltersToolbarProps) {
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs
-          value={sessionPreset}
-          onValueChange={(value) => applyPreset(value as SessionPreset)}
-          className="w-full lg:w-auto min-w-0 flex-1"
+      <div className="space-y-4 rounded-3xl border border-white/15 bg-[#04070f] p-4 text-white shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <Tabs
+            value={sessionPreset}
+            onValueChange={(value) => applyPreset(value as SessionPreset)}
+          className="w-full min-w-0 flex-1 lg:w-auto"
         >
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -59,22 +60,22 @@ export function SessionFiltersToolbar({
             <TabsTrigger value="heavy">Large</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={filters.sortKey} onValueChange={(value: SortKey) => updateFilter('sortKey', value)}>
-            <SelectTrigger aria-label="Sort by" className="w-32">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent align="end">
-              <SelectItem value="timestamp">Timestamp</SelectItem>
-              <SelectItem value="size">Size</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={filters.sortKey} onValueChange={(value: SortKey) => updateFilter('sortKey', value)}>
+              <SelectTrigger aria-label="Sort by" className="w-32 border-white/20 bg-transparent text-white">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent align="end" className="border-white/10 bg-[#090c15] text-white">
+                <SelectItem value="timestamp">Timestamp</SelectItem>
+                <SelectItem value="size">Size</SelectItem>
+              </SelectContent>
+            </Select>
           <ToggleGroup
             type="single"
             value={filters.sortDir}
             onValueChange={(value) => value && updateFilter('sortDir', value as SortDirection)}
             aria-label="Sort direction"
-            className="flex"
+              className="flex rounded-full border border-white/15"
           >
             <ToggleGroupItem value="asc" aria-label="Sort ascending" className="text-xs">
               ↑ ASC
@@ -83,48 +84,25 @@ export function SessionFiltersToolbar({
               ↓ DESC
             </ToggleGroupItem>
           </ToggleGroup>
-          <Popover open={isQuickFilterOpen} onOpenChange={onQuickFilterOpenChange}>
-            <PopoverTrigger asChild>
-              <Button type="button" variant="outline" className="gap-2">
-                <SlidersHorizontal className="size-4" />
-                Quick filters
+            {onAdvancedToggle ? (
+              <Button type="button" variant="secondary" className="gap-2" onClick={onAdvancedToggle}>
+                Advanced {advancedOpen ? '−' : '+'}
               </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 p-0">
-              <Command>
-                <CommandInput placeholder="Search presets..." />
-                <CommandList>
-                  <CommandEmpty>No presets available.</CommandEmpty>
-                  <CommandGroup heading="Presets">
-                    {quickFilterOptions.map((option) => (
-                      <CommandItem
-                        key={option.key}
-                        value={option.key}
-                        onSelect={() => {
-                          option.apply();
-                          onQuickFilterOpenChange(false);
-                        }}
-                      >
-                        <div className="space-y-0.5">
-                          <p className="text-sm font-medium">{option.label}</p>
-                          <p className="text-xs text-muted-foreground">{option.description}</p>
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-          {onAdvancedToggle ? (
-            <Button type="button" variant="secondary" className="gap-2" onClick={onAdvancedToggle}>
-              Advanced {advancedOpen ? '−' : '+'}
+            ) : null}
+            <Button type="button" variant="ghost" onClick={onResetFilters}>
+              Reset
             </Button>
-          ) : null}
-          <Button type="button" variant="ghost" onClick={onResetFilters}>
-            Reset
-          </Button>
+          </div>
         </div>
+        <MultiSelector
+          groups={multiSelectorGroups}
+          options={multiSelectorOptions}
+          value={multiSelectorValue}
+          onChange={onMultiSelectorChange}
+          triggerLabel="Filter matrix"
+          placeholder="Select sources, branches, tags, and recency"
+          maxVisibleChips={4}
+        />
       </div>
       {activeBadges.length ? (
         <div

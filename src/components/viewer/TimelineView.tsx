@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 export interface TimelineViewProps<T> {
   items: readonly T[];
@@ -10,6 +10,7 @@ export interface TimelineViewProps<T> {
   className?: string;
   scrollToIndex?: number | null;
   onScrollChange?: (state: { scrollTop: number; totalHeight: number; height: number }) => void;
+  registerScrollContainer?: (node: HTMLDivElement | null) => void;
 }
 
 function useRafThrottle(fn: () => void) {
@@ -55,10 +56,16 @@ export function TimelineView<T>({
   className,
   scrollToIndex = null,
   onScrollChange,
+  registerScrollContainer,
 }: TimelineViewProps<T>) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [measured, setMeasured] = useState<Map<number, number>>(new Map());
+
+  useEffect(() => {
+    registerScrollContainer?.(containerRef.current);
+    return () => registerScrollContainer?.(null);
+  }, [registerScrollContainer]);
 
   const { offsets, totalHeight } = useMemo(() => {
     const n = items.length;
