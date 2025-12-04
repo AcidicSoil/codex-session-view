@@ -44,11 +44,11 @@ oplink.config.mjs
 **/artifacts/**
 **/scripts/**
 **/codefetch/**
-codefetch/
+codefetch
 session-id.md
 **/.mcp-workflows/**
 .browser-echo-mcp.json
-.TODO/
+#.TODO/
 .gemini/
 **/.archived/**
 #.taskmaster/
@@ -56,9 +56,15 @@ session-id.md
 #.taskmaster/docs/v2/
 #screenshots/
 #**/*screenshot*.png/**
-.todo
+#.todo
 scripts
 .taskmaster
+.genkit
+.cursor
+.mypy_cache
+
+
+
 # START Ruler Generated Files
 /.codex/config.toml
 /.codex/config.toml.bak

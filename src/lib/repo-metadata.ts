@@ -3,11 +3,12 @@ import { parseSessionMetaLine } from '~/lib/session-parser'
 import { normalizeRepositoryLabel, repositoryLabelFromCwd } from './repository'
 
 export interface RepoMetadata {
-  repo?: string
-  branch?: string
-  commit?: string
-  remote?: string
-  dirty?: boolean
+  repo?: string;
+  branch?: string;
+  commit?: string;
+  remote?: string;
+  dirty?: boolean;
+  cwd?: string;
 }
 
 export interface RepoDetails {

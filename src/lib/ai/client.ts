@@ -281,7 +281,7 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
 }
 
 const STATIC_MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
-  'openai:gpt-4o-mini': {
+  /*  'openai:gpt-4o-mini': {
     id: 'openai:gpt-4o-mini',
     label: 'GPT-4o mini',
     description: 'Balanced reasoning tuned for AGENTS remediation with 128K context.',
@@ -303,6 +303,19 @@ const STATIC_MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     maxOutputTokens: 8_192,
     defaultTemperature: 0.35,
     tags: ['general', 'creative'],
+    modes: ['session', 'general'],
+  },*/
+
+  'lmstudio:local-default': {
+    id: 'lmstudio:local-default',
+    label: 'LM Studio Local',
+    description: 'Runs against a local LM Studio OpenAI-compatible server for offline workflows.',
+    providerId: 'lm-studio',
+    providerModel: 'openai/gpt-oss-20b',
+    contextWindow: 128_000,
+    maxOutputTokens: 8_192,
+    defaultTemperature: 0.2,
+    tags: ['local', 'open-source'],
     modes: ['session', 'general'],
   },
   'gemini:2.5-flash': {
@@ -351,18 +364,6 @@ const STATIC_MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     maxOutputTokens: 16_384,
     defaultTemperature: 0.15,
     tags: ['reasoning', 'slow'],
-    modes: ['session', 'general'],
-  },
-  'lmstudio:local-default': {
-    id: 'lmstudio:local-default',
-    label: 'LM Studio Local',
-    description: 'Runs against a local LM Studio OpenAI-compatible server for offline workflows.',
-    providerId: 'lm-studio',
-    providerModel: 'openai/gpt-oss-20b',
-    contextWindow: 128_000,
-    maxOutputTokens: 8_192,
-    defaultTemperature: 0.2,
-    tags: ['local', 'open-source'],
     modes: ['session', 'general'],
   },
   'demo:grounded': {

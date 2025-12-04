@@ -215,11 +215,6 @@ async function synchronizeExternalSessions(
   return count;
 }
 
-interface SessionDirectoryInfo {
-  absolute: string;
-  displayPrefix: string;
-}
-
 function getExternalSessionDirectories(deps: NodeDeps | null): SessionDirectoryInfo[] {
   if (!deps) return [];
   const directories: SessionDirectoryInfo[] = [];
