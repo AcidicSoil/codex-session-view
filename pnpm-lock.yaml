@@ -134,9 +134,6 @@ importers:
       motion:
         specifier: ^12.23.24
         version: 12.23.24(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      nitro:
-        specifier: 3.0.1-alpha.0
-        version: 3.0.1-alpha.0(chokidar@4.0.3)(ioredis@5.8.0)(lru-cache@11.2.2)(vite@7.1.12(@types/node@24.9.2)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1))
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -273,6 +270,9 @@ importers:
       micromatch:
         specifier: ^4.0.8
         version: 4.0.8
+      nitro:
+        specifier: 3.0.1-alpha.0
+        version: 3.0.1-alpha.0(chokidar@4.0.3)(ioredis@5.8.0)(lru-cache@11.2.2)(vite@7.1.12(@types/node@24.9.2)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1))
       oxlint:
         specifier: ^1.25.0
         version: 1.25.0
