@@ -11,10 +11,11 @@
      - Session Coach usage: total conversations tagged by `mode`.
    - Extend the existing HTTP 5xx + high latency alerts to cover the new endpoints (no separate telemetry pipeline).
 3. **Lead time requirement**
-   - Allocate **two business days** before enabling `SESSION_COACH_ENABLED` in production:
+ - Allocate **two business days** before enabling `SESSION_COACH_ENABLED` in production:
      - **Day 1:** land/verify staging dashboards + alerts; smoke-test logger payloads end-to-end.
      - **Day 2:** copy the same panels/alerts to prod, confirm signal quality, and secure approval from the current `viewer.loader`/`~/lib/logger` owner.
-   - Do not flip the prod feature flag without explicit sign-off from that owner.
+  - Do not flip the prod feature flag without explicit sign-off from that owner.
 4. **Runtime validation**
-   - In staging, exercise: summary/commit pop-outs, misalignment banner actions, and timeline badge clicks. Confirm that remediation metadata reaches `/api/chatbot/stream` and that banner/timeline dismissals update status immediately.
-   - Capture screenshots of the new dashboards + alert rules as part of the rollout memo.
+  - In staging, exercise: summary/commit pop-outs, misalignment banner actions, and timeline badge clicks. Confirm that remediation metadata reaches `/api/chatbot/stream` and that banner/timeline dismissals update status immediately.
+  - Capture screenshots of the new dashboards + alert rules as part of the rollout memo.
+  - Build + deploy staging using the Vercel preset (see `docs/ops/deployment-vercel.md`) so behavior matches production exactly.

@@ -130,3 +130,4 @@ node_modules/
 # Generated log files
 dev-server-output.txt
 test-results.txt
+.env*.local
