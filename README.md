@@ -129,17 +129,42 @@ Developer-focused details—including session metadata heuristics, shadcn/ui usa
 
 ## 🚀 Deployment
 
-### Build for Production
+### Local production smoke test
 
 ```bash
-pnpm build
+pnpm run build
+pnpm run preview   # or pnpm start to boot the Node server bundle
 ```
 
-### Start Production Server
+### Vercel preview / prod deploys
+
+1. Install the [Vercel CLI](https://vercel.com/docs/cli) and log in.
+2. Build the Nitro server with the Vercel preset:
+
+   ```bash
+   DEPLOY_TARGET=vercel pnpm run build
+   # Windows (PowerShell): $Env:DEPLOY_TARGET="vercel"; pnpm run build
+   # Windows (cmd.exe): set DEPLOY_TARGET=vercel && pnpm run build
+   ```
+
+3. Deploy the prebuilt output:
+
+   ```bash
+   vercel deploy --prebuilt            # preview
+   vercel deploy --prebuilt --prod     # production
+   ```
+
+   Vercel automatically sets `VERCEL=1` in CI, so the preset switch also activates there.
+
+4. Follow the extended runbook in [`docs/ops/deployment-vercel.md`](docs/ops/deployment-vercel.md) for secrets, env vars, and rollback steps.
+
+Need a local dev server that mimics Vercel? Run:
 
 ```bash
-pnpm start
+pnpm run dev:vercel
 ```
+
+This script rebuilds with `DEPLOY_TARGET=vercel` and launches `vercel dev` via `pnpm dlx`. Sign in with the Vercel CLI when prompted.
 
 ## 📄 License
 
