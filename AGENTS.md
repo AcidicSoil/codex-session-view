@@ -134,7 +134,7 @@
 
 <!-- Source: .ruler/missin-docs-use-mcp.md -->
 
-# mcp-missing-docs
+# mcp-doc-context-collection-before-starting-work-always
 
 ## Doc Tool Selection and usage
 
