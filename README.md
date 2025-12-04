@@ -55,11 +55,10 @@ The Session Coach vertical stitches together the chat dock, `/api/chatbot/*` end
 
 ```bash
 # Clone the starter template (replace with your repo)
-npx gitpick git@github.com:instructa/constructa-starter-min.git my-app
-cd my-app
+git clone https://github.com/AcidicSoil/codex-session-view.git
+cd codex-session-view
 ```
 
-> **Recommended:** This starter uses [gitpick](https://github.com/nrjdalal/gitpick) for easy cloning without `.git` directory, making it perfect for creating new projects from this template.
 
 ### Installation
 

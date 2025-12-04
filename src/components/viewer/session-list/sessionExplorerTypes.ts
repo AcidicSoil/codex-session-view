@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
+import type { DiscoveredSessionAsset, SessionAssetSource } from '~/lib/viewerDiscovery';
 import type { RepoMetadata } from '~/lib/repo-metadata';
 
 export interface BranchGroup {
@@ -26,6 +26,7 @@ export interface RepositoryGroup {
 export type SizeUnit = 'KB' | 'MB';
 export type SortKey = 'timestamp' | 'size';
 export type SortDirection = 'asc' | 'desc';
+export type SessionRecencyPreset = 'all' | '24h' | '7d' | '30d';
 
 export interface SessionExplorerFilterState {
   searchText: string;
@@ -37,6 +38,10 @@ export interface SessionExplorerFilterState {
   sizeMaxUnit: SizeUnit;
   timestampFrom: string;
   timestampTo: string;
+  sourceFilters: SessionAssetSource[];
+  branchFilters: string[];
+  tagFilters: string[];
+  recency: SessionRecencyPreset;
 }
 
 export const defaultFilterState: SessionExplorerFilterState = {
@@ -49,6 +54,10 @@ export const defaultFilterState: SessionExplorerFilterState = {
   sizeMaxUnit: 'MB',
   timestampFrom: '',
   timestampTo: '',
+  sourceFilters: [],
+  branchFilters: [],
+  tagFilters: [],
+  recency: 'all',
 };
 
 export type FilterBadgeKey = 'size' | 'timestamp';
@@ -70,4 +79,17 @@ export interface QuickFilterOption {
 
 export interface SessionExplorerRenderCallbacks {
   onFiltersRender?: (node: ReactNode | null) => void;
+}
+
+export interface SessionExplorerFilterOption {
+  id: string;
+  label: string;
+  count: number;
+  description?: string;
+}
+
+export interface SessionExplorerFilterDimensions {
+  sources: SessionExplorerFilterOption[];
+  branches: SessionExplorerFilterOption[];
+  tags: SessionExplorerFilterOption[];
 }

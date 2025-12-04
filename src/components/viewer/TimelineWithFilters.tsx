@@ -13,6 +13,7 @@ import {
 import { dedupeTimelineEvents } from '~/components/viewer/AnimatedTimelineList'
 import { buildSearchMatchers, matchesSearchMatchers, type SearchMatcher } from '~/utils/search'
 import { TimelineSearchBar } from '~/components/viewer/TimelineSearchBar'
+import { useUiSettingsStore } from '~/stores/uiSettingsStore'
 
 interface TimelineWithFiltersProps {
   /**
@@ -39,11 +40,39 @@ export function TimelineWithFilters({
   onFlaggedEventClick,
   focusEventIndex,
 }: TimelineWithFiltersProps) {
-  const [filters, setFilters] = useState<Filter<TimelineFilterValue>[]>([])
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
-  const [roleFilter, setRoleFilter] = useState<RoleQuickFilter>('all')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
-  const [searchQuery, setSearchQuery] = useState('')
+  const timelinePreferences = useUiSettingsStore((state) => state.timelinePreferences)
+  const updateTimelinePreferences = useUiSettingsStore((state) => state.updateTimelinePreferences)
+  const { filters, quickFilter, roleFilter, sortOrder, searchQuery } = timelinePreferences
+  const setFilters = useCallback(
+    (next: Filter<TimelineFilterValue>[]) => {
+      updateTimelinePreferences((prev) => ({ ...prev, filters: next }))
+    },
+    [updateTimelinePreferences],
+  )
+  const setQuickFilter = useCallback(
+    (next: QuickFilter) => {
+      updateTimelinePreferences((prev) => ({ ...prev, quickFilter: next }))
+    },
+    [updateTimelinePreferences],
+  )
+  const setRoleFilter = useCallback(
+    (next: RoleQuickFilter) => {
+      updateTimelinePreferences((prev) => ({ ...prev, roleFilter: next }))
+    },
+    [updateTimelinePreferences],
+  )
+  const setSortOrder = useCallback(
+    (next: SortOrder) => {
+      updateTimelinePreferences((prev) => ({ ...prev, sortOrder: next }))
+    },
+    [updateTimelinePreferences],
+  )
+  const setSearchQuery = useCallback(
+    (value: string) => {
+      updateTimelinePreferences((prev) => ({ ...prev, searchQuery: value }))
+    },
+    [updateTimelinePreferences],
+  )
   const searchMatchers = useMemo(() => buildSearchMatchers(searchQuery), [searchQuery])
 
   const searchMatches = useMemo(

@@ -42,7 +42,7 @@ describe("DiscoveryPanel", () => {
             expect(screen.getByText(/Session explorer/i)).toBeInTheDocument()
             expect(screen.getByText(/2 \/ 2 sessions/i)).toBeInTheDocument()
             expect(screen.getByPlaceholderText(/search repo, branch/i)).toBeInTheDocument()
-            expect(screen.getByRole("button", { name: /Quick filters/i })).toBeInTheDocument()
+            expect(screen.getByRole("button", { name: /Filter matrix/i })).toBeInTheDocument()
             const expandButton = screen.getByRole("button", { name: /Toggle example\/alpha/i })
 
             act(() => {

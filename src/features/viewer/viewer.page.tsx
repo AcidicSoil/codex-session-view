@@ -27,9 +27,13 @@ import type { HookDecisionSeverity, HookRuleSummary, HookSource } from '~/server
 import { toast } from 'sonner'
 import { SessionRepoSelector } from '~/components/chatbot/SessionRepoSelector'
 import { SessionRuleSheet } from '~/components/chatbot/SessionRuleSheet'
+import { RuleInspectorSheet } from '~/components/chatbot/RuleInspectorSheet'
 import { fetchChatbotState } from '~/server/function/chatbotState'
 import { sessionRepoContext } from '~/server/function/sessionRepoContext'
 import { fetchRuleInventory } from '~/server/function/ruleInventory'
+import { useUiSettingsStore } from '~/stores/uiSettingsStore'
+import type { EvidenceContext } from '~/components/chatbot/EvidenceCard'
+import type { ResponseItemParsed } from '~/lib/session-parser'
 
 interface HookGateState {
   blocked: boolean
@@ -38,6 +42,8 @@ interface HookGateState {
   annotations?: string
   rules: HookRuleSummary[]
   decisionId: string
+  sessionId: string
+  assetPath?: string | null
 }
 
 export function ViewerPage() {
@@ -53,6 +59,9 @@ export function ViewerClient() {
   const loader = useFileLoader();
   const initialSessionId = loaderData?.sessionId ?? 'demo-session'
   const [activeSessionId, setActiveSessionId] = useState(initialSessionId)
+  const openRuleInspector = useUiSettingsStore((state) => state.openRuleInspector)
+  const lastSessionPath = useUiSettingsStore((state) => state.lastSessionPath)
+  const setLastSessionPath = useUiSettingsStore((state) => state.setLastSessionPath)
   const discovery = useViewerDiscovery({ loader });
   const uploadController = useUploadController({
     loader,
@@ -66,6 +75,11 @@ export function ViewerClient() {
   const [ruleSheetEntries, setRuleSheetEntries] = useState(loaderData?.ruleSheet ?? [])
   const [focusEventIndex, setFocusEventIndex] = useState<number | null>(null)
   const misalignments = sessionCoachState?.misalignments ?? []
+  const sessionEvents = sessionCoachState?.snapshot?.events ?? []
+  const resolveEvidenceContext = useCallback(
+    (eventIndex: number) => buildEvidenceContext(sessionEvents, eventIndex),
+    [sessionEvents],
+  )
   const flaggedEventMarkers = useMemo(() => {
     if (!sessionCoachState?.featureEnabled) {
       return new Map<number, TimelineFlagMarker>()
@@ -130,6 +144,16 @@ export function ViewerClient() {
   }, [focusEventIndex])
 
   useEffect(() => {
+    if (discovery.selectedSessionPath) {
+      setLastSessionPath(discovery.selectedSessionPath)
+      return
+    }
+    if (!discovery.selectedSessionPath && lastSessionPath) {
+      discovery.setSelectedSessionPath(lastSessionPath)
+    }
+  }, [discovery, lastSessionPath, setLastSessionPath])
+
+  useEffect(() => {
     if (!selectedAsset) return
     const nextSessionId = deriveSessionId(selectedAsset.path)
     if (nextSessionId === activeSessionId) return
@@ -178,6 +202,8 @@ export function ViewerClient() {
           annotations: response.annotations,
           rules: response.rules,
           decisionId: response.decisionId,
+          sessionId: activeSessionId,
+          assetPath: extras?.filePath ?? activeAssetPath ?? null,
         });
         if (response.blocked || !response.prefill) {
           toast.error('Add to chat blocked', {
@@ -299,11 +325,35 @@ export function ViewerClient() {
     [handleRemediationPrefill],
   )
 
-  const handleHookGateJump = useCallback((index: number) => {
-    setNavValue('timeline')
-    setTabValue('timeline')
-    setFocusEventIndex(index)
-  }, [])
+  const ensureSessionAssetLoaded = useCallback(
+    async (assetPath?: string | null) => {
+      if (!assetPath) return
+      if (discovery.selectedSessionPath === assetPath && loader.state.events.length > 0) {
+        return
+      }
+      const asset = discovery.sessionAssets.find((entry) => entry.path === assetPath)
+      if (!asset) {
+        toast.error('Session asset unavailable', {
+          description: 'The file referenced by this rule is not part of the current discovery snapshot.',
+        })
+        return
+      }
+      await discovery.onSessionOpen(asset)
+    },
+    [discovery, loader.state.events.length],
+  )
+
+  const handleHookGateJump = useCallback(
+    async (index: number) => {
+      if (hookGate?.assetPath) {
+        await ensureSessionAssetLoaded(hookGate.assetPath)
+      }
+      setNavValue('timeline')
+      setTabValue('timeline')
+      setFocusEventIndex(index)
+    },
+    [ensureSessionAssetLoaded, hookGate?.assetPath],
+  )
 
   const timelineSections: StickySection[] = [
     {
@@ -357,8 +407,9 @@ export function ViewerClient() {
   ];
 
   return (
-    <main className="min-h-screen px-4 py-10">
-      <div className="mx-auto flex w-full max-w-none flex-col gap-8">
+    <>
+      <main className="min-h-screen px-4 py-10">
+        <div className="mx-auto flex w-full max-w-none flex-col gap-8">
         <div className="sticky top-16 z-40 flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-black/40 p-4 shadow-lg backdrop-blur-xl">
           <FloatingNavbar items={navItems} value={navValue} onValueChange={handleNavChange} className="flex-1 min-w-[240px] bg-transparent" />
           <div className="flex items-center gap-3">
@@ -419,8 +470,21 @@ export function ViewerClient() {
                 message={hookGate.message}
                 annotations={hookGate.annotations}
                 rules={hookGate.rules}
+                sessionId={hookGate.sessionId}
+                assetPath={hookGate.assetPath}
                 onDismiss={() => setHookGate(null)}
-                onJumpToEvent={handleHookGateJump}
+                onReviewRules={(ruleId) =>
+                  openRuleInspector({
+                    activeTab: 'rules',
+                    ruleId,
+                    sessionId: hookGate.sessionId,
+                    assetPath: hookGate.assetPath,
+                  })
+                }
+                onJumpToEvent={(index) => {
+                  void handleHookGateJump(index)
+                }}
+                resolveEventContext={resolveEvidenceContext}
               />
             ) : null}
             <aside
@@ -436,8 +500,17 @@ export function ViewerClient() {
             </aside>
           </div>
         </div>
-      </div>
-    </main>
+        </div>
+      </main>
+      <RuleInspectorSheet
+        gate={hookGate}
+        ruleSheetEntries={ruleSheetEntries}
+        activeSessionId={activeSessionId}
+        sessionEvents={sessionEvents}
+        onJumpToEvent={(index) => handleHookGateJump(index)}
+        resolveEventContext={resolveEvidenceContext}
+      />
+    </>
   );
 }
 
@@ -534,4 +607,55 @@ function buildRemediationPrefill(records: MisalignmentRecord[]): CoachPrefillPay
         : undefined,
     },
   }
+}
+
+function buildEvidenceContext(events: ResponseItemParsed[], eventIndex: number): EvidenceContext | undefined {
+  if (!events.length) return undefined
+  if (eventIndex < 0 || eventIndex >= events.length) return undefined
+  const target = events[eventIndex]
+  if (!target || target.type !== 'Message') {
+    return undefined
+  }
+  const context: EvidenceContext = {}
+  const text = normalizeMessageContent(target.content)
+  if (!text) return undefined
+  if (target.role === 'user') {
+    context.userMessages = [text]
+  } else {
+    context.assistantMessages = [text]
+  }
+  const neighbors = [findNeighborMessage(events, eventIndex - 1, -1), findNeighborMessage(events, eventIndex + 1, 1)]
+  neighbors.forEach((neighbor) => {
+    if (!neighbor) return
+    const neighborText = normalizeMessageContent(neighbor.content)
+    if (!neighborText) return
+    if (neighbor.role === 'user') {
+      context.userMessages = [...(context.userMessages ?? []), neighborText]
+    } else {
+      context.assistantMessages = [...(context.assistantMessages ?? []), neighborText]
+    }
+  })
+  return context
+}
+
+function findNeighborMessage(events: ResponseItemParsed[], start: number, step: number) {
+  let pointer = start
+  while (pointer >= 0 && pointer < events.length) {
+    const candidate = events[pointer]
+    if (candidate?.type === 'Message') {
+      return candidate
+    }
+    pointer += step
+  }
+  return null
+}
+
+function normalizeMessageContent(content: ResponseItemParsed['content'] | string | undefined) {
+  if (typeof content === 'string') {
+    return content.trim()
+  }
+  if (Array.isArray(content)) {
+    return content.map((part) => ('text' in part ? part.text : '')).join('\n').trim()
+  }
+  return ''
 }

@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react'
 import { ChevronDownIcon } from 'lucide-react'
 import type { HookDecisionSeverity, HookRuleSummary } from '~/server/lib/hookifyRuntime'
 import { cn } from '~/lib/utils'
+import { FormattedContent } from '~/components/ui/formatted-content'
+import { BookmarkToggle } from '~/components/chatbot/BookmarkToggle'
+import { EvidenceCard, type EvidenceContext } from '~/components/chatbot/EvidenceCard'
 
 interface HookGateNoticeProps {
   blocked: boolean
@@ -9,8 +12,12 @@ interface HookGateNoticeProps {
   message?: string
   rules: HookRuleSummary[]
   annotations?: string
+  sessionId?: string
+  assetPath?: string | null
   onDismiss?: () => void
-  onJumpToEvent?: (eventIndex: number) => void
+  onReviewRules?: (primaryRuleId?: string) => void
+  onJumpToEvent?: (eventIndex: number) => void | Promise<void>
+  resolveEventContext?: (eventIndex: number) => EvidenceContext | undefined
 }
 
 const severityAccent: Record<HookDecisionSeverity, string> = {
@@ -37,8 +44,11 @@ export function HookGateNotice({
   message,
   rules,
   annotations,
+  sessionId,
   onDismiss,
+  onReviewRules,
   onJumpToEvent,
+  resolveEventContext,
 }: HookGateNoticeProps) {
   const accent = severityAccent[severity] ?? severityAccent.none
   const filteredRules = useMemo(() => {
@@ -93,11 +103,11 @@ export function HookGateNotice({
           </div>
         </div>
         {message ? (
-          <p className="text-sm text-lime-100/90">{message}</p>
+          <FormattedContent text={message} className="text-sm text-lime-100/90" />
         ) : null}
         {annotations ? (
           <div className="rounded-2xl border border-lime-500/40 bg-black/60 p-4 text-xs leading-relaxed text-lime-200/90">
-            {annotations}
+            <FormattedContent text={annotations} dense />
           </div>
         ) : null}
         {filteredRules.length ? (
@@ -109,76 +119,86 @@ export function HookGateNotice({
                   key={rule.id}
                   className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-lime-100/90"
                 >
-                <button
-                  type="button"
-                  onClick={() => toggleRule(rule.id)}
-                  className="flex w-full items-center justify-between gap-4 text-[11px] uppercase tracking-[0.25em] text-lime-200/80"
-                >
-                  <span className="text-left">{rule.title}</span>
-                  <span className="flex items-center gap-2">
-                    {rule.severity.toUpperCase()}
-                    <ChevronDownIcon className={cn('size-3 transition-transform', isOpen ? 'rotate-180' : 'rotate-0')} />
-                  </span>
-                </button>
-                <p className="pt-1 text-[10px] font-mono text-lime-200/70">Rule ID: {rule.id}</p>
-                {isOpen ? (
-                  <>
-                    <p className="pt-2 text-sm font-medium text-lime-50">{rule.summary}</p>
-                    {rule.eventRange ? (
-                      <p className="mt-1 text-[11px] text-lime-200/80">
-                        Events {rule.eventRange.startIndex}–{rule.eventRange.endIndex}
-                        {rule.eventRange.startAt && rule.eventRange.endAt
-                          ? ` • ${formatTimestamp(rule.eventRange.startAt)} → ${formatTimestamp(rule.eventRange.endAt)}`
-                          : null}
-                      </p>
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleRule(rule.id)}
+                        className="flex flex-1 items-center justify-between gap-4 text-[11px] uppercase tracking-[0.25em] text-lime-200/80"
+                      >
+                        <span className="text-left">{rule.title}</span>
+                        <span className="flex items-center gap-2">
+                          {rule.severity.toUpperCase()}
+                          <ChevronDownIcon className={cn('size-3 transition-transform', isOpen ? 'rotate-180' : 'rotate-0')} />
+                        </span>
+                      </button>
+                      <BookmarkToggle type="rule" entityId={rule.id} label={rule.title} />
+                    </div>
+                    <p className="text-[10px] font-mono text-lime-200/70">Rule ID: {rule.id}</p>
+                    {isOpen ? (
+                      <>
+                        <FormattedContent text={rule.summary} className="text-sm font-medium text-lime-50" />
+                        {rule.eventRange ? (
+                          <p className="mt-1 text-[11px] text-lime-200/80">
+                            Events {rule.eventRange.startIndex}–{rule.eventRange.endIndex}
+                            {rule.eventRange.startAt && rule.eventRange.endAt
+                              ? ` • ${formatTimestamp(rule.eventRange.startAt)} → ${formatTimestamp(rule.eventRange.endAt)}`
+                              : null}
+                          </p>
+                        ) : null}
+                      </>
                     ) : null}
-                  </>
-                ) : null}
-                {isOpen && rule.evidence?.length ? (
-                  <div className="mt-3 space-y-2">
-                    {rule.evidence.map((item, index) => (
-                      <div key={`${rule.id}-evidence-${index}`} className="rounded-xl bg-black/40 p-3 text-[13px] text-lime-100/90">
-                        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.25em] text-lime-200/70">
-                          <span>{formatEvidenceLabel(item, index)}</span>
-                          {typeof item.eventIndex === 'number' ? (
-                            <span>Event #{item.eventIndex + 1}</span>
-                          ) : null}
-                        </div>
-                        <p className="pt-1 text-sm">{item.message || item.highlight || 'Referenced event violates this rule.'}</p>
-                        {item.highlight ? (
-                          <p className="mt-1 text-xs text-lime-200/80">{item.highlight}</p>
-                        ) : null}
-                        {typeof item.eventIndex === 'number' ? (
-                          <button
-                            type="button"
-                            className="mt-2 inline-flex items-center gap-2 rounded-full border border-lime-300/40 bg-lime-200/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-lime-100 transition hover:bg-lime-200/20"
-                            onClick={() => onJumpToEvent?.(item.eventIndex!)}
-                          >
-                            Jump to event
-                          </button>
-                        ) : null}
+                    {isOpen && rule.evidence?.length ? (
+                      <div className="mt-3 space-y-3">
+                        {rule.evidence.map((item, index) => (
+                          <EvidenceCard
+                            key={`${rule.id}-evidence-${index}`}
+                            index={index}
+                            evidence={item}
+                            ruleId={rule.id}
+                            sessionId={sessionId}
+                            onJumpToEvent={onJumpToEvent}
+                            context={
+                              typeof item.eventIndex === 'number'
+                                ? resolveEventContext?.(item.eventIndex)
+                                : undefined
+                            }
+                          />
+                        ))}
                       </div>
-                    ))}
+                    ) : null}
                   </div>
-                ) : null}
-              </div>
+                </div>
               )
             })}
           </div>
         ) : (
           <p className="text-xs text-lime-200/70">No rule-bound events detected.</p>
         )}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <span className="text-xs uppercase tracking-[0.3em] text-lime-200/70">
             Decision • {blocked ? 'Denied' : 'Warn'}
           </span>
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="rounded-full border border-lime-400/70 bg-lime-400/10 px-4 py-2 text-sm font-semibold text-lime-50 shadow-[4px_4px_0_0_rgba(190,255,0,0.5)] transition hover:-translate-y-0.5"
-          >
-            {blocked ? 'Review rules' : 'Accept constraints'}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {onReviewRules ? (
+              <button
+                type="button"
+                onClick={() => onReviewRules(filteredRules[0]?.id)}
+                className="rounded-full border border-lime-400/70 bg-black/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-lime-50 transition hover:-translate-y-0.5"
+              >
+                Review rules
+              </button>
+            ) : null}
+            {onDismiss ? (
+              <button
+                type="button"
+                onClick={onDismiss}
+                className="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-white/80 transition hover:bg-white/10"
+              >
+                {blocked ? 'Dismiss notice' : 'Accept constraints'}
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
@@ -194,11 +214,4 @@ function formatTimestamp(value?: string) {
   } catch {
     return value
   }
-}
-
-function formatEvidenceLabel(item: HookRuleSummary['evidence'][number], index: number) {
-  if (typeof item.eventIndex === 'number') {
-    return `Evidence #${index + 1}`
-  }
-  return `Evidence #${index + 1}`
 }

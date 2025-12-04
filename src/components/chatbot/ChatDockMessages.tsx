@@ -7,6 +7,7 @@ import type { MisalignmentRecord } from '~/lib/sessions/model';
 import type { LocalMessage } from '~/components/chatbot/hooks/useChatDockController';
 import { cn } from '~/lib/utils';
 import { getSeverityVisuals } from '~/features/chatbot/severity';
+import { FormattedContent } from '~/components/ui/formatted-content';
 
 interface ChatDockMessagesProps {
   messages: LocalMessage[];
@@ -93,7 +94,7 @@ function EvidenceList({ evidence }: { evidence: NonNullable<LocalMessage['eviden
                   </Badge>
                 ) : null}
               </div>
-              {entry.snippet ? <p className="mt-1 text-sm text-foreground">{entry.snippet}</p> : null}
+              {entry.snippet ? <FormattedContent text={entry.snippet} className="mt-1 text-sm text-foreground" dense /> : null}
             </li>
           );
         })}
