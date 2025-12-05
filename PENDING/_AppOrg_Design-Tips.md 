@@ -1,0 +1,106 @@
+
+Approach
+
+1. Stabilize current defects (minimal structural change)
+
+   * Fix obvious overflow and scrollbar issues in the existing layout:
+
+     * Add missing `overflow-y: auto` and height constraints for Gate tab and right-hand inspector content.
+     * Identify overlays around the timeline scrollbar and adjust `pointer-events`/`z-index` so scrollbars are interactive.
+   * Implement path truncation CSS or helper components to stop path strings from escaping their containers.
+   * Ensure truncation of control labels is mitigated by width adjustments and/or shorter placeholder text.
+   * This phase reduces daily pain without requiring users to relearn navigation.
+
+2. Define target IA and route responsibilities
+
+   * Write a short IA spec:
+
+     * Home: session list, filters, basic metadata, link into Inspector and Chat.
+     * Chat: conversation + Instruction Source / rule context, with clear reference to the active session (or none).
+     * Inspector: deep-dive for a single session with Timeline, Rule Inventory, and analysis.
+   * Decide where Upload & Stream lives (assumption: Inspector for session-specific processing; mark as assumption).
+   * Decide canonical place for Rule Inventory (Inspector) and whether a tiny summary appears elsewhere (read-only).
+
+3. Implement routing and base layouts
+
+   * Introduce or extend TanStack Router configuration with the new routes and a top-level app shell.
+   * Implement Home page layout focused on Session Explorer and localized filters.
+   * Implement Chat page layout:
+
+     * Main chat area.
+     * Integrated Instruction Source with clear actions like “Attach these rules to chat”.
+   * Implement baseline Inspector layout:
+
+     * Fixed header with session name, Eject Session, nav crumbs.
+     * Main area subdivided into panels for Timeline and Rule Inventory (and any other chosen panels).
+   * Remove the heavy right-hand stack from the old single page; mount components only in their new routes.
+
+4. Consolidate Rule Inventory and Review Rules
+
+   * Remove duplicate Rule Inventory instances; keep one core component used in Inspector (and optionally a read-only preview).
+   * Change “Review Rules” button behavior:
+
+     * Rather than opening a unique side-sheet, navigate to Inspector’s Rules tab (or open a global drawer backed by the same component/state).
+   * Make sure the current session context is preserved when moving into Inspector from “Review Rules” or other entry points.
+
+5. Implement shared state and persistence
+
+   * Introduce a viewer state context/store responsible for:
+
+     * Current session ID.
+     * Active Inspector tab (Timeline, Rules, etc.).
+     * Rule Inventory filters and sort state.
+     * Session Explorer filters/search.
+   * Implement URL <-> state mapping:
+
+     * For example: `?session=ID&view=inspector&tab=rules&severity=high&q=foo`.
+   * On initial load, hydrate state from the URL; on state change, update URL via router (`replace`/`pushState` semantics tuned to avoid history spam).
+   * Use local storage for minor presentation preferences if needed (e.g., panel collapsed state).
+   * Remove the Persist toggle and its wiring.
+
+6. Wire up Rule Inventory functionality
+
+   * Connect Rule Inventory search and filter controls to the actual data query:
+
+     * Ensure that changing filters triggers data reload or client-side filtering according to architecture.
+   * Implement sortable headers with a simple sort state machine (none → asc → desc).
+   * Add visual indicators for sort direction, and ensure sort state is synchronized with URL/state store.
+
+7. Refine timeline, scroll beam, and inspector UX
+
+   * Refactor scroll beam logic:
+
+     * Attach listeners to the timeline container.
+     * Extract a pure function to compute progress from scroll metrics.
+     * Drive beam height/opacity/whatever from this computed progress.
+   * Make “Eject session” part of the Inspector header rather than content; keep header outside of scrollable areas.
+   * Verify that resize/DevTools scenarios keep critical panes (Timeline, Session Explorer, Rules) visible or at least discoverable via obvious scrollbars.
+
+8. Improve readability and data presentation
+
+   * Design and implement a consistent treatment for long paths: truncated display in primary text, full path accessible via tooltip/copy button/details.
+   * Redesign Session Explorer list items to present:
+
+     * Filename as primary text.
+     * Optional short metadata (session time, status).
+     * Secondary line or tooltip for full path if necessary.
+   * Provide a “View details” affordance for timeline events:
+
+     * Either expandable rows or a side-drawer/modal that shows the full message and props.
+
+9. Clean up dev/production differences and dead code
+
+   * Strip or hide dev-only badges/overlays in production builds.
+   * Remove or deprecate unused side-sheets and layout fragments from the initial design.
+   * Ensure all new routes and components are wired into the existing auth/session infrastructure correctly.
+
+10. Document and test
+
+* Document IA, routes, and state persistence design.
+* Add unit tests for URL/state utilities and scroll-beam logic.
+* Add integration tests (Cypress/Playwright or similar) covering:
+
+  * Route transitions and state persistence.
+  * Filters and sorting.
+  * Scroll behavior and accessibility of Gate tab and inspector content.
+* Create a short internal “migration guide” for any team members relying on old URLs or layouts.
