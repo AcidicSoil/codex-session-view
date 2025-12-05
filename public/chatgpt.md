@@ -1,0 +1,252 @@
+<svg viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background + core gradients -->
+    <radialGradient id="bgGradient" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#050510"/>
+      <stop offset="45%" stop-color="#050015"/>
+      <stop offset="100%" stop-color="#020308"/>
+    </radialGradient>
+
+    <radialGradient id="coreGradient" cx="50%" cy="50%" r="40%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="1" />
+      <stop offset="30%" stop-color="#00FFF6" stop-opacity="0.95" />
+      <stop offset="55%" stop-color="#6B5BFF" stop-opacity="0.7" />
+      <stop offset="80%" stop-color="#FF00C8" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+    </radialGradient>
+
+    <radialGradient id="innerHaloGradient" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#00FFF6" stop-opacity="0.9" />
+      <stop offset="60%" stop-color="#5500FF" stop-opacity="0.0" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+    </radialGradient>
+
+    <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00FFF6" />
+      <stop offset="30%" stop-color="#6B5BFF" />
+      <stop offset="60%" stop-color="#FF00C8" />
+      <stop offset="100%" stop-color="#FFB347" />
+    </linearGradient>
+
+    <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00FFF6" stop-opacity="0.2" />
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#FF00C8" stop-opacity="0.2" />
+    </linearGradient>
+
+    <!-- Filters -->
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="1 0 0 0 0
+                0 1 0 0 0
+                0 0 1 0 0
+                0 0 0 1.5 0"
+        result="glow" />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="noStitch" result="noise" />
+      <feColorMatrix
+        in="noise"
+        type="matrix"
+        values="0 0 0 0 0.9
+                0 0 0 0 0.95
+                0 0 0 0 1
+                0 0 0 0.35 0" />
+      <feBlend in="SourceGraphic" in2="noise" mode="soft-light" />
+    </filter>
+
+    <!-- Mask for central lens -->
+    <radialGradient id="lensMaskGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="65%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#000000" />
+    </radialGradient>
+
+    <mask id="lensMask">
+      <rect width="800" height="800" fill="url(#lensMaskGradient)" />
+    </mask>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="800" fill="url(#bgGradient)" />
+  <rect width="800" height="800" fill="#000000" opacity="0.35" filter="url(#grain)" />
+
+  <!-- Far field rings -->
+  <g opacity="0.3" stroke="url(#ringGradient)" fill="none">
+    <circle cx="400" cy="400" r="360" stroke-width="0.7" />
+    <circle cx="400" cy="400" r="330" stroke-width="0.6" stroke-dasharray="3 10" />
+    <circle cx="400" cy="400" r="300" stroke-width="0.5" stroke-dasharray="1 8" />
+  </g>
+
+  <!-- Main inner aura -->
+  <g mask="url(#lensMask)">
+    <circle cx="400" cy="400" r="260" fill="url(#innerHaloGradient)" opacity="0.7" />
+    <circle cx="400" cy="400" r="220" fill="none" stroke="url(#ringGradient)" stroke-width="2" opacity="0.8" filter="url(#softGlow)" />
+    <circle cx="400" cy="400" r="190" fill="none" stroke="#0FFFEA" stroke-width="0.6" opacity="0.6" stroke-dasharray="2 6" />
+  </g>
+
+  <!-- Radial symmetry grid (24 spokes) -->
+  <g transform="translate(400,400)" stroke="url(#lineGradient)" stroke-width="0.7" opacity="0.45">
+    <!-- 24 radial lines -->
+    <!-- Each line drawn explicitly for clarity/control -->
+    <line x1="0" y1="-260" x2="0" y2="-80" />
+    <line x1="0" y1="260" x2="0" y2="80" />
+    <line x1="-260" y1="0" x2="-80" y2="0" />
+    <line x1="260" y1="0" x2="80" y2="0" />
+
+    <line x1="225" y1="-130" x2="70" y2="-40" />
+    <line x1="-225" y1="130" x2="-70" y2="40" />
+    <line x1="225" y1="130" x2="70" y2="40" />
+    <line x1="-225" y1="-130" x2="-70" y2="-40" />
+
+    <line x1="180" y1="-190" x2="60" y2="-65" />
+    <line x1="-180" y1="190" x2="-60" y2="65" />
+    <line x1="180" y1="190" x2="60" y2="65" />
+    <line x1="-180" y1="-190" x2="-60" y2="-65" />
+
+    <line x1="130" y1="-225" x2="40" y2="-70" />
+    <line x1="-130" y1="225" x2="-40" y2="70" />
+    <line x1="130" y1="225" x2="40" y2="70" />
+    <line x1="-130" y1="-225" x2="-40" y2="-70" />
+
+    <line x1="75" y1="-245" x2="25" y2="-80" />
+    <line x1="-75" y1="245" x2="-25" y2="80" />
+    <line x1="245" y1="-75" x2="80" y2="-25" />
+    <line x1="-245" y1="75" x2="-80" y2="25" />
+
+    <line x1="210" y1="-165" x2="65" y2="-50" />
+    <line x1="-210" y1="165" x2="-65" y2="50" />
+    <line x1="165" y1="-210" x2="50" y2="-65" />
+    <line x1="-165" y1="210" x2="-50" y2="65" />
+  </g>
+
+  <!-- Flower-of-life core (7 circles) -->
+  <g transform="translate(400,400)" stroke="#00FFF6" stroke-width="1.6" opacity="0.85" filter="url(#softGlow)">
+    <circle cx="0" cy="0" r="88" fill="none" />
+    <circle cx="0" cy="-88" r="88" fill="none" />
+    <circle cx="0" cy="88" r="88" fill="none" />
+    <circle cx="76.2" cy="-44" r="88" fill="none" />
+    <circle cx="76.2" cy="44" r="88" fill="none" />
+    <circle cx="-76.2" cy="-44" r="88" fill="none" />
+    <circle cx="-76.2" cy="44" r="88" fill="none" />
+  </g>
+
+  <!-- Inner decagon lattice -->
+  <g transform="translate(400,400)" fill="none" stroke="#FF00C8" stroke-width="1.4" opacity="0.9" filter="url(#softGlow)">
+    <!-- Outer decagon -->
+    <path d="
+      M 0,-150
+      L 88,-120
+      L 142,-60
+      L 160,0
+      L 142,60
+      L 88,120
+      L 0,150
+      L -88,120
+      L -142,60
+      L -160,0
+      L -142,-60
+      L -88,-120
+      Z" />
+    <!-- Star inside -->
+    <path d="
+      M 0,-150
+      L 142,60
+      L -88,120
+      L 88,-120
+      L -142,60
+      L 0,150
+      L 142,-60
+      L -88,-120
+      L 88,120
+      L -142,-60
+      Z" opacity="0.7" />
+  </g>
+
+  <!-- Orbital ellipses -->
+  <g transform="translate(400,400)" fill="none" opacity="0.7">
+    <ellipse cx="0" cy="0" rx="180" ry="60" stroke="#00FFF6" stroke-width="1" />
+    <ellipse cx="0" cy="0" rx="180" ry="60" stroke="#FF00C8" stroke-width="1" transform="rotate(60)" />
+    <ellipse cx="0" cy="0" rx="180" ry="60" stroke="#FFD35F" stroke-width="1" transform="rotate(120)" />
+  </g>
+
+  <!-- Golden-spiral-like arcs -->
+  <g fill="none" stroke="#FFD35F" stroke-width="2" opacity="0.8" filter="url(#softGlow)">
+    <!-- Quadrant arcs approximating spirals -->
+    <path d="M 400 260
+             C 470 260 520 310 520 380
+             C 520 460 460 520 380 520
+             C 300 520 240 460 240 380
+             C 240 310 290 260 360 260" />
+    <path d="M 400 220
+             C 500 220 560 290 560 380
+             C 560 490 490 560 380 560
+             C 270 560 200 490 200 380
+             C 200 270 270 200 380 200" opacity="0.45" />
+  </g>
+
+  <!-- Central lens + singularity -->
+  <g>
+    <circle cx="400" cy="400" r="140" fill="url(#coreGradient)" filter="url(#softGlow)" />
+    <circle cx="400" cy="400" r="4" fill="#FFFFFF" />
+    <circle cx="400" cy="400" r="9" fill="none" stroke="#FFFFFF" stroke-width="1.4" opacity="0.9" />
+    <circle cx="400" cy="400" r="18" fill="none" stroke="#00FFF6" stroke-width="1.2" opacity="0.7" />
+  </g>
+
+  <!-- Quantum filaments -->
+  <g fill="none" stroke="#FF61C6" stroke-width="1" opacity="0.7" filter="url(#softGlow)">
+    <path d="M 140 260
+             C 260 280 300 340 340 400
+             C 380 460 430 520 600 540" />
+    <path d="M 660 260
+             C 560 280 520 340 480 400
+             C 440 460 390 520 200 540" />
+    <path d="M 180 170
+             C 260 230 320 260 400 280
+             C 480 300 540 330 620 400" />
+    <path d="M 620 170
+             C 540 230 480 260 400 280
+             C 320 300 260 330 180 400" />
+  </g>
+
+  <!-- Outer nodes -->
+  <g fill="#FFFFFF" opacity="0.8">
+    <circle cx="400" cy="80" r="3.2" />
+    <circle cx="660" cy="220" r="3" />
+    <circle cx="720" cy="420" r="3" />
+    <circle cx="580" cy="640" r="3" />
+    <circle cx="400" cy="720" r="3.2" />
+    <circle cx="220" cy="640" r="3" />
+    <circle cx="80" cy="420" r="3" />
+    <circle cx="140" cy="220" r="3" />
+  </g>
+
+  <!-- Starfield -->
+  <g fill="#FFFFFF" opacity="0.28">
+    <circle cx="120" cy="120" r="1" />
+    <circle cx="220" cy="90" r="1.3" />
+    <circle cx="320" cy="150" r="1" />
+    <circle cx="520" cy="110" r="1.1" />
+    <circle cx="650" cy="150" r="1.3" />
+    <circle cx="700" cy="260" r="1.1" />
+    <circle cx="690" cy="520" r="1.2" />
+    <circle cx="560" cy="700" r="1" />
+    <circle cx="420" cy="690" r="1.4" />
+    <circle cx="260" cy="710" r="1" />
+    <circle cx="130" cy="600" r="1.2" />
+    <circle cx="90" cy="340" r="1" />
+    <circle cx="180" cy="420" r="0.9" />
+    <circle cx="620" cy="380" r="1" />
+    <circle cx="540" cy="220" r="0.9" />
+    <circle cx="280" cy="260" r="0.9" />
+    <circle cx="500" cy="320" r="1" />
+  </g>
+</svg>
