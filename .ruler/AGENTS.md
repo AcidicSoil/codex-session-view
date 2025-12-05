@@ -119,7 +119,6 @@
 * Never update `.env`; update `.env.example` instead.
 * Never start the dev server with `pnpm run dev` or `npm run dev`.
 * Never create a local pnpm --store
-* Preserve all existing features and UI options unless explicitly instructed to remove, hide, or rename them; if a feature isn't fully wired, maintain its UX surface and annotate it with `// TODO`.
 
 ## docs map
 
