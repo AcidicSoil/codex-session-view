@@ -39,7 +39,6 @@ src/routeTree.gen.ts
 **/var/**
 **/.vite/**
 **/logs/**
-.codex/
 oplink.config.mjs
 **/artifacts/**
 **/scripts/**
@@ -62,7 +61,6 @@ scripts
 .genkit
 .cursor
 .mypy_cache
-
 
 
 # START Ruler Generated Files
