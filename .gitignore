@@ -80,10 +80,6 @@ scripts
 /src/.codex/config.toml.bak
 /src/AGENTS.md
 /src/AGENTS.md.bak
-/src/components/.codex/config.toml
-/src/components/.codex/config.toml.bak
-/src/components/AGENTS.md
-/src/components/AGENTS.md.bak
 /src/db/schema/.codex/config.toml
 /src/db/schema/.codex/config.toml.bak
 /src/db/schema/AGENTS.md
