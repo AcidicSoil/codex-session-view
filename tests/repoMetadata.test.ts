@@ -14,6 +14,21 @@ describe('repo metadata derivation', () => {
     const details = deriveRepoDetailsFromLine(line)
     expect(details.repoLabel).toBe('codex-session-view')
     expect(details.repoMeta?.repo).toBe('codex-session-view')
+    expect(details.repoMeta?.cwd).toBe('/home/user/projects/temp/codex-session-view')
+  })
+
+  it('stores trimmed cwd inside repo metadata for Hookify resolution', () => {
+    const line = JSON.stringify({
+      type: 'session_meta',
+      timestamp: new Date().toISOString(),
+      payload: {
+        timestamp: new Date().toISOString(),
+        cwd: '  /opt/repos/sample-app  ',
+      },
+    })
+    const details = deriveRepoDetailsFromLine(line)
+    expect(details.repoMeta?.cwd).toBe('/opt/repos/sample-app')
+    expect(details.workspaceRoot).toBe('/opt/repos/sample-app')
   })
 
   it('prefers repository_url metadata when available', () => {

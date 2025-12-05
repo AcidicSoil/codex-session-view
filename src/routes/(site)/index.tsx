@@ -3,6 +3,7 @@ import GradientOrb from '~/components/gradient-orb';
 import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import axios from 'redaxios';
+import { NeuralGlow } from '~/components/ui/neural-glow';
 
 
 export const Route = createFileRoute('/(site)/')({
@@ -33,8 +34,7 @@ function RouteComponent() {
 
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background">
-      {/* Hero Section */}
+    <NeuralGlow variant="background" className="overflow-hidden">
       <main className="container relative z-0 mx-auto flex flex-col items-center px-4 pt-20 text-center md:pt-32">
         <GradientOrb className="-translate-x-1/2 absolute top-0 left-1/2 z-[-1] transform" />
 
@@ -75,6 +75,6 @@ function RouteComponent() {
           </div>
         </div>
       </main>
-    </div>
+    </NeuralGlow>
   );
 }

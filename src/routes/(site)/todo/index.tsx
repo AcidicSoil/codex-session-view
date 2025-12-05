@@ -6,6 +6,7 @@ import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import { Button } from '~/components/ui/button';
 import { toast } from 'sonner';
 import { logInfo } from '~/lib/logger';
+import { NeuralGlow } from '~/components/ui/neural-glow';
 import {
   createTodoAndSync,
   deleteTodoAndSync,
@@ -84,8 +85,7 @@ function RouteComponent() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background">
-      {/* Hero Section */}
+    <NeuralGlow variant="background" className="overflow-hidden">
       <main className="container relative z-0 mx-auto flex flex-col items-center px-4 pt-20 text-center md:pt-32">
         <GradientOrb className="-translate-x-1/2 absolute top-0 left-1/2 z-[-1] transform" />
 
@@ -173,6 +173,6 @@ function RouteComponent() {
           </div>
         </div>
       </main>
-    </div>
+    </NeuralGlow>
   );
 }

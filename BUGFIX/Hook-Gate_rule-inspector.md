@@ -704,10 +704,6 @@ This turns “Review rules” into the entry point for a full rules browser inst
 
 ---
 
-
-
----
-
 You now have:
 
 * “Jump to event” that always loads and focuses the correct context.

@@ -1,39 +1,35 @@
-import { ClientOnly, useLoaderData } from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { ClientOnly, Link, Outlet, useLoaderData, useRouter, useRouterState } from '@tanstack/react-router'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import { useFileLoader } from '~/hooks/useFileLoader'
-import { DiscoverySection, useViewerDiscovery } from './viewer.discovery.section'
-import { UploadControlsCard, UploadTimelineSection, useUploadController } from './viewer.upload.section'
-import type { TimelineEvent } from '~/components/viewer/AnimatedTimelineList'
+import type { ViewerSnapshot, ViewerChatState } from './viewer.loader'
+import { useViewerDiscovery, type ViewerDiscoveryState } from './viewer.discovery.section'
+import { useUploadController, type UploadController } from './viewer.upload.section'
+import type { TimelineEvent, TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery'
 import { logInfo } from '~/lib/logger'
-import { WavyBackground } from '~/components/aceternity/wavy-background'
-import { AnimatedTabs } from '~/components/aceternity/animated-tabs'
-import { StickyScrollReveal, type StickySection } from '~/components/aceternity/sticky-scroll-reveal'
-import { FloatingNavbar } from '~/components/aceternity/floating-navbar'
-import { formatCount } from '~/utils/intl'
-import { ViewerFilterDropdown } from '~/components/viewer/ViewerFilterDropdown'
-import { Switch } from '~/components/ui/switch'
-import { ChatDockPanel } from '~/components/chatbot/ChatDockPanel'
-import { VIEWER_ROUTE_ID } from './route-id'
-import type { ViewerSnapshot } from './viewer.loader'
-import type { TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
 import type { MisalignmentRecord } from '~/lib/sessions/model'
 import type { CoachPrefillPayload, ChatRemediationMetadata } from '~/lib/chatbot/types'
-import { MisalignmentBanner } from '~/components/chatbot/MisalignmentBanner'
-import { pickHigherSeverity, selectPrimaryMisalignment } from '~/features/chatbot/severity'
 import { hookifyAddToChat } from '~/server/function/hookifyAddToChat'
-import { HookGateNotice } from '~/components/chatbot/HookGateNotice'
-import type { HookDecisionSeverity, HookRuleSummary, HookSource } from '~/server/lib/hookifyRuntime'
-import { toast } from 'sonner'
-import { SessionRepoSelector } from '~/components/chatbot/SessionRepoSelector'
-import { SessionRuleSheet } from '~/components/chatbot/SessionRuleSheet'
-import { RuleInspectorSheet } from '~/components/chatbot/RuleInspectorSheet'
 import { fetchChatbotState } from '~/server/function/chatbotState'
 import { sessionRepoContext } from '~/server/function/sessionRepoContext'
 import { fetchRuleInventory } from '~/server/function/ruleInventory'
+import type { HookDecisionSeverity, HookRuleSummary, HookSource } from '~/server/lib/hookifyRuntime'
 import { useUiSettingsStore } from '~/stores/uiSettingsStore'
 import type { EvidenceContext } from '~/components/chatbot/EvidenceCard'
 import type { ResponseItemParsed } from '~/lib/session-parser'
+import { NeuralGlow } from '~/components/ui/neural-glow'
+import { Button } from '~/components/ui/button'
+import { formatCount } from '~/utils/intl'
+import { cn } from '~/lib/utils'
+import { RuleInspectorSheet } from '~/components/chatbot/RuleInspectorSheet'
+import { pickHigherSeverity, selectPrimaryMisalignment } from '~/features/chatbot/severity'
+import {
+  VIEWER_CHAT_ROUTE_PATH,
+  VIEWER_INSPECTOR_ROUTE_PATH,
+  VIEWER_ROUTE_ID,
+  VIEWER_ROUTE_PATH,
+} from './route-id'
 
 interface HookGateState {
   blocked: boolean
@@ -46,48 +42,118 @@ interface HookGateState {
   assetPath?: string | null
 }
 
+interface ViewerWorkspaceContextValue {
+  loaderData?: ViewerSnapshot
+  loader: ReturnType<typeof useFileLoader>
+  discovery: ViewerDiscoveryState
+  uploadController: UploadController
+  activeSessionId: string
+  setActiveSessionId: (id: string) => void
+  sessionCoachState: ViewerChatState | null
+  setSessionCoachState: (state: ViewerChatState | null) => void
+  ruleSheetEntries: Awaited<ReturnType<typeof fetchRuleInventory>>
+  setRuleSheetEntries: React.Dispatch<React.SetStateAction<Awaited<ReturnType<typeof fetchRuleInventory>>>>
+  refreshRuleInventory: () => Promise<void>
+  hookGate: HookGateState | null
+  setHookGate: React.Dispatch<React.SetStateAction<HookGateState | null>>
+  coachPrefill: CoachPrefillPayload | null
+  setCoachPrefill: React.Dispatch<React.SetStateAction<CoachPrefillPayload | null>>
+  handleAddTimelineEventToChat: (event: TimelineEvent, index: number) => void
+  handleAddSessionToChat: (asset: DiscoveredSessionAsset) => void
+  handleRemediationPrefill: (records: MisalignmentRecord[]) => void
+  handleFlaggedEventClick: (marker: TimelineFlagMarker) => void
+  handleHookGateJump: (index: number) => Promise<void>
+  focusEventIndex: number | null
+  setFocusEventIndex: React.Dispatch<React.SetStateAction<number | null>>
+  flaggedEventMarkers: Map<number, TimelineFlagMarker>
+  resolveEvidenceContext: (eventIndex: number) => EvidenceContext | undefined
+  sessionEvents: ResponseItemParsed[]
+  misalignments: MisalignmentRecord[]
+  refreshSessionCoach: (sessionId: string) => Promise<void>
+  bindSessionToAsset: (sessionId: string, assetPath: string) => Promise<void>
+  activeAssetPath: string | null
+}
+
+const ViewerWorkspaceContext = createContext<ViewerWorkspaceContextValue | null>(null)
+
+export function useViewerWorkspace() {
+  const ctx = useContext(ViewerWorkspaceContext)
+  if (!ctx) {
+    throw new Error('useViewerWorkspace must be used within ViewerWorkspaceProvider')
+  }
+  return ctx
+}
+
 export function ViewerPage() {
   return (
     <ClientOnly fallback={<ViewerSkeleton />}>
-      <ViewerClient />
+      <ViewerWorkspaceProvider>
+        <ViewerWorkspaceChrome />
+      </ViewerWorkspaceProvider>
     </ClientOnly>
-  );
+  )
 }
 
-export function ViewerClient() {
+function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
   const loaderData = useLoaderData({ from: VIEWER_ROUTE_ID }) as ViewerSnapshot | undefined
-  const loader = useFileLoader();
-  const initialSessionId = loaderData?.sessionId ?? 'demo-session'
-  const [activeSessionId, setActiveSessionId] = useState(initialSessionId)
-  const openRuleInspector = useUiSettingsStore((state) => state.openRuleInspector)
-  const lastSessionPath = useUiSettingsStore((state) => state.lastSessionPath)
-  const setLastSessionPath = useUiSettingsStore((state) => state.setLastSessionPath)
-  const discovery = useViewerDiscovery({ loader });
+  const loader = useFileLoader()
+  const discovery = useViewerDiscovery({ loader })
   const uploadController = useUploadController({
     loader,
     onUploadsPersisted: (assets) => discovery.appendSessionAssets(assets, 'upload'),
-  });
-  const [navValue, setNavValue] = useState<'timeline' | 'explorer' | 'chat'>('timeline');
-  const [tabValue, setTabValue] = useState<'timeline' | 'explorer'>('timeline');
-  const [timelineFiltersSlot, setTimelineFiltersSlot] = useState<ReactNode | null>(null);
-  const [explorerFiltersSlot, setExplorerFiltersSlot] = useState<ReactNode | null>(null);
-  const [sessionCoachState, setSessionCoachState] = useState(loaderData?.sessionCoach ?? null)
+  })
+  const router = useRouter()
+  const hydrateUiSettings = useUiSettingsStore((state) => state.hydrateFromSnapshot)
+  const settingsHydratedRef = useRef(false)
+  const openRuleInspector = useUiSettingsStore((state) => state.openRuleInspector)
+  const lastSessionPath = useUiSettingsStore((state) => state.lastSessionPath)
+  const setLastSessionPath = useUiSettingsStore((state) => state.setLastSessionPath)
+
+  if (!settingsHydratedRef.current) {
+    const snapshotSource = loaderData?.uiSettings ? 'server' : 'guest'
+    hydrateUiSettings(loaderData?.uiSettings ?? null, loaderData?.uiSettingsProfileId ?? null, snapshotSource)
+    settingsHydratedRef.current = true
+  }
+
+  const initialSessionId = loaderData?.sessionId ?? 'demo-session'
+  const [activeSessionId, setActiveSessionId] = useState(initialSessionId)
+  const [sessionCoachState, setSessionCoachState] = useState<ViewerChatState | null>(loaderData?.sessionCoach ?? null)
   const [ruleSheetEntries, setRuleSheetEntries] = useState(loaderData?.ruleSheet ?? [])
+  const [coachPrefill, setCoachPrefill] = useState<CoachPrefillPayload | null>(null)
+  const [hookGate, setHookGate] = useState<HookGateState | null>(null)
   const [focusEventIndex, setFocusEventIndex] = useState<number | null>(null)
+
   const misalignments = sessionCoachState?.misalignments ?? []
   const sessionEvents = sessionCoachState?.snapshot?.events ?? []
+
   const resolveEvidenceContext = useCallback(
     (eventIndex: number) => buildEvidenceContext(sessionEvents, eventIndex),
     [sessionEvents],
   )
+
   const flaggedEventMarkers = useMemo(() => {
     if (!sessionCoachState?.featureEnabled) {
       return new Map<number, TimelineFlagMarker>()
     }
     return buildFlaggedEventMap(misalignments)
   }, [misalignments, sessionCoachState?.featureEnabled])
-  const [coachPrefill, setCoachPrefill] = useState<CoachPrefillPayload | null>(null)
-  const [hookGate, setHookGate] = useState<HookGateState | null>(null)
+
+  useEffect(() => {
+    if (focusEventIndex == null) return
+    if (typeof window === 'undefined') return
+    const timeout = window.setTimeout(() => setFocusEventIndex(null), 1200)
+    return () => window.clearTimeout(timeout)
+  }, [focusEventIndex])
+
+  useEffect(() => {
+    if (discovery.selectedSessionPath) {
+      setLastSessionPath(discovery.selectedSessionPath)
+      return
+    }
+    if (!discovery.selectedSessionPath && lastSessionPath) {
+      discovery.setSelectedSessionPath(lastSessionPath)
+    }
+  }, [discovery, lastSessionPath, setLastSessionPath])
 
   const refreshSessionCoach = useCallback(async (sessionId: string) => {
     try {
@@ -95,6 +161,17 @@ export function ViewerClient() {
       setSessionCoachState(next)
     } catch (error) {
       toast.error('Failed to refresh Session Coach', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }, [])
+
+  const refreshRuleInventory = useCallback(async () => {
+    try {
+      const inventory = await fetchRuleInventory({ data: {} })
+      setRuleSheetEntries(inventory)
+    } catch (error) {
+      toast.error('Failed to refresh rule sheet', {
         description: error instanceof Error ? error.message : 'Unknown error',
       })
     }
@@ -116,17 +193,10 @@ export function ViewerClient() {
         })
       } finally {
         await refreshSessionCoach(sessionId)
-        try {
-          const inventory = await fetchRuleInventory({ data: {} })
-          setRuleSheetEntries(inventory)
-        } catch (error) {
-          toast.error('Failed to refresh rule sheet', {
-            description: error instanceof Error ? error.message : 'Unknown error',
-          })
-        }
+        await refreshRuleInventory()
       }
     },
-    [refreshSessionCoach],
+    [refreshRuleInventory, refreshSessionCoach],
   )
 
   const selectedAsset = useMemo(() => {
@@ -137,45 +207,12 @@ export function ViewerClient() {
   const activeAssetPath = selectedAsset?.path ?? sessionCoachState?.repoContext?.assetPath ?? null
 
   useEffect(() => {
-    if (focusEventIndex == null) return
-    if (typeof window === 'undefined') return
-    const timeout = window.setTimeout(() => setFocusEventIndex(null), 1200)
-    return () => window.clearTimeout(timeout)
-  }, [focusEventIndex])
-
-  useEffect(() => {
-    if (discovery.selectedSessionPath) {
-      setLastSessionPath(discovery.selectedSessionPath)
-      return
-    }
-    if (!discovery.selectedSessionPath && lastSessionPath) {
-      discovery.setSelectedSessionPath(lastSessionPath)
-    }
-  }, [discovery, lastSessionPath, setLastSessionPath])
-
-  useEffect(() => {
     if (!selectedAsset) return
     const nextSessionId = deriveSessionId(selectedAsset.path)
     if (nextSessionId === activeSessionId) return
     setActiveSessionId(nextSessionId)
     void bindSessionToAsset(nextSessionId, selectedAsset.path)
   }, [selectedAsset, activeSessionId, bindSessionToAsset])
-
-  const handleNavChange = useCallback(
-    (nextValue: string) => {
-      if (nextValue === 'timeline' || nextValue === 'explorer' || nextValue === 'chat') {
-        setNavValue(nextValue);
-        if (nextValue === 'timeline' || nextValue === 'explorer') {
-          setTabValue(nextValue);
-        }
-        if (typeof document !== 'undefined') {
-          const targetId = nextValue === 'chat' ? 'viewer-chat' : 'viewer-tabs';
-          document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-    },
-    [],
-  );
 
   const runHookifyPrefill = useCallback(
     async (
@@ -184,7 +221,7 @@ export function ViewerClient() {
       extras?: { eventType?: string; filePath?: string },
       metadataOverride?: ChatRemediationMetadata,
     ) => {
-      setHookGate(null);
+      setHookGate(null)
       try {
         const response = await hookifyAddToChat({
           data: {
@@ -194,7 +231,7 @@ export function ViewerClient() {
             eventType: extras?.eventType,
             filePath: extras?.filePath,
           },
-        });
+        })
         setHookGate({
           blocked: response.blocked,
           severity: response.severity,
@@ -204,42 +241,45 @@ export function ViewerClient() {
           decisionId: response.decisionId,
           sessionId: activeSessionId,
           assetPath: extras?.filePath ?? activeAssetPath ?? null,
-        });
+        })
         if (response.blocked || !response.prefill) {
           toast.error('Add to chat blocked', {
             description: response.message ?? 'Resolve AGENT violations before continuing.',
-          });
-          return;
+          })
+          return
         }
         const mergedPrefill: CoachPrefillPayload = {
           prompt: response.prefill.prompt,
           metadata: metadataOverride ?? response.prefill.metadata,
-        };
-        setCoachPrefill(mergedPrefill);
-        handleNavChange('chat');
+        }
+        setCoachPrefill(mergedPrefill)
+        void router.navigate({ to: VIEWER_CHAT_ROUTE_PATH })
       } catch (error) {
         toast.error('Hookify check failed', {
           description: error instanceof Error ? error.message : 'Unable to evaluate AGENT rules.',
-        });
+        })
       }
     },
-    [handleNavChange, activeSessionId],
-  );
+    [activeAssetPath, activeSessionId, router],
+  )
 
-  const handleAddTimelineEventToChat = (event: TimelineEvent, index: number) => {
-    logInfo('viewer.chatdock', 'Timeline event add-to-chat requested', {
-      eventType: event.type,
-      index,
-    });
+  const handleAddTimelineEventToChat = useCallback(
+    (event: TimelineEvent, index: number) => {
+      logInfo('viewer.chatdock', 'Timeline event add-to-chat requested', {
+        eventType: event.type,
+        index,
+      })
 
-    const snippet = JSON.stringify(event, null, 2);
-    const prompt = `Analyze this timeline event #${index + 1} (${event.type}):\n\n\`\`\`json\n${snippet}\n\`\`\`\n\nWhat are the implications of this event?`;
+      const snippet = JSON.stringify(event, null, 2)
+      const prompt = `Analyze this timeline event #${index + 1} (${event.type}):\n\n\`\`\`json\n${snippet}\n\`\`\`\n\nWhat are the implications of this event?`
 
-    void runHookifyPrefill(prompt, 'timeline', {
-      eventType: event.type,
-      filePath: activeAssetPath ?? undefined,
-    });
-  };
+      void runHookifyPrefill(prompt, 'timeline', {
+        eventType: event.type,
+        filePath: activeAssetPath ?? undefined,
+      })
+    },
+    [activeAssetPath, runHookifyPrefill],
+  )
 
   const handleAddSessionToChat = useCallback(
     (asset: DiscoveredSessionAsset) => {
@@ -268,41 +308,6 @@ export function ViewerClient() {
     },
     [activeSessionId, bindSessionToAsset, discovery, runHookifyPrefill],
   )
-
-  const navItems = useMemo(
-    () => [
-      {
-        value: 'timeline',
-        label: 'Timeline',
-        description: 'Stream parsed events through the tracing beam list and jump straight into chat context.',
-        eyebrow: 'Streaming',
-        kpi: `${formatCount(loader.state.events.length)} events`,
-      },
-      {
-        value: 'explorer',
-        label: 'Session explorer',
-        description: 'Browse cached repos, branches, and snapshot metadata discovered during startup.',
-        eyebrow: 'Discovery',
-        kpi: `${formatCount(discovery.sessionAssets.length)} assets`,
-      },
-      {
-        value: 'chat',
-        label: 'Chat dock',
-        description: 'Annotate findings or draft follow-up prompts while the workspace stays in view.',
-        eyebrow: 'Co-pilot',
-        kpi: 'Live',
-      },
-    ],
-    [discovery.sessionAssets.length, loader.state.events.length],
-  );
-
-  const handleTimelineFiltersRender = useCallback((node: ReactNode | null) => {
-    setTimelineFiltersSlot(node);
-  }, []);
-
-  const handleExplorerFiltersRender = useCallback((node: ReactNode | null) => {
-    setExplorerFiltersSlot(node);
-  }, []);
 
   const handleRemediationPrefill = useCallback(
     (records: MisalignmentRecord[]) => {
@@ -348,181 +353,150 @@ export function ViewerClient() {
       if (hookGate?.assetPath) {
         await ensureSessionAssetLoaded(hookGate.assetPath)
       }
-      setNavValue('timeline')
-      setTabValue('timeline')
       setFocusEventIndex(index)
+      openRuleInspector({
+        activeTab: 'events',
+        eventIndex: index,
+        sessionId: hookGate?.sessionId,
+        assetPath: hookGate?.assetPath,
+      })
+      void router.navigate({ to: VIEWER_INSPECTOR_ROUTE_PATH })
     },
-    [ensureSessionAssetLoaded, hookGate?.assetPath],
+    [ensureSessionAssetLoaded, hookGate?.assetPath, hookGate?.sessionId, openRuleInspector, router],
   )
 
-  const timelineSections: StickySection[] = [
-    {
-      id: 'timeline-events',
-      eyebrow: 'Events',
-      title: 'Timeline tracing beam',
-      description: 'Filter, search, and send moments to chat as the tracing beam reveals activity.',
-      content: (
-        <UploadTimelineSection
-          controller={uploadController}
-          onAddTimelineEventToChat={handleAddTimelineEventToChat}
-          className="border-none bg-transparent p-0 text-foreground"
-          onFiltersRender={handleTimelineFiltersRender}
-          flaggedEvents={flaggedEventMarkers}
-          onFlaggedEventClick={handleFlaggedEventClick}
-          focusEventIndex={focusEventIndex}
-        />
-      ),
-    },
-  ];
+  const contextValue: ViewerWorkspaceContextValue = {
+    loaderData,
+    loader,
+    discovery,
+    uploadController,
+    activeSessionId,
+    setActiveSessionId,
+    sessionCoachState,
+    setSessionCoachState,
+    ruleSheetEntries,
+    setRuleSheetEntries,
+    refreshRuleInventory,
+    hookGate,
+    setHookGate,
+    coachPrefill,
+    setCoachPrefill,
+    handleAddTimelineEventToChat,
+    handleAddSessionToChat,
+    handleRemediationPrefill,
+    handleFlaggedEventClick,
+    handleHookGateJump,
+    focusEventIndex,
+    setFocusEventIndex,
+    flaggedEventMarkers,
+    resolveEvidenceContext,
+    sessionEvents,
+    misalignments,
+    refreshSessionCoach,
+    bindSessionToAsset,
+    activeAssetPath,
+  }
 
-  const explorerSections: StickySection[] = [
-    {
-      id: 'explorer-view',
-      eyebrow: 'Discovery',
-      title: 'Session explorer snapshot',
-      description: 'Branch badges, repo-level metadata, and cached uploads live inside the explorer tabs.',
-      content: (
-        <DiscoverySection
-          {...discovery}
-          onAddSessionToChat={handleAddSessionToChat}
-          onFiltersRender={handleExplorerFiltersRender}
-        />
-      ),
-    },
-  ];
+  return <ViewerWorkspaceContext.Provider value={contextValue}>{children}</ViewerWorkspaceContext.Provider>
+}
 
-  const tabConfigs = [
-    {
-      value: 'timeline',
-      label: 'Timeline',
-      description: 'Upload & stream',
-      content: <StickyScrollReveal sections={timelineSections} showSidebar={false} />,
-    },
-    {
-      value: 'explorer',
-      label: 'Session explorer',
-      description: 'Snapshot browser',
-      content: <StickyScrollReveal sections={explorerSections} showSidebar={false} />,
-    },
-  ];
+function ViewerWorkspaceChrome() {
+  const routerState = useRouterState({ select: (state) => state.location })
+  const pathname = routerState.pathname ?? VIEWER_ROUTE_PATH
+  const {
+    loader,
+    discovery,
+    sessionCoachState,
+    ruleSheetEntries,
+    hookGate,
+    handleHookGateJump,
+    resolveEvidenceContext,
+    activeSessionId,
+    sessionEvents,
+  } = useViewerWorkspace()
+
+  const navItems = useMemo(
+    () => [
+      {
+        label: 'Explorer',
+        description: 'Browse cached sessions',
+        href: VIEWER_ROUTE_PATH,
+        metric: `${formatCount(discovery.sessionAssets.length)} assets`,
+        isActive: pathname === VIEWER_ROUTE_PATH || pathname === `${VIEWER_ROUTE_PATH}/`,
+      },
+      {
+        label: 'Inspector',
+        description: 'Timeline, uploads, hook gate',
+        href: VIEWER_INSPECTOR_ROUTE_PATH,
+        metric: `${formatCount(loader.state.events.length)} events`,
+        isActive: pathname.startsWith(VIEWER_INSPECTOR_ROUTE_PATH),
+      },
+      {
+        label: 'Chat',
+        description: 'Session coach & instructions',
+        href: VIEWER_CHAT_ROUTE_PATH,
+        metric: sessionCoachState?.featureEnabled ? 'Live' : 'Offline',
+        isActive: pathname.startsWith(VIEWER_CHAT_ROUTE_PATH),
+      },
+    ],
+    [discovery.sessionAssets.length, loader.state.events.length, pathname, sessionCoachState?.featureEnabled],
+  )
 
   return (
-    <>
-      <main className="min-h-screen px-4 py-10">
-        <div className="mx-auto flex w-full max-w-none flex-col gap-8">
-        <div className="sticky top-16 z-40 flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-black/40 p-4 shadow-lg backdrop-blur-xl">
-          <FloatingNavbar items={navItems} value={navValue} onValueChange={handleNavChange} className="flex-1 min-w-[240px] bg-transparent" />
-          <div className="flex items-center gap-3">
-            <label htmlFor="persist-toggle" className="flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-white/70">
-              Persist
-              <Switch id="persist-toggle" checked={uploadController.persistEnabled} onCheckedChange={uploadController.setPersist} />
-            </label>
-            <ViewerFilterDropdown
-              timelineFilters={timelineFiltersSlot}
-              explorerFilters={explorerFiltersSlot}
-              className="shrink-0"
-            />
+    <NeuralGlow variant="background" className="px-4 py-10">
+      <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6">
+        <nav className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-white/10 bg-black/40 p-4 shadow-lg backdrop-blur-xl">
+          <div className="flex flex-wrap gap-2">
+            {navItems.map((item) => (
+              <Link
+                key={item.label}
+                to={item.href as typeof VIEWER_ROUTE_PATH | typeof VIEWER_INSPECTOR_ROUTE_PATH | typeof VIEWER_CHAT_ROUTE_PATH}
+                className={cn(
+                  'rounded-2xl border px-4 py-3 text-left transition-colors duration-150',
+                  item.isActive
+                    ? 'border-white/40 bg-white/10 text-white'
+                    : 'border-white/10 text-white/70 hover:border-white/25 hover:text-white',
+                )}
+              >
+                <p className="text-xs uppercase tracking-[0.3em] text-white/60">{item.metric}</p>
+                <p className="text-base font-semibold">{item.label}</p>
+                <p className="text-xs text-white/70">{item.description}</p>
+              </Link>
+            ))}
           </div>
-        </div>
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:items-start">
-          <WavyBackground className="p-4 sm:p-8">
-            <div className="space-y-6">
-              <section id="viewer-tabs" className="space-y-8">
-                <AnimatedTabs tabs={tabConfigs} value={tabValue} onValueChange={(next) => {
-                  setTabValue(next as 'timeline' | 'explorer');
-                  setNavValue(next as 'timeline' | 'explorer');
-                }} />
-              </section>
-            </div>
-          </WavyBackground>
-          <div className="flex flex-col gap-6 xl:sticky xl:top-32">
-            <section>
-              <UploadControlsCard controller={uploadController} className="rounded-3xl border border-white/15 bg-background/80 p-5" />
-            </section>
-            <section>
-              <SessionRepoSelector
-                sessionId={activeSessionId}
-                assets={discovery.sessionAssets}
-                repoContext={sessionCoachState?.repoContext}
-                onRepoContextChange={async () => {
-                  await refreshSessionCoach(activeSessionId)
-                  try {
-                    const inventory = await fetchRuleInventory({ data: {} })
-                    setRuleSheetEntries(inventory)
-                  } catch (error) {
-                    toast.error('Failed to refresh rule sheet', {
-                      description: error instanceof Error ? error.message : 'Unknown error',
-                    })
-                  }
-                }}
-              />
-            </section>
-            <section>
-              <SessionRuleSheet entries={ruleSheetEntries} activeSessionId={activeSessionId} />
-            </section>
-            {sessionCoachState?.featureEnabled ? (
-              <MisalignmentBanner misalignments={misalignments} onReview={handleRemediationPrefill} />
-            ) : null}
-            {hookGate ? (
-              <HookGateNotice
-                blocked={hookGate.blocked}
-                severity={hookGate.severity}
-                message={hookGate.message}
-                annotations={hookGate.annotations}
-                rules={hookGate.rules}
-                sessionId={hookGate.sessionId}
-                assetPath={hookGate.assetPath}
-                onDismiss={() => setHookGate(null)}
-                onReviewRules={(ruleId) =>
-                  openRuleInspector({
-                    activeTab: 'rules',
-                    ruleId,
-                    sessionId: hookGate.sessionId,
-                    assetPath: hookGate.assetPath,
-                  })
-                }
-                onJumpToEvent={(index) => {
-                  void handleHookGateJump(index)
-                }}
-                resolveEventContext={resolveEvidenceContext}
-              />
-            ) : null}
-            <aside
-              id="viewer-chat"
-              className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-inner"
-            >
-              <ChatDockPanel
-                sessionId={activeSessionId}
-                state={sessionCoachState}
-                prefill={coachPrefill}
-                onPrefillConsumed={() => setCoachPrefill(null)}
-              />
-            </aside>
-          </div>
-        </div>
-        </div>
+          <Button asChild size="sm" variant="outline" className="shrink-0 border-white/30 text-white hover:border-white">
+            <Link to={VIEWER_INSPECTOR_ROUTE_PATH} search={{ panel: 'rules' as const }}>
+              Review rules
+            </Link>
+          </Button>
+        </nav>
+        <section className="flex-1">
+          <Outlet />
+        </section>
       </main>
       <RuleInspectorSheet
         gate={hookGate}
         ruleSheetEntries={ruleSheetEntries}
         activeSessionId={activeSessionId}
         sessionEvents={sessionEvents}
-        onJumpToEvent={(index) => handleHookGateJump(index)}
+        onJumpToEvent={(index) => void handleHookGateJump(index)}
         resolveEventContext={resolveEvidenceContext}
       />
-    </>
-  );
+    </NeuralGlow>
+  )
 }
 
 function ViewerSkeleton() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-10">
-      <div className="space-y-3">
-        <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-        <div className="h-8 w-64 animate-pulse rounded bg-muted" />
-      </div>
-      <div className="h-96 animate-pulse rounded-3xl bg-muted" />
-    </main>
+    <NeuralGlow variant="background" className="px-4 py-10">
+      <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6">
+        <div className="space-y-3">
+          <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+          <div className="h-8 w-64 animate-pulse rounded bg-muted" />
+        </div>
+        <div className="h-96 animate-pulse rounded-3xl bg-muted" />
+      </main>
+    </NeuralGlow>
   )
 }
 

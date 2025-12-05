@@ -39,15 +39,16 @@ export function buildRepoDetailsFromMeta(meta?: SessionMetaParsed | null): RepoD
   if (!meta) return {}
   const repoLabelCandidates = gatherRepoLabelCandidates(meta)
   const repoLabel = repoLabelCandidates.find(isMeaningfulLabel)
+  const cwdValue = (meta as Record<string, unknown>)?.cwd
   const repoMeta: RepoMetadata = {
     repo: repoLabel,
     branch: meta.git?.branch,
     commit: meta.git?.commit,
     remote: meta.git?.remote,
     dirty: meta.git?.dirty,
+    cwd: typeof cwdValue === 'string' && cwdValue.trim().length > 0 ? cwdValue.trim() : undefined,
   }
   const hasMeta = Object.values(repoMeta).some((value) => value !== undefined && value !== '')
-  const cwdValue = (meta as Record<string, unknown>)?.cwd
   return {
     repoLabel: repoLabel && isMeaningfulLabel(repoLabel) ? repoLabel : undefined,
     repoMeta: hasMeta ? repoMeta : undefined,

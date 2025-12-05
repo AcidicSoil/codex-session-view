@@ -1,12 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { NeuralGlow } from '~/components/ui/neural-glow'
 export const Route = createFileRoute('/(site)/docs')({
     component: DocsPage
 })
 
 function DocsPage() {
     return (
-        <div className="container mx-auto px-4 py-8">
-            <h1 className="mb-6 font-bold text-4xl">Documentation</h1>
+        <NeuralGlow variant="background" className="py-8">
+            <div className="container mx-auto px-4">
+                <h1 className="mb-6 font-bold text-4xl">Documentation</h1>
             <div className="prose dark:prose-invert max-w-none">
                 <p className="mb-4 text-lg text-muted-foreground">
                     Welcome to the documentation for the TanStack Starter project.
@@ -38,5 +40,6 @@ function DocsPage() {
                 </pre>
             </div>
         </div>
+        </NeuralGlow>
     )
 }
