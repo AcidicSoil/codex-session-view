@@ -222,22 +222,25 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
   }, [])
 
   return (
-    <section className={cn('rounded-2xl border p-4', className)}>
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-white">Timeline</p>
-          <p className="text-xs text-muted-foreground">Animated list of parsed events.</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          {searchBarSlot ? <div className="min-w-[240px] sm:w-72">{searchBarSlot}</div> : null}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={controller.ejectSession}
-            disabled={!controller.hasEvents || controller.isEjecting}
-          >
-            {controller.isEjecting ? 'Ejecting…' : 'Eject session'}
-          </Button>
+    <section className={cn('relative overflow-hidden rounded-3xl border border-white/10 bg-[#05060f] p-4', className)}>
+      <div className="mb-4 space-y-3 rounded-2xl bg-[#05060f]/95 p-4 shadow-lg lg:sticky lg:top-0 lg:z-10">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-white">Timeline</p>
+            <p className="text-xs text-muted-foreground">Animated list of parsed events.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {searchBarSlot ? <div className="min-w-[240px] sm:w-72">{searchBarSlot}</div> : null}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={controller.ejectSession}
+              disabled={!controller.hasEvents || controller.isEjecting}
+              className="lg:sticky lg:top-0"
+            >
+              {controller.isEjecting ? 'Ejecting…' : 'Eject session'}
+            </Button>
+          </div>
         </div>
       </div>
       {loader.state.phase === 'parsing' ? (

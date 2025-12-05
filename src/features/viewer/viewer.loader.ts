@@ -3,6 +3,9 @@ import { logError, logInfo, logWarn } from '~/lib/logger'
 import { runSessionDiscovery } from '~/server/function/sessionDiscovery'
 import { fetchChatbotState } from '~/server/function/chatbotState'
 import { collectRuleInventory } from '~/server/lib/ruleInventory'
+import { loadUiSettings } from '~/server/persistence/uiSettingsStore'
+
+const DEFAULT_UI_SETTINGS_PROFILE = process.env.UI_SETTINGS_PROFILE_ID ?? 'default-profile'
 
 let previousStats: { projectFiles: number; sessionAssets: number } | null = null
 
@@ -57,12 +60,16 @@ export async function viewerLoader(ctx: LoaderFnContext) {
     }
 
     const ruleSheet = await collectRuleInventory()
+    const uiSettingsProfileId = DEFAULT_UI_SETTINGS_PROFILE
+    const uiSettings = loadUiSettings(uiSettingsProfileId)
 
     return {
       ...snapshot,
       sessionId,
       sessionCoach,
       ruleSheet,
+      uiSettingsProfileId,
+      uiSettings,
     }
   } catch (error) {
     logError('viewer.loader', 'Failed to discover project assets', {

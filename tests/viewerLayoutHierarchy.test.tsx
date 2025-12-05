@@ -1,101 +1,128 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { RouterProvider, createRoute, createRouter, createRootRouteWithContext } from '@tanstack/react-router'
-import { QueryClient } from '@tanstack/react-query'
-import { Outlet } from '@tanstack/react-router'
-import { ViewerClient } from '~/features/viewer/viewer.page'
-import { VIEWER_ROUTE_ID } from '~/features/viewer/route-id'
+import { ViewerPage } from '~/features/viewer/viewer.page'
 
-vi.mock('~/features/viewer/route-id', () => ({
-  VIEWER_ROUTE_ID: '/' as const,
-  VIEWER_ROUTE_PATH: '/viewer' as const,
+const mockNavigate = vi.fn()
+
+vi.mock('@tanstack/react-router', () => ({
+  ClientOnly: ({ children }: any) => <>{typeof children === 'function' ? children() : children}</>,
+  Link: ({ children, ...props }: any) => (
+    <a data-testid={`link-${props.to}`} {...props}>
+      {children}
+    </a>
+  ),
+  Outlet: () => <div data-testid="viewer-outlet" />, 
+  useLoaderData: () => ({
+    projectFiles: [],
+    sessionAssets: [],
+    generatedAt: Date.now(),
+    stats: {},
+    inputs: {
+      projectGlobPatterns: [],
+      projectExcludedGlobs: [],
+      bundledSessionGlobs: [],
+      externalDirectories: [],
+      uploadStores: [],
+    },
+    sessionId: 'test-session',
+    sessionCoach: null,
+    ruleSheet: [],
+    uiSettings: null,
+    uiSettingsProfileId: 'test-profile',
+  }),
+  useRouter: () => ({ navigate: mockNavigate }),
+  useRouterState: () => ({ location: { pathname: '/viewer' } }),
+  useLoaderContext: () => ({}),
 }))
 
 vi.mock('~/hooks/useFileLoader', () => ({
   useFileLoader: () => ({
-    state: { events: [], phase: 'idle' },
+    state: { events: [], phase: 'idle', meta: null },
     progress: { ok: 0, fail: 0, total: 0 },
+    setPersist: vi.fn(),
+    persist: true,
+    start: vi.fn(),
+    reset: vi.fn(),
+    hydrated: true,
   }),
+}))
+
+const mockUiSettingsState = {
+  hydrateFromSnapshot: vi.fn(),
+  openRuleInspector: vi.fn(),
+  closeRuleInspector: vi.fn(),
+  setRuleInspectorTab: vi.fn(),
+  selectInspectorRule: vi.fn(),
+  selectInspectorEvent: vi.fn(),
+  lastSessionPath: null,
+  setLastSessionPath: vi.fn(),
+  ruleInspector: {
+    open: false,
+    activeTab: 'gate',
+    ruleId: undefined,
+    eventIndex: null,
+  },
+}
+
+vi.mock('~/stores/uiSettingsStore', () => ({
+  useUiSettingsStore: (selector: (state: typeof mockUiSettingsState) => any) => selector(mockUiSettingsState),
 }))
 
 vi.mock('~/features/viewer/viewer.discovery.section', () => ({
-  DiscoverySection: () => <div data-testid="discovery-section">Discovery</div>,
   useViewerDiscovery: () => ({
+    snapshot: { generatedAt: Date.now(), sessionAssets: [], projectFiles: [], stats: {} },
+    projectFiles: [],
     sessionAssets: [],
     appendSessionAssets: vi.fn(),
+    onSessionOpen: vi.fn(),
+    loadingSessionPath: null,
+    selectedSessionPath: null,
+    setSelectedSessionPath: vi.fn(),
   }),
+  DiscoverySection: () => <div data-testid="discovery-section">Discovery</div>,
 }))
 
-vi.mock('~/features/viewer/viewer.upload.section', () => {
-  const UploadControlsCard = () => (
-    <section data-testid="ingest-card">
-      <div data-testid="session-upload-dropzone">Dropzone stub</div>
-    </section>
-  )
-  const UploadTimelineSection = () => (
-    <section data-testid="timeline-section">
-      <div data-testid="timeline-tracing-beam">Beam stub</div>
-      <div data-testid="timeline-list-stub">Timeline stub</div>
-    </section>
-  )
-  const useUploadController = () => ({
-    loader: { state: { events: [] } },
-  })
-  return { UploadControlsCard, UploadTimelineSection, useUploadController }
-})
+vi.mock('~/features/viewer/viewer.upload.section', () => ({
+  useUploadController: () => ({
+    loader: { state: { events: [], phase: 'idle', meta: null }, progress: { ok: 0, fail: 0, total: 0 }, persist: true },
+    dropZoneStatus: 'Idle',
+    dropZonePending: false,
+    hasEvents: false,
+    isEjecting: false,
+    persistEnabled: true,
+    setPersist: vi.fn(),
+    ejectSession: vi.fn(),
+    handleFile: vi.fn(),
+    handleFolderSelection: vi.fn(),
+    meta: null,
+  }),
+  UploadControlsCard: () => <div data-testid="upload-controls" />, 
+  UploadTimelineSection: () => <div data-testid="timeline-section" />,
+}))
 
-describe('ViewerClient layout', () => {
-  it('renders navbar, ingest dropzone, timeline, and chat dock in order', async () => {
-    const queryClient = new QueryClient()
-    const rootRoute = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-      component: () => <Outlet />,
-    })
-    const viewerRoute = createRoute({
-      getParentRoute: () => rootRoute,
-      path: '/',
-      loader: () => ({
-        projectFiles: [],
-        sessionAssets: [],
-        generatedAt: Date.now(),
-        stats: { bundled: 0, external: 0, uploads: 0, total: 0 },
-        inputs: {
-          projectGlobPatterns: [],
-          projectExcludedGlobs: [],
-          bundledSessionGlobs: [],
-          externalDirectories: [],
-          uploadStores: [],
-        },
-        sessionId: 'test-session',
-        sessionCoach: null,
-      }),
-      component: ViewerClient,
-    })
-    const routeTree = rootRoute.addChildren([viewerRoute])
-    const router = createRouter({
-      routeTree,
-      context: { queryClient },
-    })
+vi.mock('~/server/function/chatbotState', () => ({
+  fetchChatbotState: vi.fn(async () => null),
+}))
 
-    render(<RouterProvider router={router as any} />)
-    const nav = await screen.findByTestId('viewer-floating-navbar')
-    const dropzone = await screen.findByTestId('session-upload-dropzone')
-    const timelineSection = await screen.findByTestId('timeline-section')
-    const chatDock = document.getElementById('viewer-chat') as HTMLElement
+vi.mock('~/server/function/sessionRepoContext', () => ({
+  sessionRepoContext: vi.fn(async () => undefined),
+}))
 
-    expect(nav).toBeInTheDocument()
-    expect(dropzone).toBeInTheDocument()
-    expect(timelineSection).toBeInTheDocument()
-    expect(chatDock).toBeInTheDocument()
+vi.mock('~/server/function/ruleInventory', () => ({
+  fetchRuleInventory: vi.fn(async () => []),
+}))
 
-    expect(
-      Boolean(nav.compareDocumentPosition(dropzone) & Node.DOCUMENT_POSITION_FOLLOWING),
-    ).toBeTruthy()
-    expect(
-      Boolean(timelineSection.compareDocumentPosition(chatDock) & Node.DOCUMENT_POSITION_FOLLOWING),
-    ).toBeTruthy()
-    expect(
-      Boolean(dropzone.compareDocumentPosition(chatDock) & Node.DOCUMENT_POSITION_FOLLOWING),
-    ).toBeTruthy()
-    expect(await screen.findByTestId('timeline-tracing-beam')).toBeInTheDocument()
+vi.mock('~/server/function/hookifyAddToChat', () => ({
+  hookifyAddToChat: vi.fn(async () => ({ blocked: false, severity: 'info', rules: [], decisionId: 'test', prefill: { prompt: 'hi', metadata: {} } })),
+}))
+
+describe('Viewer layout', () => {
+  it('renders navigation and outlet shell', () => {
+    render(<ViewerPage />)
+
+    expect(screen.getByText('Explorer')).toBeInTheDocument()
+    expect(screen.getByText('Inspector')).toBeInTheDocument()
+    expect(screen.getByText('Chat')).toBeInTheDocument()
+    expect(screen.getByTestId('viewer-outlet')).toBeInTheDocument()
   })
 })

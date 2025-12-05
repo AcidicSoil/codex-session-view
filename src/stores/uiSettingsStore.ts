@@ -1,63 +1,38 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-import type { Filter } from '~/components/ui/filters'
-import type {
-  SessionExplorerFilterState,
-  SessionPreset,
-} from '~/components/viewer/session-list/sessionExplorerTypes'
-import { defaultFilterState } from '~/components/viewer/session-list/sessionExplorerTypes'
-import type {
-  QuickFilter,
-  RoleQuickFilter,
-  SortOrder,
-  TimelineFilterValue,
-} from '~/components/viewer/TimelineFilters'
+import {
+  type BookmarkRecord,
+  type BookmarkType,
+  type RuleInspectorState,
+  type RuleInspectorTab,
+  type SessionExplorerPersistState,
+  type TimelinePreferencesState,
+  type UiSettingsSnapshot,
+  DEFAULT_RULE_INSPECTOR_STATE,
+  DEFAULT_SESSION_EXPLORER_STATE,
+  DEFAULT_TIMELINE_PREFERENCES,
+  DEFAULT_UI_SETTINGS_SNAPSHOT,
+  cloneUiSettingsSnapshot,
+} from '~/lib/ui-settings'
 import { generateId } from '~/utils/id-generator'
+import { persistUiSettings } from '~/server/function/uiSettingsState'
 
-export type BookmarkType = 'session' | 'event' | 'chat' | 'rule'
-export interface BookmarkRecord {
-  id: string
-  type: BookmarkType
-  entityId: string
-  label?: string
-  meta?: Record<string, string | number | boolean>
-  createdAt: number
-}
+const LOCAL_STORAGE_KEY = 'codex-viewer:ui-settings'
 
-export type RuleInspectorTab = 'gate' | 'rules' | 'events' | 'inventory'
+type SnapshotSource = 'server' | 'guest' | 'default'
 
-export interface RuleInspectorState {
-  open: boolean
-  activeTab: RuleInspectorTab
-  sessionId?: string
-  assetPath?: string | null
-  ruleId?: string
-  eventIndex?: number | null
-}
-
-export interface SessionExplorerPersistState {
-  filters: SessionExplorerFilterState
-  sessionPreset: SessionPreset
-}
-
-export interface TimelinePreferencesState {
-  filters: Filter<TimelineFilterValue>[]
-  quickFilter: QuickFilter
-  roleFilter: RoleQuickFilter
-  sortOrder: SortOrder
-  searchQuery: string
-}
-
-export interface UiSettingsState {
-  lastSessionPath?: string | null
-  ruleInspector: RuleInspectorState
-  bookmarks: BookmarkRecord[]
-  sessionExplorer: SessionExplorerPersistState
-  timelinePreferences: TimelinePreferencesState
+export interface UiSettingsState extends UiSettingsSnapshot {
+  profileId: string | null
+  hydrateFromSnapshot: (
+    snapshot: UiSettingsSnapshot | null,
+    profileId: string | null,
+    source?: SnapshotSource,
+  ) => void
   setLastSessionPath: (path: string | null | undefined) => void
   openRuleInspector: (input?: Partial<RuleInspectorState>) => void
   closeRuleInspector: () => void
   setRuleInspectorTab: (tab: RuleInspectorTab) => void
+  selectInspectorRule: (ruleId?: string) => void
+  selectInspectorEvent: (eventIndex: number | null) => void
   toggleBookmark: (bookmark: Omit<BookmarkRecord, 'id' | 'createdAt'>) => void
   isBookmarked: (type: BookmarkType, entityId: string) => boolean
   updateSessionExplorer: (updater: (prev: SessionExplorerPersistState) => SessionExplorerPersistState) => void
@@ -67,131 +42,149 @@ export interface UiSettingsState {
   reset: () => void
 }
 
-const DEFAULT_RULE_INSPECTOR_STATE: RuleInspectorState = {
-  open: false,
-  activeTab: 'gate',
-  sessionId: undefined,
-  assetPath: undefined,
-  ruleId: undefined,
-  eventIndex: undefined,
-}
-
-function cloneSessionExplorerFilters(source: SessionExplorerFilterState): SessionExplorerFilterState {
-  return {
-    ...source,
-    sourceFilters: [...source.sourceFilters],
-    branchFilters: [...source.branchFilters],
-    tagFilters: [...source.tagFilters],
+function loadGuestSnapshot(): UiSettingsSnapshot | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as UiSettingsSnapshot
+    return cloneUiSettingsSnapshot(parsed)
+  } catch {
+    return null
   }
 }
 
-const DEFAULT_SESSION_EXPLORER_STATE: SessionExplorerPersistState = {
-  filters: cloneSessionExplorerFilters(defaultFilterState),
-  sessionPreset: 'all',
+function persistGuestSnapshot(snapshot: UiSettingsSnapshot) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(snapshot))
+  } catch {
+    // ignore storage quota errors
+  }
 }
 
-const DEFAULT_TIMELINE_PREFERENCES: TimelinePreferencesState = {
-  filters: [],
-  quickFilter: 'all',
-  roleFilter: 'all',
-  sortOrder: 'desc',
-  searchQuery: '',
-}
-
-const noopStorage: Storage = {
-  length: 0,
-  clear: () => undefined,
-  getItem: () => null,
-  key: () => null,
-  removeItem: () => undefined,
-  setItem: () => undefined,
-}
-
-export const useUiSettingsStore = create<UiSettingsState>()(
-  persist(
-    (set, get) => ({
-      lastSessionPath: null,
-      ruleInspector: DEFAULT_RULE_INSPECTOR_STATE,
-      bookmarks: [],
-      sessionExplorer: { ...DEFAULT_SESSION_EXPLORER_STATE, filters: cloneSessionExplorerFilters(defaultFilterState) },
-      timelinePreferences: DEFAULT_TIMELINE_PREFERENCES,
-      setLastSessionPath: (path) => {
-        set({ lastSessionPath: path ?? null })
+function snapshotFromState(state: UiSettingsState): UiSettingsSnapshot {
+  return {
+    lastSessionPath: state.lastSessionPath ?? null,
+    ruleInspector: { ...state.ruleInspector },
+    bookmarks: [...state.bookmarks],
+    sessionExplorer: {
+      sessionPreset: state.sessionExplorer.sessionPreset,
+      filters: {
+        ...state.sessionExplorer.filters,
+        sourceFilters: [...state.sessionExplorer.filters.sourceFilters],
+        branchFilters: [...state.sessionExplorer.filters.branchFilters],
+        tagFilters: [...state.sessionExplorer.filters.tagFilters],
       },
-      openRuleInspector: (input) => {
-        set(({ ruleInspector }) => ({
-          ruleInspector: {
-            ...ruleInspector,
-            ...input,
-            open: true,
-            activeTab: input?.activeTab ?? ruleInspector.activeTab,
-          },
-        }))
-      },
-      closeRuleInspector: () => {
-        set(({ ruleInspector }) => ({
-          ruleInspector: { ...ruleInspector, open: false },
-        }))
-      },
-      setRuleInspectorTab: (tab) => {
-        set(({ ruleInspector }) => ({
-          ruleInspector: { ...ruleInspector, activeTab: tab },
-        }))
-      },
-      toggleBookmark: (bookmark) => {
-        set((state) => {
-          const existing = state.bookmarks.find(
-            (entry) => entry.type === bookmark.type && entry.entityId === bookmark.entityId,
-          )
-          if (existing) {
-            return { bookmarks: state.bookmarks.filter((entry) => entry.id !== existing.id) }
-          }
-          const next: BookmarkRecord = {
-            id: generateId('bookmark'),
-            createdAt: Date.now(),
-            ...bookmark,
-          }
-          return { bookmarks: [...state.bookmarks, next] }
-        })
-      },
-      isBookmarked: (type, entityId) =>
-        Boolean(get().bookmarks.find((entry) => entry.type === type && entry.entityId === entityId)),
-      updateSessionExplorer: (updater) => {
-        set((state) => ({
-          sessionExplorer: updater(state.sessionExplorer),
-        }))
-      },
-      updateTimelinePreferences: (updater) => {
-        set((state) => ({
-          timelinePreferences: updater(state.timelinePreferences),
-        }))
-      },
-      resetSessionExplorer: () => {
-        set({ sessionExplorer: { ...DEFAULT_SESSION_EXPLORER_STATE, filters: cloneSessionExplorerFilters(defaultFilterState) } })
-      },
-      resetTimelinePreferences: () => {
-        set({ timelinePreferences: DEFAULT_TIMELINE_PREFERENCES })
-      },
-      reset: () => {
-        set({
-          lastSessionPath: null,
-          ruleInspector: DEFAULT_RULE_INSPECTOR_STATE,
-          bookmarks: [],
-          sessionExplorer: { ...DEFAULT_SESSION_EXPLORER_STATE, filters: cloneSessionExplorerFilters(defaultFilterState) },
-          timelinePreferences: DEFAULT_TIMELINE_PREFERENCES,
-        })
-      },
-    }),
-    {
-      name: 'codex-viewer:ui-settings',
-      storage: createJSONStorage(() => (typeof window === 'undefined' ? noopStorage : window.localStorage)),
-      partialize: (state) => ({
-        lastSessionPath: state.lastSessionPath,
-        ruleInspector: state.ruleInspector,
-        bookmarks: state.bookmarks,
-        sessionExplorer: state.sessionExplorer,
-        timelinePreferences: state.timelinePreferences,
-      }),
     },
-  ),
-)
+    timelinePreferences: { ...state.timelinePreferences },
+  }
+}
+
+function persistSnapshot(state: UiSettingsState) {
+  const snapshot = snapshotFromState(state)
+  if (state.profileId) {
+    void persistUiSettings({ data: { profileId: state.profileId, settings: snapshot } })
+  } else {
+    persistGuestSnapshot(snapshot)
+  }
+}
+
+export const useUiSettingsStore = create<UiSettingsState>()((set, get) => ({
+  profileId: null,
+  ...cloneUiSettingsSnapshot(DEFAULT_UI_SETTINGS_SNAPSHOT),
+  hydrateFromSnapshot: (snapshot, profileId, source = 'default') => {
+    const baseSnapshot =
+      source === 'guest' && !snapshot ? loadGuestSnapshot() : snapshot ?? loadGuestSnapshot()
+    const next = cloneUiSettingsSnapshot(baseSnapshot)
+    set({ ...next, profileId: profileId ?? null })
+  },
+  setLastSessionPath: (path) => {
+    set({ lastSessionPath: path ?? null })
+    persistSnapshot(get())
+  },
+  openRuleInspector: (input) => {
+    set(({ ruleInspector }) => ({
+      ruleInspector: {
+        ...ruleInspector,
+        ...input,
+        open: true,
+        activeTab: input?.activeTab ?? ruleInspector.activeTab,
+      },
+    }))
+    persistSnapshot(get())
+  },
+  closeRuleInspector: () => {
+    set(({ ruleInspector }) => ({ ruleInspector: { ...ruleInspector, open: false } }))
+    persistSnapshot(get())
+  },
+  setRuleInspectorTab: (tab) => {
+    set(({ ruleInspector }) => ({ ruleInspector: { ...ruleInspector, activeTab: tab } }))
+    persistSnapshot(get())
+  },
+  selectInspectorRule: (ruleId) => {
+    set(({ ruleInspector }) => ({ ruleInspector: { ...ruleInspector, ruleId: ruleId ?? undefined } }))
+    persistSnapshot(get())
+  },
+  selectInspectorEvent: (eventIndex) => {
+    set(({ ruleInspector }) => ({ ruleInspector: { ...ruleInspector, eventIndex } }))
+    persistSnapshot(get())
+  },
+  toggleBookmark: (bookmark) => {
+    set((state) => {
+      const existing = state.bookmarks.find(
+        (entry) => entry.type === bookmark.type && entry.entityId === bookmark.entityId,
+      )
+      if (existing) {
+        return { bookmarks: state.bookmarks.filter((entry) => entry.id !== existing.id) }
+      }
+      const next: BookmarkRecord = {
+        id: generateId('bookmark'),
+        createdAt: Date.now(),
+        ...bookmark,
+      }
+      return { bookmarks: [...state.bookmarks, next] }
+    })
+    persistSnapshot(get())
+  },
+  isBookmarked: (type, entityId) =>
+    Boolean(get().bookmarks.find((entry) => entry.type === type && entry.entityId === entityId)),
+  updateSessionExplorer: (updater) => {
+    set((state) => ({ sessionExplorer: updater(state.sessionExplorer) }))
+    persistSnapshot(get())
+  },
+  updateTimelinePreferences: (updater) => {
+    set((state) => ({ timelinePreferences: updater(state.timelinePreferences) }))
+    persistSnapshot(get())
+  },
+  resetSessionExplorer: () => {
+    set({
+      sessionExplorer: {
+        ...DEFAULT_SESSION_EXPLORER_STATE,
+        filters: cloneUiSettingsSnapshot(DEFAULT_UI_SETTINGS_SNAPSHOT).sessionExplorer.filters,
+      },
+    })
+    persistSnapshot(get())
+  },
+  resetTimelinePreferences: () => {
+    set({ timelinePreferences: { ...DEFAULT_TIMELINE_PREFERENCES } })
+    persistSnapshot(get())
+  },
+  reset: () => {
+    set({
+      ...cloneUiSettingsSnapshot(DEFAULT_UI_SETTINGS_SNAPSHOT),
+      profileId: get().profileId,
+    })
+    persistSnapshot(get())
+  },
+}))
+
+export type {
+  BookmarkRecord,
+  BookmarkType,
+  RuleInspectorState,
+  RuleInspectorTab,
+  SessionExplorerPersistState,
+  TimelinePreferencesState,
+  UiSettingsSnapshot,
+} from '~/lib/ui-settings'

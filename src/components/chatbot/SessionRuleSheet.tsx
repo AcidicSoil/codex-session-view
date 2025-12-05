@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react'
 import type { RuleInventoryEntry } from '~/server/lib/ruleInventory'
+import { Input } from '~/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
+import { HighlightedText } from '~/components/ui/highlighted-text'
+import { buildSearchMatchers, matchesSearchMatchers } from '~/utils/search'
 
 const severityColor: Record<string, string> = {
   critical: 'text-rose-400',
@@ -24,12 +28,19 @@ export function SessionRuleSheet({ entries, activeSessionId }: SessionRuleSheetP
     return Array.from(unique.entries())
   }, [entries])
 
-  const [filter, setFilter] = useState<string>(activeSessionId ?? 'all')
+  const [sessionFilter, setSessionFilter] = useState<string>(activeSessionId ?? 'all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [severityFilter, setSeverityFilter] = useState('all')
+
+  const searchMatchers = useMemo(() => buildSearchMatchers(searchQuery), [searchQuery])
 
   const filteredEntries = useMemo(() => {
-    if (filter === 'all') return entries
-    return entries.filter((entry) => entry.sessionId === filter)
-  }, [entries, filter])
+    let scoped = entries
+    if (sessionFilter !== 'all') {
+      scoped = scoped.filter((entry) => entry.sessionId === sessionFilter)
+    }
+    return scoped
+  }, [entries, sessionFilter])
 
   const rows = useMemo(() => {
     return filteredEntries.flatMap((entry) =>
@@ -41,6 +52,17 @@ export function SessionRuleSheet({ entries, activeSessionId }: SessionRuleSheetP
       })),
     )
   }, [filteredEntries])
+
+  const visibleRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (severityFilter !== 'all' && row.rule.severity !== severityFilter) {
+        return false
+      }
+      if (!searchMatchers.length) return true
+      const haystack = `${row.assetPath} ${row.rule.heading} ${row.rule.summary} ${row.repoRoot ?? ''}`
+      return matchesSearchMatchers(haystack, searchMatchers)
+    })
+  }, [rows, searchMatchers, severityFilter])
 
   if (!entries.length) {
     return (
@@ -56,20 +78,42 @@ export function SessionRuleSheet({ entries, activeSessionId }: SessionRuleSheetP
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-white/60">Rule Inventory</p>
-            <p className="text-sm text-white">{rows.length} rules across {filteredEntries.length} session bindings</p>
+            <p className="text-sm text-white">{visibleRows.length} rules across {filteredEntries.length} session bindings</p>
           </div>
-          <select
-            className="rounded-md border border-white/20 bg-black/40 px-3 py-2 text-xs uppercase tracking-[0.25em] text-white"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-          >
-            <option value="all">All sessions</option>
-            {sessionOptions.map(([sessionId, assetPath]) => (
-              <option key={sessionId} value={sessionId}>
-                {assetPath}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search rules or repos"
+              className="h-9 w-48 border-white/20 bg-black/40 text-xs text-white placeholder:text-white/50"
+            />
+            <Select value={severityFilter} onValueChange={setSeverityFilter}>
+              <SelectTrigger className="h-9 w-32 border-white/20 bg-black/40 text-xs uppercase tracking-[0.25em] text-white">
+                <SelectValue placeholder="Severity" />
+              </SelectTrigger>
+              <SelectContent className="bg-black/90 text-xs text-white">
+                <SelectItem value="all">All severities</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="info">Info</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+              </SelectContent>
+            </Select>
+            <select
+              className="h-9 rounded-md border border-white/20 bg-black/40 px-3 text-xs uppercase tracking-[0.25em] text-white"
+              value={sessionFilter}
+              onChange={(event) => setSessionFilter(event.target.value)}
+            >
+              <option value="all">All sessions</option>
+              {sessionOptions.map(([sessionId, assetPath]) => (
+                <option key={sessionId} value={sessionId}>
+                  {assetPath}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="max-h-64 overflow-auto rounded-2xl border border-white/10 bg-black/40">
           <table className="w-full text-left text-xs text-white/80">
@@ -82,18 +126,28 @@ export function SessionRuleSheet({ entries, activeSessionId }: SessionRuleSheetP
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => {
+              {visibleRows.map((row) => {
                 const color = severityColor[row.rule.severity] ?? 'text-slate-200'
                 const isActive = row.sessionId === activeSessionId
                 return (
                   <tr key={`${row.sessionId}-${row.rule.id}`} className={isActive ? 'bg-white/5' : undefined}>
-                    <td className="px-4 py-2 align-top text-[11px] font-mono text-white/70">{row.assetPath}</td>
-                    <td className="px-4 py-2 align-top text-[11px] text-white/60">{row.repoRoot}</td>
-                    <td className="px-4 py-2 align-top text-[13px] text-white">
-                      <div className="font-semibold">{row.rule.heading}</div>
-                      <div className="text-xs text-white/70">{row.rule.summary}</div>
+                    <td className="px-4 py-2 align-top text-[11px] font-mono text-white/70">
+                      <HighlightedText text={row.assetPath} matchers={searchMatchers} />
                     </td>
-                    <td className={`px-4 py-2 align-top text-xs font-semibold ${color}`}>{row.rule.severity.toUpperCase()}</td>
+                    <td className="px-4 py-2 align-top text-[11px] text-white/60">
+                      <HighlightedText text={row.repoRoot ?? 'unknown'} matchers={searchMatchers} />
+                    </td>
+                    <td className="px-4 py-2 align-top text-[13px] text-white">
+                      <div className="font-semibold">
+                        <HighlightedText text={row.rule.heading} matchers={searchMatchers} />
+                      </div>
+                      <div className="text-xs text-white/70">
+                        <HighlightedText text={row.rule.summary} matchers={searchMatchers} />
+                      </div>
+                    </td>
+                    <td className={`px-4 py-2 align-top text-xs font-semibold ${color}`}>
+                      {row.rule.severity.toUpperCase()}
+                    </td>
                   </tr>
                 )
               })}
