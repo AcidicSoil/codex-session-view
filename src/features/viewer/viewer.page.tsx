@@ -30,6 +30,8 @@ import {
   VIEWER_ROUTE_ID,
   VIEWER_ROUTE_PATH,
 } from './route-id'
+import { SessionRuleSheet } from '~/components/chatbot/SessionRuleSheet'
+import { X } from 'lucide-react'
 
 interface HookGateState {
   blocked: boolean
@@ -424,6 +426,15 @@ function ViewerWorkspaceChrome() {
     activeSessionId,
     sessionEvents,
   } = useViewerWorkspace()
+  const [isRuleInventoryOpen, setIsRuleInventoryOpen] = useState(false)
+
+  const toggleRuleInventory = useCallback(() => {
+    setIsRuleInventoryOpen((prev) => !prev)
+  }, [])
+
+  const closeRuleInventory = useCallback(() => {
+    setIsRuleInventoryOpen(false)
+  }, [])
 
   const navItems = useMemo(
     () => [
@@ -477,10 +488,17 @@ function ViewerWorkspaceChrome() {
             </div>
           </div>
           <div className="flex w-full justify-end lg:w-auto">
-            <Button asChild size="sm" variant="outline" className="w-full border-white/30 text-white hover:border-white lg:w-auto">
-              <Link to={VIEWER_INSPECTOR_ROUTE_PATH} search={{ panel: 'rules' as const }}>
-                Review rules
-              </Link>
+            <Button
+              type="button"
+              size="sm"
+              variant={isRuleInventoryOpen ? 'default' : 'outline'}
+              className={cn(
+                'w-full border-white/30 text-white lg:w-auto',
+                isRuleInventoryOpen ? 'bg-cyan-500/80 text-black hover:bg-cyan-400' : 'hover:border-white',
+              )}
+              onClick={toggleRuleInventory}
+            >
+              Review rules
             </Button>
           </div>
         </nav>
@@ -496,6 +514,17 @@ function ViewerWorkspaceChrome() {
         onJumpToEvent={(index) => void handleHookGateJump(index)}
         resolveEventContext={resolveEvidenceContext}
       />
+      {isRuleInventoryOpen ? (
+        <RuleInventoryDrawer
+          entries={ruleSheetEntries}
+          activeSessionId={activeSessionId}
+          onClose={closeRuleInventory}
+          onNavigate={(index) => {
+            void handleHookGateJump(index)
+            closeRuleInventory()
+          }}
+        />
+      ) : null}
     </NeuralGlow>
   )
 }
@@ -511,6 +540,49 @@ function ViewerSkeleton() {
         <div className="h-96 animate-pulse rounded-3xl bg-muted" />
       </main>
     </NeuralGlow>
+  )
+}
+
+interface RuleInventoryDrawerProps {
+  entries: Awaited<ReturnType<typeof fetchRuleInventory>>
+  activeSessionId: string
+  onClose: () => void
+  onNavigate: (index: number) => void
+}
+
+function RuleInventoryDrawer({ entries, activeSessionId, onClose, onNavigate }: RuleInventoryDrawerProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <button
+        type="button"
+        aria-label="Close rule inventory"
+        className="absolute inset-0 cursor-default bg-black/60"
+        onClick={onClose}
+      />
+      <aside
+        role="dialog"
+        aria-modal="true"
+        className="relative flex h-full w-full max-w-md flex-col border-l border-white/15 bg-[#04060d]/95 text-white shadow-2xl"
+      >
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-white/60">Rule Inventory</p>
+            <p className="text-sm text-white/80">Session: {activeSessionId || 'Unbound'}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-2 rounded-full border border-white/20 px-3 py-1 text-xs uppercase tracking-[0.25em] text-white/80 transition hover:border-white/40"
+          >
+            Close
+            <X className="size-3.5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <SessionRuleSheet entries={entries} activeSessionId={activeSessionId} onNavigateToEvent={onNavigate} />
+        </div>
+      </aside>
+    </div>
   )
 }
 

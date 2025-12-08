@@ -1,10 +1,7 @@
-import { useMemo } from 'react'
 import { SessionRepoSelector } from '~/components/chatbot/SessionRepoSelector'
-import { SessionRuleSheet, type RuleViolationSummary } from '~/components/chatbot/SessionRuleSheet'
 import { ChatDockPanel } from '~/components/chatbot/ChatDockPanel'
 import { Separator } from '~/components/ui/separator'
 import { useViewerWorkspace } from '../viewer.page'
-import { pickHigherSeverity } from '~/features/chatbot/severity'
 
 export function ViewerChatView() {
   const {
@@ -15,31 +12,7 @@ export function ViewerChatView() {
     setCoachPrefill,
     refreshSessionCoach,
     refreshRuleInventory,
-    ruleSheetEntries,
-    handleHookGateJump,
-    misalignments,
   } = useViewerWorkspace()
-
-  const ruleViolations = useMemo(() => {
-    if (!misalignments.length) return undefined
-    const map = new Map<string, RuleViolationSummary>()
-    misalignments.forEach((record) => {
-      const next: RuleViolationSummary = map.get(record.ruleId) ?? {
-        count: 0,
-        eventIndexes: [],
-        severity: record.severity,
-      }
-      next.count += 1
-      next.severity = next.count === 1 ? record.severity : pickHigherSeverity(next.severity, record.severity)
-      record.evidence?.forEach((entry) => {
-        if (typeof entry.eventIndex === 'number' && !next.eventIndexes.includes(entry.eventIndex)) {
-          next.eventIndexes.push(entry.eventIndex)
-        }
-      })
-      map.set(record.ruleId, next)
-    })
-    return map
-  }, [misalignments])
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]">
@@ -67,14 +40,6 @@ export function ViewerChatView() {
               await refreshSessionCoach(activeSessionId)
               await refreshRuleInventory()
             }}
-          />
-        </section>
-        <section className="rounded-3xl border border-white/10 bg-background/80 p-5 shadow-sm">
-          <SessionRuleSheet
-            entries={ruleSheetEntries}
-            activeSessionId={activeSessionId}
-            ruleViolations={ruleViolations}
-            onNavigateToEvent={(index) => void handleHookGateJump(index)}
           />
         </section>
       </aside>
