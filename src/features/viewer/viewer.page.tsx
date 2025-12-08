@@ -115,7 +115,7 @@ function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
     settingsHydratedRef.current = true
   }
 
-  const initialSessionId = loaderData?.sessionId ?? 'demo-session'
+  const initialSessionId = loaderData?.sessionId ?? 'session-default'
   const [activeSessionId, setActiveSessionId] = useState(initialSessionId)
   const [sessionCoachState, setSessionCoachState] = useState<ViewerChatState | null>(loaderData?.sessionCoach ?? null)
   const [ruleSheetEntries, setRuleSheetEntries] = useState(loaderData?.ruleSheet ?? [])
@@ -443,34 +443,38 @@ function ViewerWorkspaceChrome() {
   )
 
   return (
-    <NeuralGlow variant="background" className="px-4 py-10">
-      <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6">
-        <nav className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-white/10 bg-black/40 p-4 shadow-lg backdrop-blur-xl">
-          <div className="flex flex-wrap gap-2">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                to={item.href as typeof VIEWER_ROUTE_PATH | typeof VIEWER_INSPECTOR_ROUTE_PATH | typeof VIEWER_CHAT_ROUTE_PATH}
-                className={cn(
-                  'rounded-2xl border px-4 py-3 text-left transition-colors duration-150',
-                  item.isActive
-                    ? 'border-white/40 bg-white/10 text-white'
-                    : 'border-white/10 text-white/70 hover:border-white/25 hover:text-white',
-                )}
-              >
-                <p className="text-xs uppercase tracking-[0.3em] text-white/60">{item.metric}</p>
-                <p className="text-base font-semibold">{item.label}</p>
-                <p className="text-xs text-white/70">{item.description}</p>
-              </Link>
-            ))}
+    <NeuralGlow variant="background" className="overflow-x-hidden px-4 py-10">
+      <main className="mx-auto flex w-full min-h-screen max-w-6xl flex-col gap-6">
+        <nav className="flex w-full flex-col gap-4 rounded-3xl border border-white/10 bg-black/40 p-4 shadow-lg backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
+          <div className="w-full overflow-x-auto pb-1">
+            <div className="grid min-w-full gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {navItems.map((item) => (
+                <Link
+                  key={item.label}
+                  to={item.href as typeof VIEWER_ROUTE_PATH | typeof VIEWER_INSPECTOR_ROUTE_PATH | typeof VIEWER_CHAT_ROUTE_PATH}
+                  className={cn(
+                    'min-w-[220px] rounded-2xl border px-4 py-3 text-left transition-colors duration-150',
+                    item.isActive
+                      ? 'border-white/40 bg-white/10 text-white'
+                      : 'border-white/10 text-white/70 hover:border-white/25 hover:text-white',
+                  )}
+                >
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/60">{item.metric}</p>
+                  <p className="text-base font-semibold">{item.label}</p>
+                  <p className="text-xs text-white/70">{item.description}</p>
+                </Link>
+              ))}
+            </div>
           </div>
-          <Button asChild size="sm" variant="outline" className="shrink-0 border-white/30 text-white hover:border-white">
-            <Link to={VIEWER_INSPECTOR_ROUTE_PATH} search={{ panel: 'rules' as const }}>
-              Review rules
-            </Link>
-          </Button>
+          <div className="flex w-full justify-end lg:w-auto">
+            <Button asChild size="sm" variant="outline" className="w-full border-white/30 text-white hover:border-white lg:w-auto">
+              <Link to={VIEWER_INSPECTOR_ROUTE_PATH} search={{ panel: 'rules' as const }}>
+                Review rules
+              </Link>
+            </Button>
+          </div>
         </nav>
-        <section className="flex-1">
+        <section className="flex-1 min-w-0">
           <Outlet />
         </section>
       </main>

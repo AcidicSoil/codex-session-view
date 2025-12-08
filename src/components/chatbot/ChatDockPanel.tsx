@@ -59,7 +59,6 @@ export function ChatDockPanel({
 
   return (
     <ChatDockContent
-      key={`${bootState.sessionId}-${bootState.mode}`}
       sessionId={sessionId}
       initialState={bootState}
       prefill={prefill}

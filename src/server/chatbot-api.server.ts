@@ -517,7 +517,7 @@ export function buildAssistantEvidence(
     ruleId: record.ruleId,
     snippet: entry.highlight ?? entry.message,
     severity: record.severity,
-    label: entry.message ?? `Evidence #${index + 1}`,
+    label: record.title ?? entry.message ?? `Evidence #${index + 1}`,
   }));
 }
 

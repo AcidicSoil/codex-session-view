@@ -10,7 +10,7 @@ interface TracingBeamProps extends React.HTMLAttributes<HTMLDivElement> {
 
 /**
  * Scroll container that hides the native scrollbar and renders a slim,
- * neon-like beam to show progress similar to Aceternity's tracing-beam demo.
+ * neon-like beam to show progress similar to Aceternity's tracing-beam showcase.
  */
 export function TracingBeam({ children, className, outerClassName, ...props }: TracingBeamProps) {
   const ref = useRef<HTMLDivElement | null>(null)

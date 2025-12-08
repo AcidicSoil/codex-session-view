@@ -3,10 +3,10 @@ import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { MisalignmentRecord } from '~/lib/sessions/model';
+import type { MisalignmentRecord, MisalignmentSeverity } from '~/lib/sessions/model';
 import type { LocalMessage } from '~/components/chatbot/hooks/useChatDockController';
 import { cn } from '~/lib/utils';
-import { getSeverityVisuals } from '~/features/chatbot/severity';
+import { getSeverityVisuals, rankSeverity } from '~/features/chatbot/severity';
 import { FormattedContent } from '~/components/ui/formatted-content';
 
 interface ChatDockMessagesProps {
@@ -45,6 +45,7 @@ interface MessageBubbleProps {
 function MessageBubble({ message, showEvidence, isActiveStream }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const text = message.content || (isActiveStream ? '…' : '');
+  const primaryEvidence = selectPrimaryEvidence(message.evidence);
   const bubbleClasses = cn(
     'mt-1 max-w-full rounded-2xl border border-border/50 px-3 py-2 text-sm shadow-sm',
     isUser ? 'bg-primary/10 text-primary-foreground' : 'bg-background/70 text-foreground'
@@ -52,9 +53,14 @@ function MessageBubble({ message, showEvidence, isActiveStream }: MessageBubbleP
 
   return (
     <div className={`flex flex-col ${isUser ? 'items-end text-right' : 'items-start text-left'}`}>
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {message.role}
-      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          {message.role}
+        </span>
+        {primaryEvidence ? (
+          <RuleViolationBadge label={primaryEvidence.label} severity={primaryEvidence.severity} />
+        ) : null}
+      </div>
       <div className={bubbleClasses}>
         {isUser ? (
           text
@@ -86,7 +92,8 @@ function EvidenceList({ evidence }: { evidence: NonNullable<LocalMessage['eviden
               className={cn('rounded-xl border bg-background/80 p-2 shadow-sm', visuals?.borderClass)}
             >
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                {entry.ruleId ? <span className="font-semibold">Rule {entry.ruleId}</span> : null}
+                {entry.label ? <span className="font-semibold text-foreground">{entry.label}</span> : null}
+                {!entry.label && entry.ruleId ? <span className="font-semibold">Rule {entry.ruleId}</span> : null}
                 {entry.path ? <span>{entry.path}</span> : null}
                 {entry.severity ? (
                   <Badge variant="outline" className={cn('border-none px-2 py-0.5', visuals?.textClass)}>
@@ -100,6 +107,37 @@ function EvidenceList({ evidence }: { evidence: NonNullable<LocalMessage['eviden
         })}
       </ul>
     </div>
+  );
+}
+
+function selectPrimaryEvidence(evidence?: LocalMessage['evidence']) {
+  if (!evidence || !evidence.length) return null;
+  return evidence.reduce<NonNullable<LocalMessage['evidence']>[number] | null>((best, entry) => {
+    if (!entry.severity) return best;
+    if (!best || !best.severity) return entry;
+    return rankSeverity(entry.severity) > rankSeverity(best.severity) ? entry : best;
+  }, null);
+}
+
+function RuleViolationBadge({
+  label,
+  severity,
+}: {
+  label?: string;
+  severity?: MisalignmentSeverity;
+}) {
+  if (!label || !severity) return null;
+  const visuals = getSeverityVisuals(severity);
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide',
+        visuals.borderClass,
+        visuals.textClass
+      )}
+    >
+      {label}
+    </span>
   );
 }
 

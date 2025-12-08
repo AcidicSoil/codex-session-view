@@ -1,8 +1,6 @@
 import {
-  simulateReadableStream,
   streamText,
   generateText,
-  type AsyncIterableStream,
   type CoreMessage,
   type FinishReason,
   type LanguageModel,
@@ -31,7 +29,6 @@ const PROVIDER_TITLES: Record<ProviderId, string> = {
   'gemini-cli': 'Gemini CLI',
   'codex-cli': 'Codex CLI',
   'lm-studio': 'LM Studio',
-  demo: 'Demo',
 };
 
 const HOOK_DISCOVERY_SYSTEM_PROMPT = `
@@ -187,7 +184,7 @@ export class ProviderUnavailableError extends Error {
 
 export interface ChatStreamResult {
   definition: ChatModelDefinition;
-  textStream: AsyncIterableStream<string>;
+  textStream: AsyncIterable<string>;
   usage: Promise<LanguageModelUsage>;
   totalUsage: Promise<LanguageModelUsage>;
   finishReason: Promise<FinishReason>;
@@ -332,12 +329,6 @@ const providerFactories: Record<ProviderId, ProviderFactory> = {
     return (modelName: string, overrides?: Record<string, unknown>) =>
       codexCli(modelName, { ...defaultSettings, ...(overrides as CodexCliSettings | undefined) });
   },
-  demo: () => {
-    return () => {
-      logError('ai-runtime', 'Demo provider attempted to stream directly.');
-      throw new Error('Demo provider does not support direct streaming calls');
-    };
-  },
   'lm-studio': () => {
     const baseURL = readEnvValue('AI_LMSTUDIO_BASE_URL') ?? 'http://127.0.0.1:1234/v1';
     const apiKey = readEnvValue('AI_LMSTUDIO_API_KEY') ?? 'lm-studio';
@@ -362,20 +353,6 @@ const providerCache = new Map<ProviderId, ReturnType<ProviderFactory>>();
 export function generateSessionCoachReply(options: SessionCoachReplyOptions): ChatStreamResult {
   const modelId = resolveModelForMode('session', options.modelId);
   const definition = getChatModelDefinition(modelId);
-  if (definition.providerId === 'demo') {
-    const latestPrompt = extractLatestUserPrompt(options.history);
-    return createDemoChatResult(definition, {
-      headline: `Demo coach response: ${latestPrompt || 'Awaiting prompt.'}`,
-      details: [
-        options.metadata?.ruleId
-          ? `Focusing on rule ${options.metadata.ruleId}.`
-          : 'No specific rule selected.',
-        options.contextPrompt
-          ? `Context digest: ${options.contextPrompt.slice(0, 220)}`
-          : 'Context unavailable.',
-      ],
-    });
-  }
   const provider = resolveProvider(definition.providerId);
   const result = streamText({
     model: provider(definition.providerModel),
@@ -396,13 +373,6 @@ export function generateSessionCoachReply(options: SessionCoachReplyOptions): Ch
 export function runGeneralChatTurn(options: GeneralChatOptions): ChatStreamResult {
   const modelId = resolveModelForMode('general', options.modelId);
   const definition = getChatModelDefinition(modelId);
-  if (definition.providerId === 'demo') {
-    const latestPrompt = extractLatestUserPrompt(options.history);
-    return createDemoChatResult(definition, {
-      headline: `Demo general reply: ${latestPrompt || 'Ask me anything.'}`,
-      details: ['This offline-safe model echoes prompts to keep CI deterministic.'],
-    });
-  }
   const provider = resolveProvider(definition.providerId);
   const result = streamText({
     model: provider(definition.providerModel),
@@ -423,25 +393,6 @@ export function runGeneralChatTurn(options: GeneralChatOptions): ChatStreamResul
 export async function generateSessionAnalysis(options: AnalysisOptions): Promise<string> {
   const modelId = resolveModelForMode(options.mode, options.modelId);
   const definition = getChatModelDefinition(modelId);
-
-  if (definition.providerId === 'demo') {
-    if (options.analysisType === 'hook-discovery') {
-      return `## Hookify Analysis Results
-
-### Issue 1: Demo Danger
-**Severity**: High
-**Pattern**: \`rm -rf /\`
-
-**Suggested Rule:**
-- Name: warn-demo-danger
-- Pattern: rm -rf /
-- Message: "Demo detected dangerous command."`;
-    }
-    if (options.analysisType === 'summary') {
-      return '## Goals\n- (Demo) Demonstrate analysis.\n## Main changes\n- None.\n## Issues\n- None.\n## Follow-ups\n- Switch to a real model.';
-    }
-    return 'chore(demo): switch to real model for inference';
-  }
 
   const provider = resolveProvider(definition.providerId);
   let systemPrompt = '';
@@ -521,57 +472,6 @@ function buildSessionCoachSystemPrompt(contextPrompt: string, metadata?: ChatRem
 
 function buildGeneralSystemPrompt() {
   return 'You are Codex General Research assistant. Provide conversational yet concise answers, cite relevant files or rules when known, and ask clarifying questions when context is insufficient.';
-}
-
-function createDemoChatResult(
-  definition: ChatModelDefinition,
-  payload: { headline: string; details: string[] }
-): ChatStreamResult {
-  const text = [payload.headline, ...payload.details.filter(Boolean)].join('\n\n');
-  const textStream = createDemoTextStream(text);
-  const usage: LanguageModelUsage = {
-    inputTokens: text.length,
-    outputTokens: text.length,
-    totalTokens: text.length,
-  };
-  return {
-    definition,
-    textStream,
-    usage: Promise.resolve(usage),
-    totalUsage: Promise.resolve(usage),
-    finishReason: Promise.resolve('stop' as FinishReason),
-  };
-}
-
-function createDemoTextStream(text: string): AsyncIterableStream<string> {
-  const chunkSize = 25;
-  const tokens = text.split(/\s+/);
-  const chunks: string[] = [];
-  for (let index = 0; index < tokens.length; index += chunkSize) {
-    chunks.push(tokens.slice(index, index + chunkSize).join(' '));
-  }
-  const stream = simulateReadableStream<string>({ chunks, chunkDelayInMs: 5, initialDelayInMs: 5 });
-  return Object.assign(stream, {
-    async *[Symbol.asyncIterator]() {
-      const reader = stream.getReader();
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          if (value) {
-            yield value;
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
-    },
-  });
-}
-
-function extractLatestUserPrompt(history: ChatMessageRecord[]) {
-  const latest = [...history].reverse().find((message) => message.role === 'user');
-  return latest?.content ?? '';
 }
 
 function createProviderLogger(scope: string) {

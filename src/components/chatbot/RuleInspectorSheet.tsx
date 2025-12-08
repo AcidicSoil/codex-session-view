@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '~/components/ui/sheet'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '~/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
-import type { RuleInventoryEntry } from '~/server/lib/ruleInventory'
+import type { RuleInventoryEntry } from '~/lib/ruleInventoryTypes'
 import { SessionRuleSheet } from '~/components/chatbot/SessionRuleSheet'
 import { HookGateNotice } from '~/components/chatbot/HookGateNotice'
 import type { HookDecisionSeverity, HookRuleSummary } from '~/server/lib/hookifyRuntime'
@@ -120,21 +120,27 @@ export function RuleInspectorSheet({
 
   return (
     <Sheet open={inspector.open} onOpenChange={(open) => (!open ? closeInspector() : null)}>
-      <SheetContent side="right" className="w-full border-l border-white/10 bg-[#03050a]/95 text-white sm:max-w-3xl">
+      <SheetContent
+        side="right"
+        className="w-full border-l border-white/10 bg-[#03050a]/95 text-white sm:max-w-3xl"
+      >
         <SheetHeader>
           <SheetTitle className="text-left text-2xl font-semibold tracking-[0.2em] text-white">
             Rule Inspector
           </SheetTitle>
+          <SheetDescription className="text-left text-xs uppercase tracking-[0.3em] text-white/60">
+            Inspect gate decisions, bound rules, linked events, and repo inventory for this session.
+          </SheetDescription>
         </SheetHeader>
-        <div className="mt-6 flex h-full flex-col">
-          <Tabs value={inspector.activeTab} onValueChange={(value) => setTab(value as RuleInspectorTab)} className="flex h-full flex-col">
+        <div className="mt-6 flex h-full min-h-0 flex-col">
+          <Tabs value={inspector.activeTab} onValueChange={(value) => setTab(value as RuleInspectorTab)} className="flex h-full min-h-0 flex-col">
             <TabsList className="grid grid-cols-4 rounded-2xl border border-white/20 bg-[#07090f] text-xs uppercase tracking-[0.25em]">
               <TabsTrigger value="gate">Gate</TabsTrigger>
               <TabsTrigger value="rules">Rules</TabsTrigger>
               <TabsTrigger value="events">Events</TabsTrigger>
               <TabsTrigger value="inventory">Inventory</TabsTrigger>
             </TabsList>
-            <div className="mt-4 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-4">
+            <div className="mt-4 flex-1 overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-4 min-h-0">
               <TabsContent value="gate" className="h-full data-[state=inactive]:hidden">
                 {gate ? (
                   <NeuralGlow className="h-full">
@@ -153,7 +159,7 @@ export function RuleInspectorSheet({
                   <p className="text-sm text-white/70">Open Hook Gate to review the latest decision.</p>
                 )}
               </TabsContent>
-              <TabsContent value="rules" className="h-full data-[state=inactive]:hidden">
+              <TabsContent value="rules" className="flex h-full min-h-0 flex-col data-[state=inactive]:hidden">
                 <RuleAccordionList
                   rules={filteredRules}
                   searchValue={ruleSearch}
@@ -166,7 +172,7 @@ export function RuleInspectorSheet({
                   resolveEventContext={resolveEventContext}
                 />
               </TabsContent>
-              <TabsContent value="events" className="h-full data-[state=inactive]:hidden">
+              <TabsContent value="events" className="flex h-full min-h-0 flex-col data-[state=inactive]:hidden">
                 <EventInspectorPanels
                   referencedEvents={referencedEvents}
                   sessionEvents={sessionEvents}
@@ -178,7 +184,7 @@ export function RuleInspectorSheet({
                   resolveEventContext={resolveEventContext}
                 />
               </TabsContent>
-              <TabsContent value="inventory" className="h-full data-[state=inactive]:hidden">
+              <TabsContent value="inventory" className="flex h-full min-h-0 flex-col data-[state=inactive]:hidden">
                 <SessionRuleSheet entries={ruleSheetEntries} activeSessionId={activeSessionId} />
               </TabsContent>
             </div>

@@ -48,7 +48,7 @@ The glob option "as" has been deprecated in favour of "query". Please update `as
 2:32:19 PM [vite] (client) hmr update /src/styles/app.css?direct
 [codex:lmstudio.models] Synced LM Studio models { count: 30 }
 2:32:19 PM [vite] (client) hmr update /src/styles/app.css?direct
-[codex:chatbot.state] No repo root bound to session; skipping AGENT rules { sessionId: 'demo-session' }
+[codex:chatbot.state] No repo root bound to session; skipping AGENT rules { sessionId: 'session-default' }
 2:33:18 PM [vite] (client) hmr update /src/styles/app.css?direct
 2:33:18 PM [vite] (client) hmr update /src/styles/app.css?direct
 2:33:19 PM [vite] (client) hmr update /src/styles/app.css?direct

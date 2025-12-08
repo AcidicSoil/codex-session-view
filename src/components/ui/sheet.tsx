@@ -27,7 +27,7 @@ export const SheetContent = ({ side = 'right', className, children, ...props }: 
     <SheetOverlay />
     <SheetPrimitive.Content
       className={cn(
-        'fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out',
+        'fixed z-50 flex flex-col gap-4 overflow-y-auto bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[state=closed]:duration-300 data-[state=open]:duration-500',
         side === 'right' && 'inset-y-0 right-0 h-full w-full border-l border-border sm:max-w-md',
         side === 'left' && 'inset-y-0 left-0 h-full w-full border-r border-border sm:max-w-md',
@@ -66,4 +66,3 @@ export const SheetDescription = ({ className, ...props }: SheetPrimitive.DialogD
   <SheetPrimitive.Description className={cn('text-sm text-muted-foreground', className)} {...props} />
 )
 SheetDescription.displayName = SheetPrimitive.Description.displayName
-

@@ -118,8 +118,8 @@ export function SessionRepoSelector({ sessionId, assets, repoContext, onRepoCont
               <SelectValue placeholder="Choose repo" />
             </SelectTrigger>
             <SelectContent align="start">
-              {repoOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
+              {repoOptions.map((option, index) => (
+                <SelectItem key={`${option.value}-${index}`} value={option.value}>
                   <div className="flex flex-col text-left">
                     <span className="text-sm font-semibold">{option.label}</span>
                     <span className="text-xs opacity-70">{option.description}</span>

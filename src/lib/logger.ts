@@ -1,4 +1,4 @@
-import { captureBrowserLog, recordBrowserLogEntry } from '~/server/function/browserLogs'
+import { captureBrowserLog } from '~/server/function/browserLogs'
 
 type LogMeta = Record<string, unknown> | Error | string | number | boolean | null | undefined
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -60,9 +60,6 @@ function forwardToServer(level: LogLevel, scope: string, message: string, meta?:
   }
 
   if (typeof window === 'undefined') {
-    queueMicrotask(() => {
-      recordBrowserLogEntry(payload).catch(() => {})
-    })
     return
   }
 

@@ -1,21 +1,7 @@
-import type { MisalignmentSeverity } from '~/lib/sessions/model'
+import { relative } from 'node:path'
 import { loadAgentRules } from '~/server/lib/chatbotData'
 import { listSessionRepoBindings, type SessionRepoBindingRecord } from '~/server/persistence/sessionRepoBindings'
-
-export interface RuleInventoryRule {
-  id: string
-  heading: string
-  summary: string
-  severity: MisalignmentSeverity
-}
-
-export interface RuleInventoryEntry {
-  sessionId: string
-  assetPath: string
-  repoRoot: string
-  ruleCount: number
-  rules: RuleInventoryRule[]
-}
+import type { RuleInventoryEntry, RuleInventoryRule } from '~/lib/ruleInventoryTypes'
 
 export async function collectRuleInventory(): Promise<RuleInventoryEntry[]> {
   const bindings = listSessionRepoBindings()
@@ -47,7 +33,14 @@ async function loadRulesForRoot(binding: SessionRepoBindingRecord, cache: Map<st
     heading: rule.heading,
     summary: rule.summary,
     severity: rule.severity,
+    sourcePath: normalizeSourcePath(binding.rootDir, rule.source),
   }))
   cache.set(binding.rootDir, mapped)
   return mapped
+}
+
+function normalizeSourcePath(rootDir: string, source?: string) {
+  if (!source) return null
+  const normalized = relative(rootDir, source).replace(/\\/g, '/')
+  return normalized.startsWith('..') ? source : normalized
 }

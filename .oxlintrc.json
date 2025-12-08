@@ -1,83 +1,24 @@
 {
-  "env": {
-    "browser": true,
-    "es2022": true,
-    "node": true
-  },
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
   "rules": {
-    "no-console": ["warn", { "allow": ["error"] }],
-    "no-debugger": "error",
-    "no-unused-vars": "off",
-    "@typescript-eslint/no-unused-vars": "warn",
-    "react/react-in-jsx-scope": "off",
-    "no-restricted-imports": [
+    "eslint/no-restricted-imports": [
       "error",
       {
-        "paths": [
+        "patterns": [
           {
-            "name": "@tanstack/react-start/server",
-            "importNames": ["createAPIFileRoute"],
-            "message": "Use createFileRoute + server handlers instead."
-          },
-          {
-            "name": "@tanstack/react-start",
-            "importNames": ["createAPIFileRoute"],
-            "message": "Use createFileRoute + server handlers instead."
-          },
-          {
-            "name": "@tanstack/react-start/server",
-            "importNames": ["createServerFileRoute"],
-            "message": "Use createFileRoute + server handlers instead."
-          },
-          {
-            "name": "@tanstack/react-start",
-            "importNames": ["serverOnly", "clientOnly"],
-            "message": "Use createServerOnlyFn and createClientOnlyFn instead."
-          },
-          {
-            "name": "@tanstack/react-start/server",
-            "importNames": [
-              "getWebRequest",
-              "getHeaders",
-              "getHeader",
-              "setHeaders",
-              "setHeader",
-              "parseCookies"
-            ],
-            "message": "RC1 renamed: getWebRequest→getRequest, getHeaders→getRequestHeaders, getHeader→getRequestHeader, setHeaders→setResponseHeaders, setHeader→setResponseHeader, parseCookies→getCookies"
+            "group": ["~/server/*"],
+            "message": "Use TanStack server functions or shared modules; never import server modules directly into client bundles."
           }
-        ],
-        "patterns": ["*createAPIFileRoute*", "*createServerFileRoute*"]
-      }
-    ],
-    "no-restricted-syntax": [
-      "error",
-      {
-        "selector": "ExportNamedDeclaration > ExportSpecifier[exported.name='APIRoute']",
-        "message": "Use createFileRoute with server handlers, not legacy API routes."
-      },
-      {
-        "selector": "ExportNamedDeclaration > ExportSpecifier[exported.name='ServerRoute']",
-        "message": "Use createFileRoute with server handlers, not legacy server routes."
+        ]
       }
     ]
   },
   "overrides": [
     {
-      "files": ["tests/**/*", "**/*.test.ts", "**/*.test.tsx", "cli/**/*"],
+      "files": ["src/server/**", "tests/**", "tools/**", "scripts/**"],
       "rules": {
-        "no-console": "off"
+        "eslint/no-restricted-imports": "off"
       }
     }
-  ],
-  "ignorePatterns": [
-    "dist",
-    "build",
-    ".output",
-    "node_modules",
-    "*.config.js",
-    "*.config.ts",
-    ".tanstack",
-    "routeTree.gen.ts"
   ]
 }

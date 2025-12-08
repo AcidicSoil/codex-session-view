@@ -24,26 +24,26 @@ vi.mock('~/server/function/misalignments', () => ({
 }))
 
 const baseState: ViewerChatState = {
-  sessionId: 'demo-session',
+  sessionId: 'session-default',
   mode: 'session',
   featureEnabled: true,
-  snapshot: { sessionId: 'demo-session', meta: undefined, events: [] } as any,
+  snapshot: { sessionId: 'session-default', meta: undefined, events: [] } as any,
   misalignments: [],
   messages: [],
   contextSections: [{ id: 'meta', heading: 'Metadata' }],
   modelOptions: [
     {
-      id: 'openai:gpt-4o-mini',
-      label: 'GPT-4o mini',
-      description: 'Balanced model',
-      provider: 'OpenAI Compatible',
+      id: 'lmstudio:local-default',
+      label: 'LM Studio Local',
+      description: 'Local OpenAI-compatible mock',
+      provider: 'LM Studio',
       contextWindow: 1000,
       maxOutputTokens: 500,
       tags: [],
       modes: ['session'],
     },
   ],
-  initialModelId: 'openai:gpt-4o-mini',
+  initialModelId: 'lmstudio:local-default',
 }
 
 beforeEach(() => {
@@ -79,7 +79,7 @@ function renderChatDockPanel(state: ViewerChatState = baseState, props: Partial<
   const queryClient = new QueryClient()
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChatDockPanel sessionId="demo-session" state={state} {...props} />
+      <ChatDockPanel sessionId="session-default" state={state} {...props} />
     </QueryClientProvider>,
   )
 }
@@ -94,7 +94,7 @@ describe('ChatDockPanel interactions', () => {
     await waitFor(() => expect(requestChatStream).toHaveBeenCalled())
     expect(requestChatStream).toHaveBeenCalledWith(
       expect.objectContaining({
-        modelId: 'openai:gpt-4o-mini',
+        modelId: 'lmstudio:local-default',
         prompt: 'Review current plan',
       }),
     )
@@ -105,13 +105,13 @@ describe('ChatDockPanel interactions', () => {
     renderChatDockPanel()
     await userEvent.click(screen.getByRole('button', { name: /New chat/i }))
     await waitFor(() => expect(fetchChatbotState).toHaveBeenCalled())
-    expect(fetchChatbotState).toHaveBeenCalledWith({ data: { sessionId: 'demo-session', mode: 'session', reset: true } })
+    expect(fetchChatbotState).toHaveBeenCalledWith({ data: { sessionId: 'session-default', mode: 'session', reset: true } })
   })
 
   it('renders evidence entries for assistant messages', () => {
     const assistantMessage: ChatMessageRecord = {
       id: 'assistant-1',
-      sessionId: 'demo-session',
+      sessionId: 'session-default',
       mode: 'session',
       role: 'assistant',
       content: 'Here is what I found.',

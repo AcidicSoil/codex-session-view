@@ -11,7 +11,7 @@
 ---
 
 <p>
-<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/demo.gif" alt="demo" />
+<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/demo.gif" alt="session preview" />
 </p>
 
 
@@ -87,11 +87,11 @@ pnpm biome:fix:unsafe # Fix code issues (unsafe)
 
 ```bash
 pnpm test            # Vitest unit test suite
-pnpm test:e2e        # Playwright suite against pnpm dev (uses demo LLM models by default)
+pnpm test:e2e        # Playwright suite against pnpm dev (expects an OpenAI-compatible endpoint such as LM Studio)
 pnpm test:e2e:prod   # pnpm build + Playwright against pnpm start -- --prod
 ```
 
-> The e2e commands inject `AI_SESSION_DEFAULT_MODEL=demo:grounded` and `AI_GENERAL_DEFAULT_MODEL=demo:general` so CI never hits real LLM providers. Override those env vars when you want to exercise OpenAI/Gemini backends locally.
+> The e2e commands inject `AI_SESSION_DEFAULT_MODEL=lmstudio:local-default` and `AI_GENERAL_DEFAULT_MODEL=lmstudio:local-default`. Make sure `AI_LMSTUDIO_BASE_URL` points to a running LM Studio/OpenAI-compatible server before running these suites.
 
 ## 📁 Project Structure
 

@@ -109,7 +109,7 @@ describe('Chat model registry', () => {
 describe('Assistant evidence mapping', () => {
   const sampleMisalignment: MisalignmentRecord = {
     id: 'mis-1',
-    sessionId: 'demo-session',
+    sessionId: 'session-default',
     ruleId: 'AGENT-001',
     title: 'Sample',
     summary: 'Sample summary',
