@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import type { ResponseItem } from '~/lib/viewer-types'
 import { AnimatedTimelineList, type TimelineEvent, type TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
 import type { Filter } from '~/components/ui/filters'
@@ -14,6 +14,7 @@ import { dedupeTimelineEvents } from '~/components/viewer/AnimatedTimelineList'
 import { buildSearchMatchers, matchesSearchMatchers, type SearchMatcher } from '~/utils/search'
 import { TimelineSearchBar } from '~/components/viewer/TimelineSearchBar'
 import { useUiSettingsStore } from '~/stores/uiSettingsStore'
+import { useTimelineSearchNavigation } from '~/components/viewer/TimelineSearchNavigation.hooks'
 
 interface TimelineWithFiltersProps {
   /**
@@ -95,39 +96,13 @@ export function TimelineWithFilters({
     })
     return map
   }, [events])
-  const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null)
-
-  const resetSearchNavigation = useCallback(() => {
-    setActiveSearchIndex(null)
-  }, [])
-
-  useEffect(() => {
-    resetSearchNavigation()
-  }, [searchMatchers, resetSearchNavigation])
-
-  useEffect(() => {
-    if (orderedEvents.length === 0) {
-      resetSearchNavigation()
-      return
-    }
-    setActiveSearchIndex((current) => {
-      if (current == null) return current
-      if (current >= orderedEvents.length) {
-        return orderedEvents.length - 1
-      }
-      return current
-    })
-  }, [orderedEvents.length, resetSearchNavigation])
-
-  const handleSearchNext = useCallback(() => {
-    if (!searchMatchers.length) return
-    if (!orderedEvents.length) return
-    setActiveSearchIndex((current) => {
-      if (current == null) return 0
-      const nextIndex = (current + 1) % orderedEvents.length
-      return nextIndex
-    })
-  }, [orderedEvents.length, searchMatchers])
+  const hasSearchQuery = searchQuery.trim().length > 0
+  const navigationMatchCount = hasSearchQuery ? orderedEvents.length : 0
+  const searchNavigation = useTimelineSearchNavigation({
+    totalMatches: navigationMatchCount,
+    resetToken: hasSearchQuery ? searchQuery : '',
+  })
+  const { activeIndex: activeSearchIndex, goNext: goToNextMatch, goPrev: goToPreviousMatch } = searchNavigation
 
   const hasSourceEvents = events.length > 0
   const hasFilteredEvents = filteredEvents.length > 0
@@ -166,10 +141,13 @@ export function TimelineWithFilters({
       <TimelineSearchBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onSearchNext={handleSearchNext}
+        onSearchNext={goToNextMatch}
+        onSearchPrev={goToPreviousMatch}
+        totalMatches={navigationMatchCount}
+        activeMatchIndex={activeSearchIndex}
       />
     ),
-    [handleSearchNext, searchQuery],
+    [activeSearchIndex, goToNextMatch, goToPreviousMatch, navigationMatchCount, searchQuery, setSearchQuery],
   )
 
   useEffect(() => {

@@ -8,6 +8,11 @@
   [![PNPM Build](https://github.com/AcidicSoil/codex-session-view/actions/workflows/build.yml/badge.svg)](https://github.com/AcidicSoil/codex-session-view/actions/workflows/build.yml)
 </div>
 
+[![LM Studio](https://img.shields.io/badge/LM%20Studio-14151A)](https://lmstudio.ai/)
+[![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-1A73E8)](https://github.com/google-gemini/gemini-cli)
+[![Codex](https://img.shields.io/badge/Codex-FF6F00)](https://github.com/openai/codex)
+
+
 ---
 
 <p>

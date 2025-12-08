@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import * as crypto from 'node:crypto';
 import { parseAgentRules, type AgentRule } from '~/lib/agents-rules/parser';
 import type { SessionSnapshot } from '~/lib/sessions/model';
 
@@ -194,5 +194,5 @@ function createInstructionHashIndex(): InstructionHashIndex {
 }
 
 function hashBuffer(buffer: Buffer) {
-  return createHash('sha256').update(buffer).digest('hex');
+  return crypto.createHash('sha256').update(buffer).digest('hex');
 }
