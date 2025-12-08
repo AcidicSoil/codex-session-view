@@ -8,6 +8,13 @@
 
 // TODO
 
+## SMOOTHER RELOADS OF REAL-TIME UPDATES OF ACTIVE SESSIONS
+
+- currently, the reloading is a kin to a voilent rapid refresh. 
+
+
+// TODO
+
 ## IMPROVED UI I/O CHATBOT INTERACTIONS
 
 - improve loading/thinking bubble for the chatbot while thinking, currently the element is a static ellipsis (add a motion animation)
