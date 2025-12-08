@@ -68,14 +68,6 @@ scripts
 /.codex/config.toml.bak
 /AGENTS.md
 /AGENTS.md.bak
-/codefetch/all-agents/.codex/config.toml
-/codefetch/all-agents/.codex/config.toml.bak
-/codefetch/all-agents/AGENTS.md
-/codefetch/all-agents/AGENTS.md.bak
-/codefetch/all-agents/src/components/.codex/config.toml
-/codefetch/all-agents/src/components/.codex/config.toml.bak
-/codefetch/all-agents/src/components/AGENTS.md
-/codefetch/all-agents/src/components/AGENTS.md.bak
 /src/.codex/config.toml
 /src/.codex/config.toml.bak
 /src/AGENTS.md

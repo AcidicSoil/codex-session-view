@@ -86,10 +86,20 @@ export function useViewerWorkspace() {
 
 export function ViewerPage() {
   return (
+    <ViewerWorkspaceBoundary>
+      <ViewerWorkspaceChrome />
+    </ViewerWorkspaceBoundary>
+  )
+}
+
+export function ViewerWorkspaceBoundary({ children }: { children: ReactNode }) {
+  const existingContext = useContext(ViewerWorkspaceContext)
+  if (existingContext) {
+    return <>{children}</>
+  }
+  return (
     <ClientOnly fallback={<ViewerSkeleton />}>
-      <ViewerWorkspaceProvider>
-        <ViewerWorkspaceChrome />
-      </ViewerWorkspaceProvider>
+      <ViewerWorkspaceProvider>{children}</ViewerWorkspaceProvider>
     </ClientOnly>
   )
 }

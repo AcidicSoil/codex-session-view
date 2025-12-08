@@ -60,14 +60,6 @@ export function ViewerInspectorView({ focusPanel }: ViewerInspectorViewProps) {
             sessionId={hookGate.sessionId}
             assetPath={hookGate.assetPath}
             onDismiss={() => setHookGate(null)}
-            onReviewRules={(ruleId) =>
-              openRuleInspector({
-                activeTab: 'rules',
-                ruleId,
-                sessionId: hookGate.sessionId,
-                assetPath: hookGate.assetPath,
-              })
-            }
             onJumpToEvent={(index) => {
               void handleHookGateJump(index)
             }}

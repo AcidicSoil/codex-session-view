@@ -109,7 +109,8 @@ export function useFileLoader() {
         let encounteredErrors = 0;
         for await (const item of streamParseSession(file)) {
           if (item.kind === 'meta') {
-            logDebug('file-loader', 'Parsed session metadata', item.meta);
+            const { instructions, ...cleanMetadata } = item.meta ?? {};
+            logDebug('file-loader', 'Parsed session metadata', cleanMetadata);
             dispatch({ type: 'meta', meta: item.meta });
           } else if (item.kind === 'event') {
             parsedEvents += 1;
