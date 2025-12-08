@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { VIEWER_INSPECTOR_ROUTE_ID } from '~/features/viewer/route-id'
 import { ViewerInspectorView } from '~/features/viewer/views/ViewerInspectorView'
+import { ViewerWorkspaceBoundary } from '~/features/viewer/viewer.page'
 
 export const Route = createFileRoute(VIEWER_INSPECTOR_ROUTE_ID)({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -11,5 +12,9 @@ export const Route = createFileRoute(VIEWER_INSPECTOR_ROUTE_ID)({
 
 function InspectorRouteComponent() {
   const search = Route.useSearch()
-  return <ViewerInspectorView focusPanel={search.panel} />
+  return (
+    <ViewerWorkspaceBoundary>
+      <ViewerInspectorView focusPanel={search.panel} />
+    </ViewerWorkspaceBoundary>
+  )
 }

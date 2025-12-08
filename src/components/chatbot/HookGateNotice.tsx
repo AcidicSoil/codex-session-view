@@ -5,6 +5,9 @@ import { cn } from '~/lib/utils'
 import { FormattedContent } from '~/components/ui/formatted-content'
 import { BookmarkToggle } from '~/components/chatbot/BookmarkToggle'
 import { EvidenceCard, type EvidenceContext } from '~/components/chatbot/EvidenceCard'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
+import { Switch } from '~/components/ui/switch'
+import { Button } from '~/components/ui/button'
 
 interface HookGateNoticeProps {
   blocked: boolean
@@ -15,7 +18,7 @@ interface HookGateNoticeProps {
   sessionId?: string
   assetPath?: string | null
   onDismiss?: () => void
-  onReviewRules?: (primaryRuleId?: string) => void
+  onApplyRules?: (selectedRuleIds: string[]) => void
   onJumpToEvent?: (eventIndex: number) => void | Promise<void>
   resolveEventContext?: (eventIndex: number) => EvidenceContext | undefined
 }
@@ -46,12 +49,12 @@ export function HookGateNotice({
   annotations,
   sessionId,
   onDismiss,
-  onReviewRules,
+  onApplyRules,
   onJumpToEvent,
   resolveEventContext,
 }: HookGateNoticeProps) {
   const accent = severityAccent[severity] ?? severityAccent.none
-  const filteredRules = useMemo(() => {
+  const evidenceRules = useMemo(() => {
     return rules
       .map((rule) => {
         const evidence = (rule.evidence ?? []).filter((item) => typeof item.eventIndex === 'number')
@@ -66,6 +69,48 @@ export function HookGateNotice({
       .filter((rule): rule is HookRuleSummary => Boolean(rule))
   }, [rules])
 
+  const [selectorOpen, setSelectorOpen] = useState(false)
+  const [appliedRuleIds, setAppliedRuleIds] = useState<Set<string>>(() => new Set())
+  const [pendingRuleIds, setPendingRuleIds] = useState<Set<string>>(() => new Set())
+
+  const selectedRules = useMemo(() => {
+    if (!appliedRuleIds.size) return [] as HookRuleSummary[]
+    return rules.filter((rule) => appliedRuleIds.has(rule.id))
+  }, [rules, appliedRuleIds])
+
+  const displayedRules = useMemo(() => {
+    if (!selectedRules.length) {
+      return evidenceRules
+    }
+    const existingIds = new Set(evidenceRules.map((rule) => rule.id))
+    const extras = selectedRules.filter((rule) => !existingIds.has(rule.id))
+    return [...evidenceRules, ...extras]
+  }, [evidenceRules, selectedRules])
+
+  const openRuleSelector = () => {
+    setPendingRuleIds(new Set(appliedRuleIds))
+    setSelectorOpen(true)
+  }
+
+  const togglePendingRule = (ruleId: string, checked: boolean) => {
+    setPendingRuleIds((prev) => {
+      const next = new Set(prev)
+      if (checked) {
+        next.add(ruleId)
+      } else {
+        next.delete(ruleId)
+      }
+      return next
+    })
+  }
+
+  const handleApplySelection = () => {
+    const nextApplied = new Set(pendingRuleIds)
+    setAppliedRuleIds(nextApplied)
+    setSelectorOpen(false)
+    onApplyRules?.(Array.from(nextApplied))
+  }
+
   const [openRuleIds, setOpenRuleIds] = useState<Set<string>>(() => new Set())
   const toggleRule = (ruleId: string) => {
     setOpenRuleIds((prev) => {
@@ -79,15 +124,19 @@ export function HookGateNotice({
     })
   }
 
+  const selectorAvailable = rules.length > 0
+  const hasAppliedRules = appliedRuleIds.size > 0
+
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-lime-400/60 bg-black/90 shadow-[0_0_30px_rgba(190,255,0,0.25)]">
-      <div
-        className={cn(
-          'pointer-events-none absolute inset-0 opacity-80 blur-3xl',
-          `bg-gradient-to-br ${accent}`,
-        )}
-      />
-      <div className="relative z-10 flex flex-col gap-4 p-6 text-lime-50">
+    <>
+      <div className="relative overflow-hidden rounded-3xl border border-lime-400/60 bg-black/90 shadow-[0_0_30px_rgba(190,255,0,0.25)]">
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-0 opacity-80 blur-3xl',
+            `bg-gradient-to-br ${accent}`,
+          )}
+        />
+        <div className="relative z-10 flex flex-col gap-4 p-6 text-lime-50">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.4em] text-lime-200/80">Hook Gate</p>
@@ -110,9 +159,9 @@ export function HookGateNotice({
             <FormattedContent text={annotations} dense />
           </div>
         ) : null}
-        {filteredRules.length ? (
+        {displayedRules.length ? (
           <div className="space-y-3">
-            {filteredRules.map((rule) => {
+            {displayedRules.map((rule) => {
               const isOpen = openRuleIds.has(rule.id)
               return (
                 <div
@@ -173,17 +222,19 @@ export function HookGateNotice({
             })}
           </div>
         ) : (
-          <p className="text-xs text-lime-200/70">No rule-bound events detected.</p>
+          <p className="text-xs text-lime-200/70">
+            {hasAppliedRules ? 'Selected rules will be ingested on the next check.' : 'No rule-bound events detected.'}
+          </p>
         )}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <span className="text-xs uppercase tracking-[0.3em] text-lime-200/70">
             Decision • {blocked ? 'Denied' : 'Warn'}
           </span>
           <div className="flex flex-wrap items-center gap-2">
-            {onReviewRules ? (
+            {selectorAvailable ? (
               <button
                 type="button"
-                onClick={() => onReviewRules(filteredRules[0]?.id)}
+                onClick={openRuleSelector}
                 className="rounded-full border border-lime-400/70 bg-black/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-lime-50 transition hover:-translate-y-0.5"
               >
                 Review rules
@@ -200,8 +251,54 @@ export function HookGateNotice({
             ) : null}
           </div>
         </div>
+        </div>
       </div>
-    </div>
+      <Dialog
+        open={selectorOpen}
+        onOpenChange={(next) => {
+          setSelectorOpen(next)
+          if (next) {
+            setPendingRuleIds(new Set(appliedRuleIds))
+          }
+        }}
+      >
+        <DialogContent className="border-lime-400/40 bg-[#06090f] text-white sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Select Rules</DialogTitle>
+            <DialogDescription className="text-lime-200/80">
+              Toggle the rule summaries you want to ingest for this session.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {rules.map((rule) => (
+              <label
+                key={rule.id}
+                className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white line-clamp-1">{rule.title}</p>
+                  <p className="text-xs text-white/70 line-clamp-2">{rule.summary}</p>
+                </div>
+                <Switch checked={pendingRuleIds.has(rule.id)} onCheckedChange={(checked) => togglePendingRule(rule.id, checked)} />
+              </label>
+            ))}
+            {!rules.length ? (
+              <p className="rounded-2xl border border-dashed border-white/20 bg-black/30 p-4 text-sm text-white/70">
+                No rule sets available for this session yet.
+              </p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSelectorOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleApplySelection} disabled={rules.length === 0}>
+              Apply Selection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

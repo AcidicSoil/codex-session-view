@@ -131,6 +131,244 @@
 
 
 
+<!-- Source: .ruler/file-size_and_responsibility-rule.md -->
+
+# file size and responsibility rules
+
+## core rules
+
+1. One primary unit per file
+   - Each file owns **one main thing**:
+     - Components: one main component (existing rule).
+     - Hooks: one main hook (`useXxx`).
+     - Server functions: one main server function or handler group for a single route.
+     - Utilities: one cohesive utility topic (e.g. `dateFormat`, `sessionSearch`, `featureFlags`).
+     - Schema: one logical schema group (e.g. `session.schema.ts`).
+   - Any additional exports must be:
+     - Small helpers directly supporting the main unit, or
+     - Type-only exports.
+
+2. File-size limits (non-component, general case)
+   - Soft target: **150–300 LOC** per file (excluding imports and types).
+   - Warning zone: **> 400 LOC** → required refactor before adding new behavior.
+   - Hard cap: **600 LOC**. No exceptions; split into smaller files before merging.
+
+3. Split by concern
+   - **Stateful logic, effects, orchestration → hooks/logic files**:
+     - `FeatureName/FeatureName.hooks.ts`
+     - `FeatureName/FeatureName.logic.ts`
+   - **Pure data shaping, parsing, formatting → utility files**:
+     - `FeatureName/FeatureName.utils.ts`
+     - `FeatureName/FeatureName.format.ts`
+   - **Types/interfaces/enums shared across files → type files**:
+     - `FeatureName/FeatureName.types.ts`
+   - **Route/server concerns → route/server files only**:
+     - Keep HTTP handling, validation, and side effects here.
+     - Push domain logic into shared `*.logic.ts` or `*.utils.ts`.
+
+4. When to split a file (hard triggers, any file type)
+   - File > **400 LOC** or diff adds > **80 LOC** to a file already > **300 LOC**.
+   - File mixes **two or more** of:
+     - Network/server I/O (fetch, db, server functions)
+     - Business/domain logic (calculations, rules)
+     - UI / presentation (components, JSX, templates)
+     - Cross-cutting concerns (logging, metrics, feature flags)
+   - File exports **many unrelated things**:
+     - More than **5–7 public exports** with different purposes.
+     - Utilities that clearly belong to different topics (e.g. date helpers + string helpers).
+   - Control flow / branching is hard to scan:
+     - Deeply nested conditionals or long switch statements (`> ~100 LOC`) that can be moved into dedicated helpers.
+
+5. Structure conventions by file kind
+   - **Hooks**:
+     - `FeatureName/FeatureName.hooks.ts` → owns `useFeatureNameXxx` hooks.
+     - No JSX, no DOM; only state, effects, and derived data.
+   - **Logic / services**:
+     - `FeatureName/FeatureName.logic.ts` or `FeatureName/service.ts`.
+     - Pure, testable functions; no React imports.
+   - **Utilities / formatting**:
+     - `FeatureName/FeatureName.utils.ts`, `FeatureName/FeatureName.format.ts`.
+     - Pure, side-effect-free; reusable across features.
+   - **Types**:
+     - `FeatureName/FeatureName.types.ts`.
+     - No runtime code.
+   - **Server functions / routes**:
+     - One route or server function group per file.
+     - Validation + wiring here; heavy domain logic pushed into `*.logic.ts`.
+
+6. Review checklist (for any file)
+   - [ ] Does this file have **one clearly named primary responsibility**?
+   - [ ] Is the file within the **150–300 LOC target** and **< 400 LOC** unless it’s about to be split?
+   - [ ] Are stateful logic and side effects separated from pure helpers?
+   - [ ] Are different concerns (I/O, domain logic, formatting, UI) split into distinct files?
+   - [ ] Are exported functions/types cohesive, or should some move to a `*.utils.ts` / `*.logic.ts` / `*.types.ts` file?
+
+---
+
+Repository-wide, you want the same idea applied to any source file: one main responsibility, tight size bounds, and hard triggers that force you to split before the file becomes a gravity well. You already have the component-specific version in `src/components/AGENTS.md`.
+
+Below is a generalized rule you can drop into a root `AGENTS.md` or a new `.ruler` rule, plus line-count thresholds as a rule of thumb.
+
+---
+
+### Repository-wide file-size and responsibility rule
+
+Scope: all TypeScript/JavaScript files under `src` (routes, hooks, server functions, utilities, db, etc.), excluding config and test fixtures.
+
+```md
+# file size and responsibility rules
+
+## core rules
+
+1. One primary unit per file
+   - Each file owns **one main thing**:
+     - Components: one main component (existing rule).
+     - Hooks: one main hook (`useXxx`).
+     - Server functions: one main server function or handler group for a single route.
+     - Utilities: one cohesive utility topic (e.g. `dateFormat`, `sessionSearch`, `featureFlags`).
+     - Schema: one logical schema group (e.g. `session.schema.ts`).
+   - Any additional exports must be:
+     - Small helpers directly supporting the main unit, or
+     - Type-only exports.
+
+2. File-size limits (non-component, general case)
+   - Soft target: **150–300 LOC** per file (excluding imports and types).
+   - Warning zone: **> 400 LOC** → required refactor before adding new behavior.
+   - Hard cap: **600 LOC**. No exceptions; split into smaller files before merging.
+
+3. Split by concern
+   - **Stateful logic, effects, orchestration → hooks/logic files**:
+     - `FeatureName/FeatureName.hooks.ts`
+     - `FeatureName/FeatureName.logic.ts`
+   - **Pure data shaping, parsing, formatting → utility files**:
+     - `FeatureName/FeatureName.utils.ts`
+     - `FeatureName/FeatureName.format.ts`
+   - **Types/interfaces/enums shared across files → type files**:
+     - `FeatureName/FeatureName.types.ts`
+   - **Route/server concerns → route/server files only**:
+     - Keep HTTP handling, validation, and side effects here.
+     - Push domain logic into shared `*.logic.ts` or `*.utils.ts`.
+
+4. When to split a file (hard triggers, any file type)
+   - File > **400 LOC** or diff adds > **80 LOC** to a file already > **300 LOC**.
+   - File mixes **two or more** of:
+     - Network/server I/O (fetch, db, server functions)
+     - Business/domain logic (calculations, rules)
+     - UI / presentation (components, JSX, templates)
+     - Cross-cutting concerns (logging, metrics, feature flags)
+   - File exports **many unrelated things**:
+     - More than **5–7 public exports** with different purposes.
+     - Utilities that clearly belong to different topics (e.g. date helpers + string helpers).
+   - Control flow / branching is hard to scan:
+     - Deeply nested conditionals or long switch statements (`> ~100 LOC`) that can be moved into dedicated helpers.
+
+5. Structure conventions by file kind
+   - **Hooks**:
+     - `FeatureName/FeatureName.hooks.ts` → owns `useFeatureNameXxx` hooks.
+     - No JSX, no DOM; only state, effects, and derived data.
+   - **Logic / services**:
+     - `FeatureName/FeatureName.logic.ts` or `FeatureName/service.ts`.
+     - Pure, testable functions; no React imports.
+   - **Utilities / formatting**:
+     - `FeatureName/FeatureName.utils.ts`, `FeatureName/FeatureName.format.ts`.
+     - Pure, side-effect-free; reusable across features.
+   - **Types**:
+     - `FeatureName/FeatureName.types.ts`.
+     - No runtime code.
+   - **Server functions / routes**:
+     - One route or server function group per file.
+     - Validation + wiring here; heavy domain logic pushed into `*.logic.ts`.
+
+6. Review checklist (for any file)
+   - [ ] Does this file have **one clearly named primary responsibility**?
+   - [ ] Is the file within the **150–300 LOC target** and **< 400 LOC** unless it’s about to be split?
+   - [ ] Are stateful logic and side effects separated from pure helpers?
+   - [ ] Are different concerns (I/O, domain logic, formatting, UI) split into distinct files?
+   - [ ] Are exported functions/types cohesive, or should some move to a `*.utils.ts` / `*.logic.ts` / `*.types.ts` file?
+```
+
+---
+
+### Line-count thresholds as a rule of thumb
+
+Use these as mental stop signs across the codebase:
+
+- **Components (existing rule):**
+
+  - Target: **150–250 LOC**
+  - Refactor threshold: **> 400 LOC**
+  - Hard cap: **600 LOC**
+
+- **Hooks / logic modules:**
+
+  - Target: **150–250 LOC**
+  - Start considering a split: **> 300 LOC**
+  - Must split before: **> 400 LOC**
+
+- **Utility / formatting modules:**
+
+  - Target: **150–300 LOC**
+  - Start considering split: **> 350 LOC** or **> 8–10 exports**
+  - Hard cap: **600 LOC**, but only if exports are tightly related.
+
+- **Route / server function files:**
+
+  - Target: **150–300 LOC** for the route file itself.
+  - If adding behavior would push it **> 350–400 LOC**, push domain logic into a `*.logic.ts` or `*.service.ts` and keep the route thin.
+
+Operational rule:
+
+- Once any file crosses **~300 LOC** or starts handling **more than one major concern**, treat that as the point to factor logic into `*.hooks.ts`, `*.logic.ts`, `*.utils.ts`, and `*.types.ts` so the main file stays as a thin coordinator.
+
+
+
+<!-- Source: .ruler/frontend-design/SKILL.md -->
+
+---
+name: frontend-design
+description: Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, or applications. Generates creative, polished code that avoids generic AI aesthetics.
+license: Complete terms in LICENSE.txt
+---
+
+This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.
+
+The user provides frontend requirements: a component, page, application, or interface to build. They may include context about the purpose, audience, or technical constraints.
+
+## Design Thinking
+
+Before coding, understand the context and commit to a BOLD aesthetic direction:
+- **Purpose**: What problem does this interface solve? Who uses it?
+- **Tone**: Pick an extreme: brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian, etc. There are so many flavors to choose from. Use these for inspiration but design one that is true to the aesthetic direction.
+- **Constraints**: Technical requirements (framework, performance, accessibility).
+- **Differentiation**: What makes this UNFORGETTABLE? What's the one thing someone will remember?
+
+**CRITICAL**: Choose a clear conceptual direction and execute it with precision. Bold maximalism and refined minimalism both work - the key is intentionality, not intensity.
+
+Then implement working code (HTML/CSS/JS, React, Vue, etc.) that is:
+- Production-grade and functional
+- Visually striking and memorable
+- Cohesive with a clear aesthetic point-of-view
+- Meticulously refined in every detail
+
+## Frontend Aesthetics Guidelines
+
+Focus on:
+- **Typography**: Choose fonts that are beautiful, unique, and interesting. Avoid generic fonts like Arial and Inter; opt instead for distinctive choices that elevate the frontend's aesthetics; unexpected, characterful font choices. Pair a distinctive display font with a refined body font.
+- **Color & Theme**: Commit to a cohesive aesthetic. Use CSS variables for consistency. Dominant colors with sharp accents outperform timid, evenly-distributed palettes.
+- **Motion**: Use animations for effects and micro-interactions. Prioritize CSS-only solutions for HTML. Use Motion library for React when available. Focus on high-impact moments: one well-orchestrated page load with staggered reveals (animation-delay) creates more delight than scattered micro-interactions. Use scroll-triggering and hover states that surprise.
+- **Spatial Composition**: Unexpected layouts. Asymmetry. Overlap. Diagonal flow. Grid-breaking elements. Generous negative space OR controlled density.
+- **Backgrounds & Visual Details**: Create atmosphere and depth rather than defaulting to solid colors. Add contextual effects and textures that match the overall aesthetic. Apply creative forms like gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows, decorative borders, custom cursors, and grain overlays.
+
+NEVER use generic AI-generated aesthetics like overused font families (Inter, Roboto, Arial, system fonts), cliched color schemes (particularly purple gradients on white backgrounds), predictable layouts and component patterns, and cookie-cutter design that lacks context-specific character.
+
+Interpret creatively and make unexpected choices that feel genuinely designed for the context. No design should be the same. Vary between light and dark themes, different fonts, different aesthetics. NEVER converge on common choices (Space Grotesk, for example) across generations.
+
+**IMPORTANT**: Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well.
+
+Remember: codex-cli is capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
+
+
+
 <!-- Source: .ruler/general-rules.md -->
 
 ### General Rules

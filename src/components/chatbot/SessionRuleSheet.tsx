@@ -87,7 +87,7 @@ export function SessionRuleSheet({ entries, activeSessionId, ruleViolations, onN
               {visibleRows.length} rules · {filteredEntries.length} bindings
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2">
             <Input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -109,7 +109,7 @@ export function SessionRuleSheet({ entries, activeSessionId, ruleViolations, onN
               </SelectContent>
             </Select>
             <select
-              className="h-9 rounded-md border border-white/20 bg-black/40 px-3 text-xs uppercase tracking-[0.25em] text-white"
+              className="h-9 rounded-md border border-white/20 bg-black/40 px-3 text-xs uppercase tracking-[0.25em] text-white max-w-full truncate min-w-0"
               value={sessionFilter}
               onChange={(event) => setSessionFilter(event.target.value)}
             >
