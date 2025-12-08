@@ -1,25 +1,30 @@
 import { useMemo, useState } from 'react'
-import type { RuleInventoryEntry } from '~/server/lib/ruleInventory'
+import type { MisalignmentSeverity } from '~/lib/sessions/model'
+import type { RuleInventoryEntry } from '~/lib/ruleInventoryTypes'
 import { Input } from '~/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import { HighlightedText } from '~/components/ui/highlighted-text'
+import { Badge } from '~/components/ui/badge'
+import { Button } from '~/components/ui/button'
+import { ScrollArea } from '~/components/ui/scroll-area'
+import { cn } from '~/lib/utils'
 import { buildSearchMatchers, matchesSearchMatchers } from '~/utils/search'
+import { getSeverityVisuals } from '~/features/chatbot/severity'
 
-const severityColor: Record<string, string> = {
-  critical: 'text-rose-400',
-  high: 'text-amber-400',
-  medium: 'text-yellow-300',
-  low: 'text-emerald-300',
-  info: 'text-slate-200',
-  none: 'text-slate-200',
+export interface RuleViolationSummary {
+  count: number
+  eventIndexes: number[]
+  severity: MisalignmentSeverity
 }
 
 interface SessionRuleSheetProps {
   entries: RuleInventoryEntry[]
   activeSessionId?: string
+  ruleViolations?: Map<string, RuleViolationSummary>
+  onNavigateToEvent?: (eventIndex: number) => void
 }
 
-export function SessionRuleSheet({ entries, activeSessionId }: SessionRuleSheetProps) {
+export function SessionRuleSheet({ entries, activeSessionId, ruleViolations, onNavigateToEvent }: SessionRuleSheetProps) {
   const sessionOptions = useMemo(() => {
     const unique = new Map<string, string>()
     entries.forEach((entry) => {
@@ -73,12 +78,14 @@ export function SessionRuleSheet({ entries, activeSessionId }: SessionRuleSheetP
   }
 
   return (
-    <div className="rounded-3xl border border-white/15 bg-background/80 p-5 shadow-inner">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col rounded-3xl border border-white/15 bg-background/80 p-5 shadow-inner">
+      <div className="flex h-full min-h-0 flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-white/60">Rule Inventory</p>
-            <p className="text-sm text-white">{visibleRows.length} rules across {filteredEntries.length} session bindings</p>
+            <p className="text-sm text-white">
+              {visibleRows.length} rules · {filteredEntries.length} bindings
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Input
@@ -115,46 +122,100 @@ export function SessionRuleSheet({ entries, activeSessionId }: SessionRuleSheetP
             </select>
           </div>
         </div>
-        <div className="max-h-64 overflow-auto rounded-2xl border border-white/10 bg-black/40">
-          <table className="w-full text-left text-xs text-white/80">
-            <thead className="border-b border-white/10 text-[11px] uppercase tracking-[0.3em] text-white/60">
-              <tr>
-                <th className="px-4 py-2">Session</th>
-                <th className="px-4 py-2">Repo Root</th>
-                <th className="px-4 py-2">Rule</th>
-                <th className="px-4 py-2">Severity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleRows.map((row) => {
-                const color = severityColor[row.rule.severity] ?? 'text-slate-200'
-                const isActive = row.sessionId === activeSessionId
-                return (
-                  <tr key={`${row.sessionId}-${row.rule.id}`} className={isActive ? 'bg-white/5' : undefined}>
-                    <td className="px-4 py-2 align-top text-[11px] font-mono text-white/70">
-                      <HighlightedText text={row.assetPath} matchers={searchMatchers} />
-                    </td>
-                    <td className="px-4 py-2 align-top text-[11px] text-white/60">
-                      <HighlightedText text={row.repoRoot ?? 'unknown'} matchers={searchMatchers} />
-                    </td>
-                    <td className="px-4 py-2 align-top text-[13px] text-white">
-                      <div className="font-semibold">
-                        <HighlightedText text={row.rule.heading} matchers={searchMatchers} />
+        <ScrollArea className="flex-1 min-h-0 rounded-2xl border border-white/10 bg-black/40 p-1">
+          <div className="space-y-3">
+            {visibleRows.map((row, index) => {
+              const isActive = row.sessionId === activeSessionId
+              const violation = ruleViolations?.get(row.rule.id)
+              return (
+                <article
+                  key={`${row.sessionId}-${row.assetPath}-${row.rule.id}-${index}`}
+                  className={cn(
+                    'rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-white/30',
+                    isActive && 'outline outline-1 outline-white/30',
+                  )}
+                >
+                  <header className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-mono uppercase tracking-wide text-white/70">
+                        <HighlightedText text={row.assetPath} matchers={searchMatchers} />
+                      </p>
+                      <p className="text-[11px] text-white/50">
+                        <HighlightedText text={row.repoRoot ?? 'unknown repo'} matchers={searchMatchers} />
+                      </p>
+                    </div>
+                    <SeverityBadge severity={row.rule.severity} />
+                  </header>
+                  <div className="mt-3 space-y-1">
+                    <h3 className="text-base font-semibold text-white">
+                      <HighlightedText text={row.rule.heading} matchers={searchMatchers} />
+                    </h3>
+                    <p
+                      className="line-clamp-3 text-sm text-white/70"
+                      title={row.rule.summary}
+                    >
+                      <HighlightedText text={row.rule.summary} matchers={searchMatchers} />
+                    </p>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-white/50">
+                    <span className="truncate">Instruction: {row.rule.sourcePath ?? 'unknown'}</span>
+                  </div>
+                  {violation ? (
+                    <footer className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-black/40 p-3 text-xs text-white/70">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-white/60">Violations</p>
+                        <p className="text-sm text-white">
+                          {violation.count} linked {violation.count === 1 ? 'event' : 'events'}
+                        </p>
                       </div>
-                      <div className="text-xs text-white/70">
-                        <HighlightedText text={row.rule.summary} matchers={searchMatchers} />
+                      <div className="ml-auto flex items-center gap-2">
+                        <SeverityBadge severity={violation.severity} subtle />
+                        {onNavigateToEvent && violation.eventIndexes.length ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="text-xs uppercase tracking-[0.2em]"
+                            onClick={() => onNavigateToEvent(violation.eventIndexes[0])}
+                          >
+                            Inspect event
+                          </Button>
+                        ) : null}
                       </div>
-                    </td>
-                    <td className={`px-4 py-2 align-top text-xs font-semibold ${color}`}>
-                      {row.rule.severity.toUpperCase()}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                    </footer>
+                  ) : null}
+                </article>
+              )
+            })}
+            {!visibleRows.length ? (
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-center text-sm text-white/60">
+                No rules match the current filters.
+              </div>
+            ) : null}
+          </div>
+        </ScrollArea>
       </div>
     </div>
+  )
+}
+
+function SeverityBadge({ severity, subtle = false }: { severity: MisalignmentSeverity; subtle?: boolean }) {
+  const visuals = getSeverityVisuals(severity)
+  if (subtle) {
+    return (
+      <Badge variant="outline" className={cn('border-transparent text-[11px] uppercase tracking-wide', visuals.textClass)}>
+        {severity.toUpperCase()}
+      </Badge>
+    )
+  }
+  return (
+    <Badge
+      variant={visuals.badgeVariant}
+      className={cn(
+        'text-[11px] uppercase tracking-[0.25em]',
+        visuals.badgeVariant === 'destructive' && 'bg-rose-500/20 text-rose-100',
+      )}
+    >
+      {severity}
+    </Badge>
   )
 }

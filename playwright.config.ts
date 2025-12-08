@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const isProdE2E = process.env.PLAYWRIGHT_USE_PROD === '1';
-const defaultSessionModel = process.env.PLAYWRIGHT_SESSION_MODEL ?? 'demo:grounded';
-const defaultGeneralModel = process.env.PLAYWRIGHT_GENERAL_MODEL ?? 'demo:general';
+const defaultSessionModel = process.env.PLAYWRIGHT_SESSION_MODEL ?? 'lmstudio:local-default';
+const defaultGeneralModel = process.env.PLAYWRIGHT_GENERAL_MODEL ?? 'lmstudio:local-default';
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? (isProdE2E ? 'http://127.0.0.1:3000/viewer' : 'http://localhost:3001/viewer');
 
 /**

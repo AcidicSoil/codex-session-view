@@ -71,7 +71,7 @@ export async function loadAgentRules(rootDir: string = process.cwd()) {
     files.map(async (filePath) => {
       try {
         const content = await fs.readFile(filePath, 'utf8');
-        return parseAgentRules(content);
+        return parseAgentRules(content, filePath);
       } catch (error) {
         console.warn(`[Chatbot] Failed to parse agent rules from ${filePath}:`, error);
         return [];

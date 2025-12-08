@@ -24,17 +24,17 @@ describe('sessionRepoRoots', () => {
   })
 
   it('resolves repo root for registered session assets with git metadata', async () => {
-    const sessionFile = path.join(repoDir, 'sessions', 'demo.ndjson')
+    const sessionFile = path.join(repoDir, 'sessions', 'sample.ndjson')
     await mkdir(path.dirname(sessionFile), { recursive: true })
     await writeFile(sessionFile, '{"events": []}', 'utf8')
 
     await ensureSessionUploadForFile({
-      relativePath: 'tmp/demo.ndjson',
+      relativePath: 'tmp/sample.ndjson',
       absolutePath: sessionFile,
       source: 'external',
     })
 
-    const result = await resolveRepoRootForAssetPath('uploads/tmp/demo.ndjson')
+    const result = await resolveRepoRootForAssetPath('uploads/tmp/sample.ndjson')
     expect(result.rootDir).toBe(normalize(repoDir))
     expect(result.reason).toBeUndefined()
   })

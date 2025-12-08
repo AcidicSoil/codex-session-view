@@ -93,6 +93,11 @@ export function findSessionUploadRecordById(id: string): SessionUploadRecordDeta
   return record ? toRecordDetails(record) : null
 }
 
+export function getSessionUploadSummaryById(id: string): SessionUploadSummary | null {
+  const record = sessionUploadsCollection.get(id)
+  return record ? toRecordView(record) : null
+}
+
 export function getSessionUploadContentByOriginalName(originalName: string) {
   const record = sessionUploadsCollection.toArray.find((entry) => entry.originalName === originalName)
   if (!record) return null
@@ -109,6 +114,46 @@ export async function getSessionUploadContent(id: string) {
   const record = sessionUploadsCollection.get(id)
   if (!record) return null
   return record.content
+}
+
+export async function refreshSessionUploadFromSource(id: string): Promise<SessionUploadSummary | null> {
+  const record = sessionUploadsCollection.get(id)
+  if (!record) {
+    return null
+  }
+  if (!record.sourcePath) {
+    throw new Error('Session upload does not track a source file; live updates are unavailable.')
+  }
+  const fs = await loadFsModule()
+  let stat
+  try {
+    stat = await fs.stat(record.sourcePath)
+  } catch (error) {
+    throw new Error(`Session source file is missing at ${record.sourcePath}`)
+  }
+  const content = await fs.readFile(record.sourcePath, 'utf8')
+  const derivedRepoDetails = deriveRepoDetailsFromContent(content)
+  const sessionTimestampMs = deriveSessionTimestampFromContent(content)
+  const canonicalLastModifiedMs = resolveLastModifiedMs(sessionTimestampMs, stat.mtimeMs)
+  const canonicalLastModifiedIso = new Date(canonicalLastModifiedMs).toISOString()
+
+  await sessionUploadsCollection.update(id, (draft) => {
+    draft.content = content
+    draft.size = measureContentSize(content)
+    draft.storedAt = new Date().toISOString()
+    draft.repoLabel = draft.repoLabel ?? derivedRepoDetails.repoLabel
+    draft.repoMeta = draft.repoMeta ?? derivedRepoDetails.repoMeta
+    draft.sourcePath = normalizeAbsolutePath(record.sourcePath!)
+    draft.sourceUpdatedAt = stat.mtimeMs
+    draft.lastModifiedMs = canonicalLastModifiedMs
+    draft.lastModifiedIso = canonicalLastModifiedIso
+    if (derivedRepoDetails.workspaceRoot) {
+      draft.workspaceRoot = derivedRepoDetails.workspaceRoot
+    }
+  })
+
+  const refreshed = sessionUploadsCollection.get(id)
+  return refreshed ? toRecordView(refreshed) : null
 }
 
 function toRecordView(record: SessionUploadRecord): SessionUploadSummary {

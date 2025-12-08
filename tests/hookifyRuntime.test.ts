@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { evaluateAddToChatContent } from '~/server/lib/hookifyRuntime'
 import type { AgentRule } from '~/lib/agents-rules/parser'
 
-const demoRules: AgentRule[] = [
+const sampleRules: AgentRule[] = [
   {
     id: 'AGENT-001',
     heading: 'Dangerous commands',
@@ -31,7 +31,7 @@ describe('hookify runtime', () => {
       sessionId: 'test',
       source: 'timeline',
       content: 'Summarize progress',
-      agentRules: demoRules,
+      agentRules: sampleRules,
     })
     expect(result.blocked).toBe(false)
     expect(result.prefill?.prompt).toContain('Summarize progress')
@@ -43,7 +43,7 @@ describe('hookify runtime', () => {
       sessionId: 'test',
       source: 'timeline',
       content: 'Should I run rm -rf /tmp?',
-      agentRules: demoRules,
+      agentRules: sampleRules,
     })
     expect(result.blocked).toBe(true)
     expect(result.severity).toBe('high')
@@ -56,7 +56,7 @@ describe('hookify runtime', () => {
       sessionId: 'test',
       source: 'manual',
       content: 'Sprinkle console.log here',
-      agentRules: [demoRules[1]],
+      agentRules: [sampleRules[1]],
     })
     expect(result.blocked).toBe(false)
     expect(result.severity).toBe('medium')

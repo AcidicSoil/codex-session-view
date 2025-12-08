@@ -133,7 +133,8 @@ test.describe('codex session viewer', () => {
         } catch (error) {
           // ignore parse errors
         }
-        const reply = mode === 'general' ? 'General reply from demo model.' : 'Session coach reply from demo model.'
+        const reply =
+          mode === 'general' ? 'General reply from mocked provider.' : 'Session coach reply from mocked provider.'
         await route.fulfill({ status: 200, body: reply, headers: { 'content-type': 'text/plain' } })
       })
     })
@@ -143,7 +144,7 @@ test.describe('codex session viewer', () => {
       await textarea.fill('Provide a quick summary')
       await page.keyboard.press('Enter')
       await expect(page.getByText(/Provide a quick summary/)).toBeVisible()
-      await expect(page.getByText(/Session coach reply from demo model/)).toBeVisible()
+      await expect(page.getByText(/Session coach reply from mocked provider/)).toBeVisible()
       await page.getByRole('button', { name: /New chat/i }).click()
       await expect(page.getByText(/Provide a quick summary/)).toHaveCount(0)
     })
@@ -152,9 +153,9 @@ test.describe('codex session viewer', () => {
       await page.getByRole('button', { name: /^General$/i }).click()
       await expect(page.getByText(/AGENTS issues detected/i)).toHaveCount(0)
       const textarea = page.getByPlaceholder(/Ask anything about the viewer/i)
-      await textarea.fill('Say hello in demo mode')
+      await textarea.fill('Say hello in general mode')
       await page.getByRole('button', { name: /^Send$/ }).click()
-      await expect(page.getByText(/General reply from demo model/)).toBeVisible()
+      await expect(page.getByText(/General reply from mocked provider/)).toBeVisible()
     })
   })
 });

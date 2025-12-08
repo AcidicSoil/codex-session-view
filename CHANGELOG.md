@@ -9,14 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Hook Gate rule inspector** with a neon sheet UI, evidence flip cards, and bookmark toggles powered by a new zustand-backed settings store plus automatic session loading for “jump to event”.
-- **AI runtime** wired to the Vercel AI SDK plus OpenAI-compatible, Gemini CLI, and offline demo providers with selectable models surfaced to the chat UI.
+- **AI runtime** wired to the Vercel AI SDK plus OpenAI-compatible, Gemini CLI, Codex CLI, and LM Studio providers with selectable models surfaced to the chat UI.
 - **General chat enablement** including a client-side mode toggle, Enter-to-send ergonomics, aceternity-inspired send/stream effects, and evidence callouts under assistant replies.
-- **Playwright coverage** for Session Coach and General Chat flows along with a `pnpm test:e2e:prod` script that validates `pnpm start -- --prod` using the deterministic demo models in CI.
+- **Playwright coverage** for Session Coach and General Chat flows along with a `pnpm test:e2e:prod` script that validates `pnpm start -- --prod` against the LM Studio/OpenAI-compatible model defaults.
 - **Component & server tests** covering the chat model registry, evidence mapper, and the ChatDockPanel’s key interactions.
+- **Live session updates** that watch workspace-backed session files and stream timeline changes in real time without manual reloads.
 
 ### Changed
 - `fetchChatbotState`, `/api/chatbot/*`, and the chat dock now return model metadata, persist chat state per `{ sessionId, mode }`, and respect reset requests.
-- README instructions now document the demo model overrides and new e2e scripts so contributors understand how to run dev vs. prod parity checks locally.
+- README instructions now document the LM Studio model overrides and new e2e scripts so contributors understand how to run dev vs. prod parity checks locally.
 
 ## [1.0.0] - 2025-09-25
 

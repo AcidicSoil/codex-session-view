@@ -16,7 +16,8 @@ export interface PromptSection {
   content: string
 }
 
-const DEFAULT_MODEL = readEnvValue('AI_SESSION_DEFAULT_MODEL') ?? readEnvValue('AI_MODEL') ?? 'openai/gpt-4o-mini'
+const DEFAULT_MODEL =
+  readEnvValue('AI_SESSION_DEFAULT_MODEL') ?? readEnvValue('AI_MODEL') ?? 'openai/gpt-oss-20b'
 const DEFAULT_CONTEXT = Number(readEnvValue('AI_MAX_CONTEXT') ?? 32768)
 const DEFAULT_OUTPUT = Number(readEnvValue('AI_MAX_OUTPUT') ?? 2048)
 
@@ -246,7 +247,7 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-export type ProviderId = 'openai-compatible' | 'gemini-cli' | 'codex-cli' | 'demo' | 'lm-studio'
+export type ProviderId = 'openai-compatible' | 'gemini-cli' | 'codex-cli' | 'lm-studio'
 
 export interface ChatModelDefinition {
   id: string
@@ -277,7 +278,6 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
   'gemini-cli': 'Gemini CLI',
   'codex-cli': 'Codex CLI',
   'lm-studio': 'LM Studio',
-  demo: 'Demo',
 }
 
 const STATIC_MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
@@ -366,37 +366,13 @@ const STATIC_MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     tags: ['reasoning', 'slow'],
     modes: ['session', 'general'],
   },
-  'demo:grounded': {
-    id: 'demo:grounded',
-    label: 'Demo Session Coach',
-    description: 'Local deterministic model used for offline development of Session Coach.',
-    providerId: 'demo',
-    providerModel: 'demo-grounded',
-    contextWindow: 16_000,
-    maxOutputTokens: 1_024,
-    defaultTemperature: 0,
-    tags: ['demo', 'offline'],
-    modes: ['session', 'general'],
-  },
-  'demo:general': {
-    id: 'demo:general',
-    label: 'Demo General Chat',
-    description: 'Local deterministic general chat assistant for tests and CI.',
-    providerId: 'demo',
-    providerModel: 'demo-general',
-    contextWindow: 8_000,
-    maxOutputTokens: 1_024,
-    defaultTemperature: 0,
-    tags: ['demo', 'offline'],
-    modes: ['session', 'general'],
-  },
 };
 
 const dynamicModelRegistry = new Map<string, ChatModelDefinition>()
 
 const FALLBACK_MODEL_IDS: Record<ChatMode, string> = {
-  session: 'openai:gpt-4o-mini',
-  general: 'openai:gpt-4o-mini',
+  session: 'lmstudio:local-default',
+  general: 'lmstudio:local-default',
 }
 
 function listAllModelDefinitions() {

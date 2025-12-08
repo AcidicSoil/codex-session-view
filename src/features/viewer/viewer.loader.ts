@@ -2,7 +2,7 @@ import type { LoaderFnContext } from '@tanstack/react-router'
 import { logError, logInfo, logWarn } from '~/lib/logger'
 import { runSessionDiscovery } from '~/server/function/sessionDiscovery'
 import { fetchChatbotState } from '~/server/function/chatbotState'
-import { collectRuleInventory } from '~/server/lib/ruleInventory'
+import { fetchRuleInventory } from '~/server/function/ruleInventory'
 import { loadUiSettings } from '~/server/persistence/uiSettingsStore'
 
 const DEFAULT_UI_SETTINGS_PROFILE = process.env.UI_SETTINGS_PROFILE_ID ?? 'default-profile'
@@ -59,7 +59,7 @@ export async function viewerLoader(ctx: LoaderFnContext) {
       })
     }
 
-    const ruleSheet = await collectRuleInventory()
+    const ruleSheet = await fetchRuleInventory({ data: {} })
     const uiSettingsProfileId = DEFAULT_UI_SETTINGS_PROFILE
     const uiSettings = loadUiSettings(uiSettingsProfileId)
 
@@ -86,5 +86,5 @@ export type ViewerChatState = Awaited<ReturnType<typeof fetchChatbotState>>
 
 function resolveSessionId(search: Record<string, unknown>) {
   const fromSearch = typeof search?.sessionId === 'string' ? search.sessionId : null
-  return fromSearch && fromSearch.trim().length > 0 ? fromSearch : 'demo-session'
+  return fromSearch && fromSearch.trim().length > 0 ? fromSearch : 'session-default'
 }

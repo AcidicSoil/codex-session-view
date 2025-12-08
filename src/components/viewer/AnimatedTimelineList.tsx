@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode, MouseEvent } from 'react'
 import { motion } from 'motion/react';
 import { BorderBeam } from '~/components/ui/border-beam';
 import { ShimmerButton } from '~/components/ui/shimmer-button';
+import { Button } from '~/components/ui/button';
 import {
   Snippet,
   SnippetCopyButton,
@@ -34,6 +35,8 @@ import { Badge } from '~/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip';
 import { truncateRuleTitle } from '~/lib/agents-rules/format';
 import { getSeverityVisuals, toSeverityLabel } from '~/features/chatbot/severity';
+import { Copy } from 'lucide-react';
+import { toast } from 'sonner';
 
 export type TimelineEvent = ResponseItem | ResponseItemParsed;
 
@@ -272,6 +275,29 @@ function renderTimelineItem(
     'CustomToolCall',
   ].includes(event.type);
 
+  const handleCopyProps = async (mouseEvent: MouseEvent<HTMLButtonElement>) => {
+    mouseEvent.preventDefault();
+    mouseEvent.stopPropagation();
+    const serialized = safeStringify(event) || '';
+    if (!serialized) {
+      toast.error('Nothing to copy for this event');
+      return;
+    }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(serialized);
+        toast.success('Event copied');
+        return;
+      }
+    } catch (error) {
+      toast.error('Failed to copy event', {
+        description: error instanceof Error ? error.message : 'Clipboard unavailable',
+      });
+      return;
+    }
+    toast.error('Clipboard unavailable in this environment');
+  };
+
   return (
     <div
       className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30 p-4 cursor-pointer"
@@ -344,6 +370,16 @@ function renderTimelineItem(
                 Add to chat
               </ShimmerButton>
             ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="text-xs uppercase tracking-wide text-muted-foreground hover:text-white"
+              onClick={handleCopyProps}
+            >
+              <Copy className="mr-1 h-3 w-3" />
+              Copy props
+            </Button>
           </div>
         </div>
         {expanded ? (

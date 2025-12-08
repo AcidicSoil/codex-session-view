@@ -33,8 +33,8 @@ export function ViewerInspectorView({ focusPanel }: ViewerInspectorViewProps) {
   }, [focusPanel, openRuleInspector, activeSessionId, hookGate?.assetPath])
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,400px)]">
-      <section className="space-y-6">
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,1fr)]">
+      <section className="min-w-0 space-y-6">
         <div className="rounded-3xl border border-white/10 bg-background/80 p-6 shadow-sm">
           <UploadTimelineSection
             controller={uploadController}
@@ -45,7 +45,7 @@ export function ViewerInspectorView({ focusPanel }: ViewerInspectorViewProps) {
           />
         </div>
       </section>
-      <aside className="space-y-6">
+      <aside className="min-w-0 space-y-6">
         <UploadControlsCard controller={uploadController} className="rounded-3xl border border-white/10 bg-background/80 p-5 shadow-sm" />
         {misalignments.length ? (
           <MisalignmentBanner misalignments={misalignments} onReview={handleRemediationPrefill} />

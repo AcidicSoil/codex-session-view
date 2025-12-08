@@ -12,7 +12,7 @@ export function ViewerExplorerView() {
   }, [discovery.sessionAssets])
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 min-w-0">
       <header className="grid gap-4 rounded-3xl border border-white/10 bg-background/80 p-6 shadow-inner sm:grid-cols-2 lg:grid-cols-4">
         <ExplorerMetric label="Cached sessions" value={formatCount(discovery.sessionAssets.length)} detail="JSONL assets discovered from uploads & repos" />
         <ExplorerMetric label="Linked repos" value={formatCount(repoCount)} detail="Unique repositories detected in the snapshot" />
