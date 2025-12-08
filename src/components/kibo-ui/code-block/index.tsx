@@ -245,8 +245,13 @@ const lineFocusedClassNames = cn(
 );
 
 const wordHighlightClassNames = cn(
-  "[&_.highlighted-word]:bg-blue-50",
-  "dark:[&_.highlighted-word]:!bg-blue-500/10"
+  "[&_.highlighted-word]:rounded-sm",
+  "[&_.highlighted-word]:px-0.5",
+  "[&_.highlighted-word]:py-px",
+  "[&_.highlighted-word]:text-foreground",
+  "[&_.highlighted-word]:shadow-[0_0_12px_rgba(251,191,36,0.35)]",
+  "[&_.highlighted-word]:bg-amber-200/70",
+  "dark:[&_.highlighted-word]:!bg-amber-300/20"
 );
 
 const codeBlockClassName = cn(

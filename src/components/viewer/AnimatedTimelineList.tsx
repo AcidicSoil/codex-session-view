@@ -3,26 +3,8 @@ import { motion } from 'motion/react';
 import { BorderBeam } from '~/components/ui/border-beam';
 import { ShimmerButton } from '~/components/ui/shimmer-button';
 import { Button } from '~/components/ui/button';
-import {
-  Snippet,
-  SnippetCopyButton,
-  SnippetHeader,
-  SnippetTabsContent,
-  SnippetTabsList,
-  SnippetTabsTrigger,
-} from '~/components/kibo-ui/snippet';
-import {
-  CodeBlock,
-  CodeBlockBody,
-  CodeBlockCopyButton,
-  CodeBlockFiles,
-  CodeBlockFilename,
-  CodeBlockHeader,
-  CodeBlockItem,
-  CodeBlockContent,
-} from '~/components/kibo-ui/code-block';
-import type { BundledLanguage } from '~/components/kibo-ui/code-block';
 import type { ResponseItem, MessageEvent, MessagePart } from '~/lib/viewer-types';
+import type { BundledLanguage } from '~/components/kibo-ui/code-block';
 import type { ResponseItemParsed } from '~/lib/session-parser';
 import { TimelineView } from '~/components/viewer/TimelineView';
 import { useTimelineBeamScrollRegistrar } from '~/components/viewer/TimelineTracingBeam';
@@ -38,6 +20,7 @@ import { getSeverityVisuals, toSeverityLabel } from '~/features/chatbot/severity
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '~/lib/utils';
+import { SearchSnippetView } from '~/components/viewer/SearchSnippetView';
 
 export type TimelineEvent = ResponseItem | ResponseItemParsed;
 
@@ -611,14 +594,7 @@ function renderEventDetail(event: TimelineEvent, searchQuery?: string, matchers?
   }
 }
 
-function DetailText({
-  value,
-  label,
-  format = 'text',
-  language,
-  highlightQuery,
-  matchers,
-}: {
+function DetailText(props: {
   value: string;
   label: string;
   format?: 'text' | 'code';
@@ -626,69 +602,8 @@ function DetailText({
   highlightQuery?: string;
   matchers?: SearchMatcher[];
 }) {
-  if (!value) return null;
-
-  if (format === 'code') {
-    const codeLanguage = (language ?? 'json') as BundledLanguage;
-    const data = [{ language: codeLanguage, filename: label, code: value }];
-    return (
-      <div
-        className="space-y-1"
-        onClick={(event) => event.stopPropagation()}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-        <CodeBlock data={data} defaultValue={codeLanguage} className="bg-background/80">
-          <CodeBlockHeader className="items-center justify-between">
-            <CodeBlockFiles>
-              {(item) => (
-                <CodeBlockFilename key={item.filename} value={item.language}>
-                  {item.filename}
-                </CodeBlockFilename>
-              )}
-            </CodeBlockFiles>
-            <CodeBlockCopyButton aria-label={`Copy ${label.toLowerCase()}`} />
-          </CodeBlockHeader>
-          <CodeBlockBody>
-            {(item) => (
-              <CodeBlockItem key={item.language} value={item.language} className="bg-background/95">
-                <CodeBlockContent language={codeLanguage} highlightQuery={highlightQuery}>
-                  {item.code}
-                </CodeBlockContent>
-              </CodeBlockItem>
-            )}
-          </CodeBlockBody>
-        </CodeBlock>
-      </div>
-    );
-  }
-
-  const tabValue = 'value';
-
-  return (
-    <div
-      className="space-y-1"
-      onClick={(event) => event.stopPropagation()}
-      onMouseDown={(event) => event.stopPropagation()}
-    >
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <Snippet defaultValue={tabValue}>
-        <SnippetHeader>
-          <SnippetTabsList>
-            <SnippetTabsTrigger value={tabValue}>{label}</SnippetTabsTrigger>
-          </SnippetTabsList>
-          <SnippetCopyButton value={value} aria-label={`Copy ${label.toLowerCase()}`} />
-        </SnippetHeader>
-        <SnippetTabsContent value={tabValue}>
-          <HighlightedText text={value} query={highlightQuery} matchers={matchers} />
-        </SnippetTabsContent>
-      </Snippet>
-    </div>
-  );
+  if (!props.value) return null;
+  return <SearchSnippetView {...props} />;
 }
 
 function EmptyDetail({ message }: { message: string }) {

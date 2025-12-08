@@ -75,4 +75,3 @@ export function HighlightedText({
 
   return <Component className={className}>{segments}</Component>
 }
-

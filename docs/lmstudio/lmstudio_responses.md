@@ -15,7 +15,7 @@ api_info:
 curl http://localhost:1234/v1/responses \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openai/gpt-oss-20b",
+    "model": "internlm_januscoderv-7b",
     "input": "Provide a prime number less than 50",
     "reasoning": { "effort": "low" }
   }'
@@ -29,7 +29,7 @@ Use the `id` from a previous response as `previous_response_id`.
 curl http://localhost:1234/v1/responses \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openai/gpt-oss-20b",
+    "model": "internlm_januscoderv-7b",
     "input": "Multiply it by 2",
     "previous_response_id": "resp_123"
   }'
@@ -41,7 +41,7 @@ curl http://localhost:1234/v1/responses \
 curl http://localhost:1234/v1/responses \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openai/gpt-oss-20b",
+    "model": "internlm_januscoderv-7b",
     "input": "Hello",
     "stream": true
   }'
@@ -57,7 +57,7 @@ Enable Remote MCP in the app (Developer → Settings). Example payload using an 
 curl http://localhost:1234/v1/responses \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openai/gpt-oss-20b",
+    "model": "internlm_januscoderv-7b",
     "tools": [{
       "type": "mcp",
       "server_label": "tiktoken",
