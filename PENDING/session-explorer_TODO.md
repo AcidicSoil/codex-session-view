@@ -8,6 +8,20 @@
 
 // TODO
 
+## IMPROVED UI I/O CHATBOT INTERACTIONS
+
+- improve loading/thinking bubble for the chatbot while thinking, currently the element is a static ellipsis (add a motion animation)
+- improve the animation for users after the 'send' in the chatdock has been been triggered. Currently, has a blue fading animation effect. (see session-explorer_TODO.md for any components that can be used as replacements to the current implementation)
+
+// TODO
+
+## ADD TOOL USAGE TO CHATBOT
+
+- add tools for the chatbot to call to improve context gathering
+- verify what context the chatbot is injected with at initialization when the 'add to chat' button event has been triggered by the user
+
+// TODO
+
 ## ADD SVG LOGOS FOR BADGES TO README
 
 - Use each tool’s own logo files and follow any brand/usage notes in their docs.

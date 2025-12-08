@@ -17,9 +17,9 @@ export interface PromptSection {
 }
 
 const DEFAULT_MODEL =
-  readEnvValue('AI_SESSION_DEFAULT_MODEL') ?? readEnvValue('AI_MODEL') ?? 'openai/gpt-oss-20b'
+  readEnvValue('AI_SESSION_DEFAULT_MODEL') ?? readEnvValue('AI_MODEL') ?? 'internlm_januscoderv-7b';
 const DEFAULT_CONTEXT = Number(readEnvValue('AI_MAX_CONTEXT') ?? 32768)
-const DEFAULT_OUTPUT = Number(readEnvValue('AI_MAX_OUTPUT') ?? 2048)
+const DEFAULT_OUTPUT = Number(readEnvValue('AI_MAX_OUTPUT') ?? 6144);
 
 function readEnvValue(key: string) {
   if (typeof process !== 'undefined' && process.env) {
@@ -311,10 +311,10 @@ const STATIC_MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     label: 'LM Studio Local',
     description: 'Runs against a local LM Studio OpenAI-compatible server for offline workflows.',
     providerId: 'lm-studio',
-    providerModel: 'openai/gpt-oss-20b',
+    providerModel: 'internlm_januscoderv-7b',
     contextWindow: 128_000,
     maxOutputTokens: 8_192,
-    defaultTemperature: 0.2,
+    defaultTemperature: 0.7,
     tags: ['local', 'open-source'],
     modes: ['session', 'general'],
   },
@@ -326,7 +326,7 @@ const STATIC_MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     providerModel: 'gemini-2.5-flash',
     contextWindow: 1_000_000,
     maxOutputTokens: 16_384,
-    defaultTemperature: 0.4,
+    defaultTemperature: 0.2,
     tags: ['streaming', 'exploration'],
     modes: ['session', 'general'],
   },
@@ -338,7 +338,7 @@ const STATIC_MODEL_REGISTRY: Record<string, ChatModelDefinition> = {
     providerModel: 'gemini-2.5-pro',
     contextWindow: 1_000_000,
     maxOutputTokens: 16_384,
-    defaultTemperature: 0.4,
+    defaultTemperature: 0.2,
     tags: ['streaming', 'exploration'],
     modes: ['session', 'general'],
   },

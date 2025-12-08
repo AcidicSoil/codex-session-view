@@ -176,7 +176,11 @@ export function TimelineWithFilters({
 
   return (
     <div className="space-y-4">
-      {registerSearchBar ? null : searchBarNode}
+      {registerSearchBar ? null : (
+        <div className="sticky top-0 z-20 border-b border-white/10 bg-[#0d1117] py-3">
+          {searchBarNode}
+        </div>
+      )}
       {registerFilters ? null : filtersNode}
       {!hasSourceEvents ? (
         <p className="text-sm text-muted-foreground">Load or drop a session to populate the timeline.</p>
