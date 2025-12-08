@@ -1,5 +1,5 @@
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
-import { createHash } from 'node:crypto'
+import * as crypto from 'node:crypto'
 import { generateId } from '~/utils/id-generator'
 import type { MisalignmentSeverity } from '~/lib/sessions/model'
 import type { HookSource, HookDecisionSeverity, HookRuleSummary } from '~/server/lib/hookifyRuntime'
@@ -62,5 +62,5 @@ export async function clearHookifyDecisions() {
 }
 
 function hashContent(content: string) {
-  return createHash('sha256').update(content).digest('hex')
+  return crypto.createHash('sha256').update(content).digest('hex')
 }

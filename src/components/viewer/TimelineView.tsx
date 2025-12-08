@@ -125,9 +125,17 @@ export function TimelineView<T>({
   if (scrollToIndex != null) {
     const el = containerRef.current;
     if (el && scrollToIndex >= 0 && scrollToIndex < items.length) {
-      const top = offsets[scrollToIndex] ?? 0;
-      if (Math.abs(el.scrollTop - top) > 4) {
-        el.scrollTop = top;
+      const baseTop = offsets[scrollToIndex] ?? 0;
+      const itemHeight = measured.get(scrollToIndex) ?? estimateItemHeight;
+      const maxScrollTop = Math.max(0, totalHeight - height);
+      const centeredTop = baseTop - height / 2 + itemHeight / 2;
+      const clampedTop = Math.max(0, Math.min(maxScrollTop, centeredTop));
+      if (Math.abs(el.scrollTop - clampedTop) > 4) {
+        if (typeof el.scrollTo === 'function') {
+          el.scrollTo({ top: clampedTop, behavior: 'smooth' });
+        } else {
+          el.scrollTop = clampedTop;
+        }
       }
     }
   }

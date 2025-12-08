@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode, MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode, MouseEvent } from 'react';
 import { motion } from 'motion/react';
 import { BorderBeam } from '~/components/ui/border-beam';
 import { ShimmerButton } from '~/components/ui/shimmer-button';
@@ -25,7 +25,7 @@ import type { BundledLanguage } from '~/components/kibo-ui/code-block';
 import type { ResponseItem, MessageEvent, MessagePart } from '~/lib/viewer-types';
 import type { ResponseItemParsed } from '~/lib/session-parser';
 import { TimelineView } from '~/components/viewer/TimelineView';
-import { useTimelineBeamScrollRegistrar } from '~/components/viewer/TimelineTracingBeam'
+import { useTimelineBeamScrollRegistrar } from '~/components/viewer/TimelineTracingBeam';
 import { eventKey } from '~/utils/event-key';
 import { formatClockTime } from '~/utils/intl';
 import type { SearchMatcher } from '~/utils/search';
@@ -37,6 +37,7 @@ import { truncateRuleTitle } from '~/lib/agents-rules/format';
 import { getSeverityVisuals, toSeverityLabel } from '~/features/chatbot/severity';
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '~/lib/utils';
 
 export type TimelineEvent = ResponseItem | ResponseItemParsed;
 
@@ -96,25 +97,29 @@ export function AnimatedTimelineList({
     [dedupedEvents]
   );
 
-  useEffect(() => {
-    if (scrollTarget === null) return;
-    const id = requestAnimationFrame(() => setScrollTarget(null));
-    return () => cancelAnimationFrame(id);
-  }, [scrollTarget]);
+  const requestScroll = useCallback((index: number) => {
+    setScrollTarget(index);
+  }, []);
 
   useEffect(() => {
-    if (activeMatchIndex == null) return;
-    if (activeMatchIndex < 0 || activeMatchIndex >= items.length) return;
-    setExpandedIndex(activeMatchIndex);
-    setScrollTarget(activeMatchIndex);
-  }, [activeMatchIndex, items.length]);
+    if (scrollTarget === null) return
+    const id = requestAnimationFrame(() => setScrollTarget(null))
+    return () => cancelAnimationFrame(id)
+  }, [scrollTarget])
 
   useEffect(() => {
-    if (externalFocusIndex == null) return;
-    if (externalFocusIndex < 0 || externalFocusIndex >= items.length) return;
-    setExpandedIndex(externalFocusIndex);
-    setScrollTarget(externalFocusIndex);
-  }, [externalFocusIndex, items.length]);
+    if (activeMatchIndex == null) return
+    if (activeMatchIndex < 0 || activeMatchIndex >= items.length) return
+    setExpandedIndex(activeMatchIndex)
+    requestScroll(activeMatchIndex)
+  }, [activeMatchIndex, items.length, requestScroll])
+
+  useEffect(() => {
+    if (externalFocusIndex == null) return
+    if (externalFocusIndex < 0 || externalFocusIndex >= items.length) return
+    setExpandedIndex(externalFocusIndex)
+    requestScroll(externalFocusIndex)
+  }, [externalFocusIndex, items.length, requestScroll])
 
   const handleScrollChange = ({
     scrollTop,
@@ -159,7 +164,7 @@ export function AnimatedTimelineList({
                 setExpandedIndex((prev) => {
                   const next = prev === item.index ? null : item.index;
                   if (next !== null) {
-                    setScrollTarget(next);
+                    requestScroll(next)
                   }
                   return next;
                 });
@@ -170,7 +175,8 @@ export function AnimatedTimelineList({
               searchMatchers,
               getDisplayNumber,
               flaggedEvents,
-              onFlaggedEventClick
+              onFlaggedEventClick,
+              activeMatchIndex === item.index
             )}
           </motion.div>
         )}
@@ -247,7 +253,8 @@ function renderTimelineItem(
   searchMatchers?: SearchMatcher[],
   getDisplayNumber?: (event: TimelineEvent, index: number) => number | null | undefined,
   flaggedEvents?: Map<number, TimelineFlagMarker>,
-  onFlaggedEventClick?: (marker: TimelineFlagMarker) => void
+  onFlaggedEventClick?: (marker: TimelineFlagMarker) => void,
+  isActiveMatch?: boolean
 ) {
   const handleAddToChat = (mouseEvent: MouseEvent<HTMLButtonElement>) => {
     mouseEvent.preventDefault();
@@ -300,9 +307,15 @@ function renderTimelineItem(
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30 p-4 cursor-pointer"
+      className={cn(
+        'relative cursor-pointer overflow-hidden rounded-xl border border-white/10 bg-black/30 p-4 transition-shadow duration-200',
+        isActiveMatch
+          ? 'ring-2 ring-cyan-400/70 shadow-[0_0_35px_rgba(34,211,238,0.35)]'
+          : 'ring-1 ring-transparent'
+      )}
       onClick={toggle}
       role="button"
+      aria-current={isActiveMatch ? 'true' : undefined}
       tabIndex={0}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
