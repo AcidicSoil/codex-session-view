@@ -47,8 +47,6 @@ The Session Coach vertical stitches together the chat dock, `/api/chatbot/*` end
 - **Misalignment banner + timeline badges:** Open misalignments (status `open`) render in a top-of-view banner and inline timeline badges. Severity colors reuse the shadcn semantic tokens (info → secondary, warning → outline, high → destructive), and overlapping ranges collapse into a single badge with the tooltip template `"{Severity} severity: AGENT-3 “Rule title”, …"`.
 - **Remediation metadata:** When a banner or badge is clicked, the chat dock receives a prefilled remediation prompt _plus_ structured metadata (`metadata?: { misalignmentId; ruleId; severity; eventRange }`). The metadata travels to `/api/chatbot/stream` but is not persisted with chat messages.
 - **Telemetry:** `/api/chatbot/stream`, `/api/chatbot/analyze`, and misalignment status changes emit unsampled `~/lib/logger` events tagged with `{ mode, sessionId, analysisType?, misalignmentId?, oldStatus?, newStatus?, userId?, durationMs, success }` for staging + prod dashboards.
-- **Rollout guardrail:** Session Coach surfaces stay behind `SESSION_COACH_ENABLED`. Before enabling it in production, budget two business days for ops to land the new dashboards/alerts (staging first, prod second) and secure sign-off from the owner of `viewer.loader`/`~/lib/logger`.
-- **Rollout guardrail:** Session Coach surfaces stay behind `SESSION_COACH_ENABLED`. Before enabling it in production, budget two business days for ops to land the new dashboards/alerts (staging first, prod second) and secure sign-off from the owner of `viewer.loader`/`~/lib/logger`. See [`docs/ops/session-coach-rollout.md`](docs/ops/session-coach-rollout.md) for the full checklist.
 
 ## 🚀 Quick Start
 
