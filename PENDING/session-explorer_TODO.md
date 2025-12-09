@@ -6,12 +6,20 @@
 
 ### not-sorted or verified (check-components being used currently and prune list)
 
+---
+
+// TODO
+
+## CONTRIBUTION-GRAPH (NOT SURE WHERE TO IMPLEMENT YET)
+
+- contribution-graph
+[contribution-graph](https://smoothui.dev/docs/components/contribution-graph)
+
 // TODO
 
 ## SMOOTHER RELOADS OF REAL-TIME UPDATES OF ACTIVE SESSIONS
 
-- currently, the reloading is a kin to a voilent rapid refresh. 
-
+- currently, the reloading is a kin to a violent rapid refresh.
 
 // TODO
 
@@ -348,6 +356,8 @@ console.log(result.content[0].text);
 [many other nice components to consider](https://www.cult-ui.com/docs/components/logo-carousel)
 
 [main header](https://www.cult-ui.com/docs/components/text-gif)
+
+[text-CVS_xl_GIF-4_BOLD](https://www.cult-ui.com/docs/components/text-gif)
 
 ---
 
