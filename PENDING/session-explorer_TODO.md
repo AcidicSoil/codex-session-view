@@ -10,6 +10,17 @@
 
 // TODO
 
+## TOKEN-USAGE ANALYZER ROUTE
+
+
+
+- Implement new route for analyzing sessions through charts & graphs
+- The route will contain
+
+[](https://smoothui.dev/docs/components/animated-progress-bar)
+
+// TODO
+
 ## CONTRIBUTION-GRAPH (NOT SURE WHERE TO IMPLEMENT YET)
 
 - contribution-graph
@@ -368,3 +379,4 @@ console.log(result.content[0].text);
 [replace current badges with badge groups](https://www.diceui.com/docs/components/badge-overflow)
 
 [sessions with multiple repos will show with avatar group](https://www.diceui.com/docs/components/badge-overflow)
+
