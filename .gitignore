@@ -50,7 +50,7 @@ session-id.md
 #.TODO/
 .gemini/
 **/.archived/**
-#.taskmaster/
+.taskmaster
 #.taskmaster/docs/v1/
 #.taskmaster/docs/v2/
 #screenshots/
