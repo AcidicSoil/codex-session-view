@@ -61,7 +61,7 @@ scripts
 .genkit
 .cursor
 .mypy_cache
-
+.archived
 
 # START Ruler Generated Files
 /.codex/config.json
