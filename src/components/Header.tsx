@@ -1,5 +1,6 @@
 //import { SignedIn, SignedOut, UserButton } from "@daveyplate/better-auth-ui"
 import { Link } from '@tanstack/react-router';
+import { TextGif } from '~/components/ui/text-gif';
 import { ModeToggle } from './mode-toggle';
 import { VIEWER_ROUTE_PATH } from '~/features/viewer/route-id';
 
@@ -7,35 +8,57 @@ import { VIEWER_ROUTE_PATH } from '~/features/viewer/route-id';
 export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/60 px-4 py-3 backdrop-blur">
-      <div className="container mx-auto flex items-center justify-between">
-        <Link to="/" className="font-bold text-2xl text-foreground">
-          CSV
-        </Link>
+      <div className="container mx-auto flex h-14 items-center">
+        <div className="mr-4 flex">
+          <Link to="/" className="font-bold text-2xl text-foreground">
+            <TextGif
+              text={'C' + 'SV'}
+              gif="https://media.giphy.com/media/4bhs1boql4XVJgmm4H/giphy.gif"
+              className="text-xxxl font-bold"
+            />
+          </Link>
+        </div>
 
-        <nav className="flex items-center gap-6">
+        <nav className="ml-auto flex items-center space-x-6">
           <Link
             to="/todo"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            Todo
+            <TextGif
+              text={'To' + 'do'}
+              gif="https://media.giphy.com/media/4bhs1boql4XVJgmm4H/giphy.gif"
+              className="!text-xl font-bold"
+            />
           </Link>
           <Link
             to={VIEWER_ROUTE_PATH}
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            Viewer
+            <TextGif
+              text={'View' + 'er'}
+              gif="https://media.giphy.com/media/4bhs1boql4XVJgmm4H/giphy.gif"
+              className="!text-xl font-bold"
+            />
           </Link>
           <Link
             to="/logs"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            Logger
+            <TextGif
+              text={'Log' + 'ger'}
+              gif="https://media.giphy.com/media/4bhs1boql4XVJgmm4H/giphy.gif"
+              className="!text-xl font-bold"
+            />
           </Link>
           <Link
             to="/docs"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            Docs
+            <TextGif
+              text={'Do' + 'cs'}
+              gif="https://media.giphy.com/media/4bhs1boql4XVJgmm4H/giphy.gif"
+              className="!text-xl font-bold"
+            />
           </Link>
           <a
             href="https://github.com/instructa/constructa-starter-min"
@@ -43,7 +66,11 @@ export function Header() {
             rel="noopener noreferrer"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
           >
-            GitHub
+            <TextGif
+              text={'Git' + 'Hub'}
+              gif="https://media.giphy.com/media/4bhs1boql4XVJgmm4H/giphy.gif"
+              className="!text-xl font-xl"
+            />
             <svg
               className="w-3 h-3"
               fill="none"
