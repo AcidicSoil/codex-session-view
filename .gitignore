@@ -62,6 +62,7 @@ scripts
 .cursor
 .mypy_cache
 .archived
+.codex
 
 # START Ruler Generated Files
 /.codex/config.json
