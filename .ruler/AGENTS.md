@@ -111,7 +111,7 @@
 * Persist middleware only for client/session; avoid touching storage during SSR.
 * Use atomic selectors (`useStore(s => slice)`) and equality helpers.
 
-## Project constraints
+## Project constraints/Repository expectations
 
 * Use pnpm.
 * All route files are TypeScript React (`.tsx`).
@@ -119,6 +119,9 @@
 * Never update `.env`; update `.env.example` instead.
 * Never start the dev server with `pnpm run dev` or `npm run dev`.
 * Never create a local pnpm --store
+* Always run `pnpm test` after modifying javascript
+* Run `pnpm lint` before ending your turn
+* Document public utilities in `docs/` when you change behavior.
 
 ## docs map
 

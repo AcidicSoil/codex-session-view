@@ -124,6 +124,8 @@
 * Never update `.env`; update `.env.example` instead.
 * Never start the dev server with `pnpm run dev` or `npm run dev`.
 * Never create a local pnpm --store
+* Always run `pnpm test` after modifying javascript
+* Run `pnpm lint` before ending your turn
 
 ## docs map
 
