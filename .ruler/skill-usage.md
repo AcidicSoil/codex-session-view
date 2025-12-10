@@ -1,6 +1,0 @@
-# Codex skills usage
-
-- For every UI/frontend related task (new components, refactoring existing component, scanning through existing components, removing/replacing components, etc. ), first interpret the task under the applicable `AGENTS.md` rules, then apply `~/.codex/prompts/codex-skills/frontend-design/SKILL.md`. Follow these instructions until work is completed.
-- For every logic/backend task (refactors, features, tests, docs, workflows, integrations, etc.), first interpret the task under the applicable `AGENTS.md` rules, then scan `~/.codex/prompts/codex-skills/` and select the skill whose `SKILL.md` description and metadata most closely match the requested work.
-- Once a relevant skill is identified, follow its `SKILL.md` procedure, structure, and output formats, but resolve any conflict in favor of the current directory’s `AGENTS.md`.
-- If no suitable skill exists, use the prompts under `~/.codex/prompts/codex-skills/skill-creator/` to define a new skill for the task, save it into the appropriate subdirectory under `codex-skills`, then re-run the task using that newly created skill, still subject to the governing `AGENTS.md` rules.
