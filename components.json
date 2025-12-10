@@ -33,6 +33,7 @@
     "@ai-elements": "https://registry.ai-sdk.dev/{name}.json",
     "@ui-layouts": "https://ui-layouts.com/r/{name}.json",
     "@wigggle-ui": "https://wigggle-ui.vercel.app/r/{name}.json",
-    "@systaliko-ui": "https://systaliko-ui.vercel.app/r/{name}.json"
+    "@systaliko-ui": "https://systaliko-ui.vercel.app/r/{name}.json",
+    "@smoothui": "https://smoothui.dev/r/{name}.json"
   }
 }
