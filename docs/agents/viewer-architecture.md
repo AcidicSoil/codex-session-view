@@ -25,6 +25,12 @@ This document captures the technical details that would otherwise bloat the top-
 - Programmatic scrolls (`scrollToIndex`) jump directly to the measured offset, so keep offsets up to date if you introduce new animations or height adjustments.
 - Timeline numbering (the `#N — …` prefix) always reflects the event’s original chronological position, even when filters hide intermediate events or the UI toggles into descending order. The numbering metadata is derived once from the raw event stream and shared with the virtualized list so re-sorting never re-labels entries.
 
+## Timeline Range & Command Filters
+
+- `TimelineRangeControls` (`src/components/viewer/TimelineRangeControls.tsx`) owns the dual numeric inputs + slider. Inputs clamp to `[0, totalEvents - 1]`, automatically swap if a user enters values out of order, and keep the “Showing N of M events” summary in sync with router search params via `applyViewerSearchUpdates`.
+- Command families live in `src/lib/session-events/toolMetadata.ts` as declarative metadata (id, regex pattern, category, hint). `ToolCommandFilter` renders them through the taki-ui combobox so analysts can pick any number of families *or* type ad-hoc substrings in the same control. Selections sync to `timelinePreferences.commandFilter`, persist via `useUiSettingsStore`, and hydrate from the `cmd/cmdQ` URL params during navigation.
+- Badges on each timeline event call `buildEventBadges`, ensuring the newly parsed `commandToken` + first file path always surface directly on the collapsed card face so there’s no mismatch between the filters and what users read in the list.
+
 ## Search Highlighting Defaults
 
 - Both the timeline (`AnimatedTimelineList`) and the session explorer (`SessionList`) now parse the search box text into tokens or regex literals, require every matcher to hit, and share the same `HighlightedText` wrapper for rendering matches.
