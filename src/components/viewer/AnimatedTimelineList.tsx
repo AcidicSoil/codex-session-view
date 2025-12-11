@@ -21,7 +21,7 @@ import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '~/lib/utils';
 import { SearchSnippetView } from '~/components/viewer/SearchSnippetView';
-import { buildEventBadges } from '~/lib/session-events/toolMetadata';
+import { buildEventBadges, extractCommandMetadata } from '~/lib/session-events/toolMetadata';
 
 export type TimelineEvent = ResponseItem | ResponseItemParsed;
 
@@ -423,6 +423,11 @@ function summarizeEvent(event: TimelineEvent) {
     case 'Reasoning':
       return `Reasoning: ${truncate(event.content ?? '')}`;
     case 'FunctionCall': {
+      if (isShellCommandFunctionCall(event)) {
+        const meta = extractCommandMetadata(event);
+        const commandLabel = meta.commandToken ?? meta.commandText;
+        return commandLabel ? `Shell ${commandLabel}` : 'Shell command';
+      }
       const name = event.name ?? 'function';
       return `Function ${name}(${event.durationMs ? `${event.durationMs}ms` : 'call'})`;
     }
@@ -448,6 +453,13 @@ function buildMetaLine(event: TimelineEvent) {
       value = [capitalize(event.role ?? 'message'), event.model].filter(Boolean).join(' · ');
       break;
     case 'FunctionCall': {
+      if (isShellCommandFunctionCall(event)) {
+        const duration = event.durationMs ? `${event.durationMs}ms` : null;
+        const meta = extractCommandMetadata(event);
+        const command = meta.commandText ?? meta.commandToken ?? event.name;
+        value = [command, duration].filter(Boolean).join(' · ');
+        break;
+      }
       const duration = event.durationMs ? `${event.durationMs}ms` : null;
       value = [event.name, duration].filter(Boolean).join(' · ');
       break;
@@ -628,6 +640,15 @@ function DetailText(props: {
 
 function EmptyDetail({ message }: { message: string }) {
   return <p className="text-xs text-muted-foreground">{message}</p>;
+}
+
+function isShellCommandFunctionCall(
+  event: TimelineEvent
+): event is Extract<TimelineEvent, { type: 'FunctionCall' }> {
+  if (event.type !== 'FunctionCall') return false;
+  if (typeof event.name !== 'string') return false;
+  const normalized = event.name.trim().toLowerCase();
+  return normalized === 'shell_command' || normalized === 'shellcommand';
 }
 
 function extractMessageText(content: MessageEvent['content'] | undefined) {

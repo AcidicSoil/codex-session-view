@@ -29,3 +29,17 @@ describe("AnimatedTimelineList numbering", () => {
     expect(labels[2]).toHaveTextContent("#1")
   })
 })
+
+describe("AnimatedTimelineList shell command summaries", () => {
+  it("shows the command token instead of the shell_command name", () => {
+    const shellEvent: TimelineEvent = {
+      type: "FunctionCall",
+      name: "shell_command",
+      args: { command: "rg --files src --hidden" },
+    }
+
+    render(<AnimatedTimelineList events={[shellEvent]} />)
+
+    expect(screen.getByText(/#1 — Shell rg/)).toBeInTheDocument()
+  })
+})
