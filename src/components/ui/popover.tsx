@@ -3,8 +3,6 @@
 import { Slot } from '@radix-ui/react-slot'
 import {
   DismissButton,
-  OverlayContainer,
-  useModal,
   useOverlayTrigger,
   usePopover,
   usePreventScroll,
@@ -23,9 +21,12 @@ import {
   type Ref,
 } from 'react'
 import { useOverlayTriggerState } from 'react-stately'
+import { createPortal } from 'react-dom'
 import { tv } from 'tailwind-variants'
 
 import { cn } from '~/lib/utils'
+
+const PopoverContext = createContext<PopoverContextValue | null>(null)
 
 type PopoverSide = 'top' | 'bottom' | 'left' | 'right'
 type PopoverAlign = 'start' | 'center' | 'end'
@@ -40,8 +41,6 @@ interface PopoverContextValue {
   sameWidth: boolean
   triggerWidth: number | null
 }
-
-const PopoverContext = createContext<PopoverContextValue | null>(null)
 
 const contentStyles = tv({
   base: cn(
@@ -173,7 +172,6 @@ export const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
     )
 
     usePreventScroll({ isDisabled: !context.modal || !context.state.isOpen })
-    const { modalProps } = useModal()
 
     if (!context.state.isOpen) {
       return null
@@ -186,7 +184,7 @@ export const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
 
     const content = (
       <div
-        {...mergeProps(popoverProps, props, context.modal ? modalProps : {})}
+        {...mergeProps(popoverProps, props)}
         ref={mergeRefs(forwardedRef, popoverRef)}
         className={cn(contentStyles({}), className)}
         data-state={context.state.isOpen ? 'open' : 'closed'}
@@ -205,19 +203,23 @@ export const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
       </div>
     )
 
-    if (!context.modal) {
-      return <OverlayContainer>{content}</OverlayContainer>
+    if (typeof document === 'undefined') {
+      return content
     }
 
-    return (
-      <OverlayContainer>
-        <div
-          {...underlayProps}
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-        />
+    const overlay = (
+      <>
+        {context.modal ? (
+          <div
+            {...underlayProps}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          />
+        ) : null}
         {content}
-      </OverlayContainer>
+      </>
     )
+
+    return createPortal(overlay, document.body)
   },
 )
 PopoverContent.displayName = 'PopoverContent'

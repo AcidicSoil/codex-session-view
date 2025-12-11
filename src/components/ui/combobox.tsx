@@ -10,6 +10,7 @@ import {
   Input,
   ListBox,
   ListBoxItemProps,
+  Popover as AriaPopover,
   ValidationResult,
 } from "react-aria-components"
 import { tv } from "tailwind-variants"
@@ -17,7 +18,6 @@ import { tv } from "tailwind-variants"
 import { cn } from "~/lib/utils"
 import { FieldDescription, FieldError, FieldLabel } from "./field"
 import { DropdownItem, DropdownSection, DropdownSectionProps } from "./list-box"
-import { Popover } from "./popover"
 
 const comboBoxStyles = tv({
   base: "group relative flex flex-col gap-1",
@@ -81,14 +81,14 @@ export function ComboBox<T extends object>({
       </div>
       {description && <FieldDescription>{description}</FieldDescription>}
       <FieldError>{errorMessage}</FieldError>
-      <Popover className="w-56 min-w-(--trigger-width)">
+      <AriaPopover className="w-56 min-w-(--trigger-width) rounded-xl border border-white/10 bg-[#05060a]/95 text-sm text-white shadow-[0_25px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
         <ListBox
           items={items}
           className="max-h-[inherit] overflow-auto p-1 outline-hidden [clip-path:inset(0_0_0_0_round_.75rem)]"
         >
           {children}
         </ListBox>
-      </Popover>
+      </AriaPopover>
     </AriaComboBox>
   )
 }
