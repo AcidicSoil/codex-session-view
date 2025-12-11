@@ -32,6 +32,7 @@ import {
 } from './route-id'
 import { SessionRuleSheet } from '~/components/chatbot/SessionRuleSheet'
 import { X } from 'lucide-react'
+import { parseViewerSearch, viewerSearchToCommandFilter, viewerSearchToRangeState } from './viewer.search'
 
 interface HookGateState {
   blocked: boolean
@@ -115,11 +116,14 @@ function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
     onUploadsPersisted: (assets) => discovery.appendSessionAssets(assets, 'upload'),
   })
   const router = useRouter()
+  const locationState = useRouterState({ select: (state) => state.location })
   const hydrateUiSettings = useUiSettingsStore((state) => state.hydrateFromSnapshot)
   const settingsHydratedRef = useRef(false)
   const openRuleInspector = useUiSettingsStore((state) => state.openRuleInspector)
   const lastSessionPath = useUiSettingsStore((state) => state.lastSessionPath)
   const setLastSessionPath = useUiSettingsStore((state) => state.setLastSessionPath)
+  const setTimelineRange = useUiSettingsStore((state) => state.setTimelineRange)
+  const setCommandFilter = useUiSettingsStore((state) => state.setCommandFilter)
 
   if (!settingsHydratedRef.current) {
     const snapshotSource = loaderData?.uiSettings ? 'server' : 'guest'
@@ -134,6 +138,13 @@ function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
   const [coachPrefill, setCoachPrefill] = useState<CoachPrefillPayload | null>(null)
   const [hookGate, setHookGate] = useState<HookGateState | null>(null)
   const [focusEventIndex, setFocusEventIndex] = useState<number | null>(null)
+
+  const viewerSearch = useMemo(() => parseViewerSearch((locationState?.search as Record<string, unknown>) ?? {}), [locationState?.search])
+
+  useEffect(() => {
+    setTimelineRange(viewerSearchToRangeState(viewerSearch))
+    setCommandFilter(() => viewerSearchToCommandFilter(viewerSearch))
+  }, [setCommandFilter, setTimelineRange, viewerSearch])
 
   const misalignments = sessionCoachState?.misalignments ?? []
   const sessionEvents = sessionCoachState?.snapshot?.events ?? []

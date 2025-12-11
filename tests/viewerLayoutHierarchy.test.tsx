@@ -54,6 +54,9 @@ const mockUiSettingsState = {
   setRuleInspectorTab: vi.fn(),
   selectInspectorRule: vi.fn(),
   selectInspectorEvent: vi.fn(),
+  updateTimelinePreferences: vi.fn(),
+  setTimelineRange: vi.fn(),
+  setCommandFilter: vi.fn(),
   lastSessionPath: null,
   setLastSessionPath: vi.fn(),
   ruleInspector: {
@@ -61,6 +64,15 @@ const mockUiSettingsState = {
     activeTab: 'gate',
     ruleId: undefined,
     eventIndex: null,
+  },
+  timelinePreferences: {
+    filters: [],
+    quickFilter: 'all',
+    roleFilter: 'all',
+    sortOrder: 'desc',
+    searchQuery: '',
+    eventRange: null,
+    commandFilter: { families: [], query: '' },
   },
 }
 

@@ -99,17 +99,16 @@ export function MultiSelector({
   return (
     <Popover modal open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className={cn('w-full', className)}>
-          <MultiSelectorTrigger
-            active={hasSelections}
-            label={triggerLabel}
-            placeholder={placeholder}
-            selections={selections}
-            maxVisibleChips={maxVisibleChips}
-            onClear={hasSelections ? handleClearAll : undefined}
-            onRemoveSelection={handleSelectionRemove}
-          />
-        </div>
+        <MultiSelectorTrigger
+          active={hasSelections}
+          label={triggerLabel}
+          placeholder={placeholder}
+          selections={selections}
+          maxVisibleChips={maxVisibleChips}
+          onClear={hasSelections ? handleClearAll : undefined}
+          onRemoveSelection={handleSelectionRemove}
+          className={cn('w-full', className)}
+        />
       </PopoverTrigger>
       <PopoverContent
         align="end"

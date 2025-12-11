@@ -27,6 +27,7 @@ export function MultiSelectorTrigger({
 }: MultiSelectorTriggerProps) {
   return (
     <Button
+      aria-label={label}
       type="button"
       variant="ghost"
       className={cn(

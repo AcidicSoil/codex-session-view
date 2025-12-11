@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react'
+import { useRouter, useRouterState } from '@tanstack/react-router'
+import type { EventRangeInput } from '~/lib/session-events/range'
 import type { ResponseItem } from '~/lib/viewer-types'
 import { AnimatedTimelineList, type TimelineEvent, type TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
 import type { Filter } from '~/components/ui/filters'
@@ -15,6 +17,12 @@ import { buildSearchMatchers, matchesSearchMatchers, type SearchMatcher } from '
 import { TimelineSearchBar } from '~/components/viewer/TimelineSearchBar'
 import { useUiSettingsStore } from '~/stores/uiSettingsStore'
 import { useTimelineSearchNavigation } from '~/components/viewer/TimelineSearchNavigation.hooks'
+import { sliceEventsByRange } from '~/lib/session-events/range'
+import { matchesCommandFilter } from '~/lib/session-events/toolMetadata'
+import { TimelineRangeControls } from '~/components/viewer/TimelineRangeControls'
+import { ToolCommandFilter } from '~/components/viewer/ToolCommandFilter'
+import { applyViewerSearchUpdates } from '~/features/viewer/viewer.search'
+import type { ViewerSearchState } from '~/features/viewer/viewer.search'
 
 interface TimelineWithFiltersProps {
   /**
@@ -43,7 +51,10 @@ export function TimelineWithFilters({
 }: TimelineWithFiltersProps) {
   const timelinePreferences = useUiSettingsStore((state) => state.timelinePreferences)
   const updateTimelinePreferences = useUiSettingsStore((state) => state.updateTimelinePreferences)
+  const setTimelineRange = useUiSettingsStore((state) => state.setTimelineRange)
+  const setCommandFilter = useUiSettingsStore((state) => state.setCommandFilter)
   const { filters, quickFilter, roleFilter, sortOrder, searchQuery } = timelinePreferences
+  const commandFilter = timelinePreferences.commandFilter
   const setFilters = useCallback(
     (next: Filter<TimelineFilterValue>[]) => {
       updateTimelinePreferences((prev) => ({ ...prev, filters: next }))
@@ -74,11 +85,48 @@ export function TimelineWithFilters({
     },
     [updateTimelinePreferences],
   )
+  const router = useRouter()
+  const locationState = useRouterState({ select: (state) => state.location })
+  const currentSearch = (locationState?.search as ViewerSearchState | Record<string, unknown> | undefined) ?? {}
+
+  const handleRangeChange = useCallback(
+    (next: EventRangeInput | null) => {
+      setTimelineRange(next)
+      const updated = applyViewerSearchUpdates(currentSearch as Record<string, unknown>, (state) => ({
+        ...state,
+        startIndex: typeof next?.startIndex === 'number' ? next.startIndex : undefined,
+        endIndex: typeof next?.endIndex === 'number' ? next.endIndex : undefined,
+      }))
+      void router.navigate({ search: updated, replace: true })
+    },
+    [currentSearch, router, setTimelineRange],
+  )
+
+  const handleCommandFilterChange = useCallback(
+    (next: typeof commandFilter) => {
+      setCommandFilter(() => next)
+      const updated = applyViewerSearchUpdates(currentSearch as Record<string, unknown>, (state) => ({
+        ...state,
+        commandFamilies: next.families,
+        commandQuery: next.query,
+      }))
+      void router.navigate({ search: updated, replace: true })
+    },
+    [commandFilter, currentSearch, router, setCommandFilter],
+  )
+
   const searchMatchers = useMemo(() => buildSearchMatchers(searchQuery), [searchQuery])
 
+  const ranged = useMemo(() => sliceEventsByRange(events, timelinePreferences.eventRange), [events, timelinePreferences.eventRange])
+  const rangedEvents = ranged.events
+  const commandFilteredEvents = useMemo(
+    () => rangedEvents.filter((event) => matchesCommandFilter(event, commandFilter)),
+    [rangedEvents, commandFilter],
+  )
+
   const searchMatches = useMemo(
-    () => applyTimelineSearch(events, searchMatchers),
-    [events, searchMatchers],
+    () => applyTimelineSearch(commandFilteredEvents, searchMatchers),
+    [commandFilteredEvents, searchMatchers],
   )
   const filteredEvents = useMemo(
     () => applyTimelineFilters(searchMatches, { filters, quickFilter, roleFilter }),
@@ -104,7 +152,7 @@ export function TimelineWithFilters({
   })
   const { activeIndex: activeSearchIndex, goNext: goToNextMatch, goPrev: goToPreviousMatch } = searchNavigation
 
-  const hasSourceEvents = events.length > 0
+  const hasSourceEvents = rangedEvents.length > 0
   const hasFilteredEvents = filteredEvents.length > 0
   const noMatches = hasSourceEvents && !hasFilteredEvents
 
@@ -119,7 +167,7 @@ export function TimelineWithFilters({
         roleFilter={roleFilter}
         onRoleFilterChange={setRoleFilter}
         filteredCount={filteredEvents.length}
-        totalCount={events.length}
+        totalCount={rangedEvents.length}
         searchMatchCount={searchMatches.length}
         sortOrder={sortOrder}
         onSortOrderChange={setSortOrder}
@@ -181,7 +229,32 @@ export function TimelineWithFilters({
           {searchBarNode}
         </div>
       )}
-      {registerFilters ? null : filtersNode}
+      {registerFilters ? null : (
+        <div className="space-y-4">
+          {filtersNode}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Event range</p>
+                <p className="text-xs text-muted-foreground">
+                  {ranged.applied
+                    ? `Showing ${ranged.startIndex}–${ranged.endIndex} / ${ranged.totalEvents}`
+                    : `0–${Math.max(ranged.totalEvents - 1, 0)} / ${ranged.totalEvents}`}
+                </p>
+              </div>
+              <TimelineRangeControls
+                totalEvents={events.length}
+                value={timelinePreferences.eventRange}
+                onChange={handleRangeChange}
+              />
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+              <p className="text-sm font-semibold">Command filters</p>
+              <ToolCommandFilter value={commandFilter} onChange={handleCommandFilterChange} />
+            </div>
+          </div>
+        </div>
+      )}
       {!hasSourceEvents ? (
         <p className="text-sm text-muted-foreground">Load or drop a session to populate the timeline.</p>
       ) : noMatches ? (

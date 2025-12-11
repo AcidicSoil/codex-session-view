@@ -21,6 +21,7 @@ import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '~/lib/utils';
 import { SearchSnippetView } from '~/components/viewer/SearchSnippetView';
+import { buildEventBadges } from '~/lib/session-events/toolMetadata';
 
 export type TimelineEvent = ResponseItem | ResponseItemParsed;
 
@@ -257,6 +258,8 @@ function renderTimelineItem(
       ? resolvedDisplayNumber
       : index + 1;
 
+  const eventBadges = buildEventBadges(event);
+
   const isChattable = [
     'Message',
     'FunctionCall',
@@ -378,6 +381,23 @@ function renderTimelineItem(
             </Button>
           </div>
         </div>
+        {eventBadges.length ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {eventBadges.map((badge, badgeIndex) => (
+              <Badge
+                key={`${badge.type}-${badge.id ?? badge.label}-${badgeIndex}`}
+                variant={badge.type === 'command' ? 'secondary' : 'outline'}
+                title={badge.title}
+                className={cn(
+                  'text-[11px] font-medium',
+                  badge.type === 'command' ? 'bg-white/15 text-white' : 'text-muted-foreground'
+                )}
+              >
+                {badge.label}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
         {expanded ? (
           <div className="rounded-lg border border-white/5 bg-black/60 p-3 text-sm text-slate-100">
             {renderEventDetail(event, searchQuery, searchMatchers)}

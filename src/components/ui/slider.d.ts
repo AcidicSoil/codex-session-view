@@ -1,0 +1,1 @@
+export declare const Slider: import('react').ForwardRefExoticComponent<import('react').ComponentPropsWithoutRef<typeof import('@radix-ui/react-slider').Root> & import('react').RefAttributes<import('react').ElementRef<typeof import('@radix-ui/react-slider').Root>>>
