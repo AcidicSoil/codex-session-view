@@ -5,29 +5,29 @@ Here is the consolidated refactor request, drafted from my perspective as your P
 **Ticket: UX Refactor - Session Explorer Filtering & Sorting**
 
 **Context**
-[cite_start]On the **Session Explorer** page, the current filtering and sorting interface is cluttered and confusing[cite: 1]. [cite_start]We currently present three different UI patterns—the "All/Recent/Large" toggle, the Sort dropdown, and the "Advanced" range inputs—that conflict with one another and compete for the same screen real estate[cite: 1].
+On the **Session Explorer** page, the current filtering and sorting interface is cluttered and confusing. We currently present three different UI patterns—the "All/Recent/Large" toggle, the Sort dropdown, and the "Advanced" range inputs—that conflict with one another and compete for the same screen real estate.
 
 **The Issue**
 The current experience forces the user to navigate redundant controls to achieve simple tasks.
 
-* [cite_start]**Redundant Toggles:** The "All | Recent | Large" buttons are effectively just "Sort" presets, but they are presented as separate view modes, which is misleading[cite: 1].
-* [cite_start]**Useless Expansion:** The "Advanced" button simply expands the layout to show size/timestamp ranges, pushing content down unnecessarily[cite: 1].
-* [cite_start]**Confusing Hierarchy:** The Timestamp dropdown creates friction by overlapping with the logic of the other filters[cite: 1].
+* **Redundant Toggles:** The "All | Recent | Large" buttons are effectively just "Sort" presets, but they are presented as separate view modes, which is misleading.
+* **Useless Expansion:** The "Advanced" button simply expands the layout to show size/timestamp ranges, pushing content down unnecessarily.
+* **Confusing Hierarchy:** The Timestamp dropdown creates friction by overlapping with the logic of the other filters.
 
 **The Requirement**
-[cite_start]We need to move to a cleaner, "Single Source of Truth" model for this page[cite: 1].
+We need to move to a cleaner, "Single Source of Truth" model for this page.
 
 **1. UI/UX Changes**
 
-* [cite_start]**Remove the "All | Recent | Large" Toggle:** Please deprecate these buttons entirely to clear the visual noise[cite: 1].
-* **Unified Sorting:** The existing dropdown should become the sole owner of sorting logic. [cite_start]It needs to handle `Timestamp`, `Size`, and potentially `Duration` or `Name` clearly[cite: 1].
-* **Consolidate Filters:** Remove the "Advanced" accordion. Instead, place the **Size Range** and **Timestamp Range** inputs inside a single "Filters" button that opens a popover or modal. [cite_start]This will keep the initial view clean and scannable[cite: 1].
+* **Remove the "All | Recent | Large" Toggle:** Please deprecate these buttons entirely to clear the visual noise.
+* **Unified Sorting:** The existing dropdown should become the sole owner of sorting logic. It needs to handle `Timestamp`, `Size`, and potentially `Duration` or `Name` clearly.
+* **Consolidate Filters:** Remove the "Advanced" accordion. Instead, place the **Size Range** and **Timestamp Range** inputs inside a single "Filters" button that opens a popover or modal. This will keep the initial view clean and scannable.
 
 **2. Backend/API Standardization**
 To support this UI cleanup, the frontend needs to send a standardized request payload.
 
-* [cite_start]**Deprecate Presets:** The API should no longer rely on specific endpoints or logic for "presets" like 'Large'[cite: 1].
-* **Standardize Payload:** Please update the `/api/sessions/search` endpoint to accept a consistent `sort` object (field/direction) and a `filters` object (ranges). [cite_start]This separates the business logic from the UI and allows us to easily scale (e.g., adding "Repo Name" filters later) without redesigning the interface[cite: 1].
+* **Deprecate Presets:** The API should no longer rely on specific endpoints or logic for "presets" like 'Large'.
+* **Standardize Payload:** Please update the `/api/sessions/search` endpoint to accept a consistent `sort` object (field/direction) and a `filters` object (ranges). This separates the business logic from the UI and allows us to easily scale (e.g., adding "Repo Name" filters later) without redesigning the interface.
 
 **Definition of Done**
 
