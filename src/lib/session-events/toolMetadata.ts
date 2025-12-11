@@ -38,7 +38,41 @@ type EventWithTool = Pick<ResponseItem, 'toolName'> & Pick<ResponseItemParsed, '
 
 type EventWithName = Pick<ResponseItem, 'name'> & Pick<ResponseItemParsed, 'name'>
 
+type EventWithArgs = Pick<ResponseItem, 'args'> & Pick<ResponseItemParsed, 'args'>
+
+function extractCommandFromArgs(value: unknown): string | undefined {
+  if (!value) return undefined
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return undefined
+    try {
+      const parsed = JSON.parse(trimmed)
+      return extractCommandFromArgs(parsed) ?? trimmed
+    } catch {
+      return trimmed
+    }
+  }
+  if (typeof value === 'object' && value !== null) {
+    const command = (value as { command?: unknown }).command
+    if (typeof command === 'string' && command.trim().length > 0) {
+      return command
+    }
+  }
+  return undefined
+}
+
 function extractPrimaryCommand(event: TimelineEvent): string | undefined {
+  if (
+    'type' in event &&
+    (event as { type?: string }).type === 'FunctionCall' &&
+    'args' in event
+  ) {
+    const args = (event as EventWithArgs).args
+    const fromArgs = extractCommandFromArgs(args)
+    if (fromArgs) {
+      return fromArgs
+    }
+  }
   if ('command' in event && typeof (event as EventWithCommand).command === 'string') {
     return (event as EventWithCommand).command ?? undefined
   }
