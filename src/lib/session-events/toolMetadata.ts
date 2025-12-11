@@ -1,10 +1,20 @@
 import type { ResponseItem } from '~/lib/viewer-types'
 import type { ResponseItemParsed } from '~/lib/session-parser'
 
+export type CommandFamilyCategory = 'shell' | 'vcs' | 'package' | 'network'
+
 export interface CommandFamily {
   id: string
   label: string
   pattern: RegExp
+  category: CommandFamilyCategory
+  hint?: string
+}
+
+export interface CommandFamilyGroup {
+  id: CommandFamilyCategory
+  label: string
+  description?: string
 }
 
 export interface CommandMetadata {
@@ -15,15 +25,24 @@ export interface CommandMetadata {
   fileBadges: { label: string; title?: string }[]
 }
 
+export const COMMAND_FAMILY_GROUPS: CommandFamilyGroup[] = [
+  { id: 'shell', label: 'Shell & text tools', description: 'searching, patching, or transforming files locally' },
+  { id: 'vcs', label: 'Version control & patches' },
+  { id: 'package', label: 'Package & build managers' },
+  { id: 'network', label: 'HTTP / network utilities' },
+]
+
 export const COMMAND_FAMILIES: CommandFamily[] = [
-  { id: 'git', label: 'git', pattern: /\bgit\b/i },
-  { id: 'sed', label: 'sed', pattern: /\bsed\b/i },
-  { id: 'rg', label: 'rg', pattern: /\brg\b|\bripgrep\b/i },
-  { id: 'apply_patch', label: 'apply_patch', pattern: /apply_patch/i },
-  { id: 'npm', label: 'npm', pattern: /\bnpm\b/i },
-  { id: 'pnpm', label: 'pnpm', pattern: /\bpnpm\b/i },
-  { id: 'yarn', label: 'yarn', pattern: /\byarn\b/i },
-  { id: 'curl', label: 'curl', pattern: /\bcurl\b/i },
+  { id: 'git', label: 'git', pattern: /\bgit\b/i, category: 'vcs', hint: 'status, add, commit, etc.' },
+  { id: 'apply_patch', label: 'apply_patch', pattern: /apply_patch/i, category: 'vcs', hint: 'LLM patch helper' },
+  { id: 'sed', label: 'sed', pattern: /\bsed\b/i, category: 'shell', hint: 'stream editor' },
+  { id: 'rg', label: 'rg', pattern: /\brg\b|\bripgrep\b/i, category: 'shell', hint: 'ripgrep search' },
+  { id: 'grep', label: 'grep', pattern: /\bgrep\b/i, category: 'shell', hint: 'classic grep usage' },
+  { id: 'awk', label: 'awk', pattern: /\bawk\b/i, category: 'shell' },
+  { id: 'curl', label: 'curl', pattern: /\bcurl\b/i, category: 'network' },
+  { id: 'npm', label: 'npm', pattern: /\bnpm\b/i, category: 'package' },
+  { id: 'pnpm', label: 'pnpm', pattern: /\bpnpm\b/i, category: 'package' },
+  { id: 'yarn', label: 'yarn', pattern: /\byarn\b/i, category: 'package' },
 ]
 
 const MAX_FILE_BADGES = 1

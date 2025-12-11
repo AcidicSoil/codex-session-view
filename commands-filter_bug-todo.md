@@ -1,3 +1,10 @@
+---
+
+**Status — 2025-12-11**
+
+- Collapsed timeline rows now surface the actual command binary (e.g., `Shell rg`, `Shell git`) by reusing the metadata helpers inside `summarizeEvent`/`buildMetaLine` (`src/components/viewer/AnimatedTimelineList.tsx`).
+- The "Event range" block has been rebuilt around inline numeric inputs + a shared slider (`src/components/viewer/TimelineRangeControls.tsx`), so the old `0–NaN / undefined` summary no longer appears.
+- Leaving the earlier notes below for historical context until the combobox rollout is fully complete.
 
 ---
 

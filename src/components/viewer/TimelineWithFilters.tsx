@@ -117,8 +117,11 @@ export function TimelineWithFilters({
 
   const searchMatchers = useMemo(() => buildSearchMatchers(searchQuery), [searchQuery])
 
-  const ranged = useMemo(() => sliceEventsByRange(events, timelinePreferences.eventRange), [events, timelinePreferences.eventRange])
-  const rangedEvents = ranged.events
+  const rangedResult = useMemo(
+    () => sliceEventsByRange(events, timelinePreferences.eventRange),
+    [events, timelinePreferences.eventRange],
+  )
+  const rangedEvents = rangedResult.events
   const commandFilteredEvents = useMemo(
     () => rangedEvents.filter((event) => matchesCommandFilter(event, commandFilter)),
     [rangedEvents, commandFilter],
@@ -234,14 +237,6 @@ export function TimelineWithFilters({
           {filtersNode}
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Event range</p>
-                <p className="text-xs text-muted-foreground">
-                  {ranged.applied
-                    ? `Showing ${ranged.startIndex}–${ranged.endIndex} / ${ranged.totalEvents}`
-                    : `0–${Math.max(ranged.totalEvents - 1, 0)} / ${ranged.totalEvents}`}
-                </p>
-              </div>
               <TimelineRangeControls
                 totalEvents={events.length}
                 value={timelinePreferences.eventRange}

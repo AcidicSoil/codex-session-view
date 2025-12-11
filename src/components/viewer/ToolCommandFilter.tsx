@@ -1,10 +1,10 @@
 import { useMemo } from 'react'
 import { X, Check } from 'lucide-react'
-import { COMMAND_FAMILIES } from '~/lib/session-events/toolMetadata'
+import { COMMAND_FAMILIES, COMMAND_FAMILY_GROUPS, type CommandFamily } from '~/lib/session-events/toolMetadata'
 import type { TimelineCommandFilterState } from '~/lib/ui-settings'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
-import { ComboBox, ComboBoxItem } from '~/components/ui/combobox'
+import { ComboBox, ComboBoxItem, ComboBoxSection } from '~/components/ui/combobox'
 import { cn } from '~/lib/utils'
 
 interface ToolCommandFilterProps {
@@ -12,8 +12,23 @@ interface ToolCommandFilterProps {
   onChange: (next: TimelineCommandFilterState) => void
 }
 
+interface CommandFamilySection {
+  id: string
+  label: string
+  description?: string
+  items: CommandFamily[]
+}
+
 export function ToolCommandFilter({ value, onChange }: ToolCommandFilterProps) {
   const options = useMemo(() => COMMAND_FAMILIES, [])
+  const familyLookup = useMemo(() => new Map(options.map((family) => [family.id, family])), [options])
+  const groupedFamilies = useMemo<CommandFamilySection[]>(() => {
+    const groups = COMMAND_FAMILY_GROUPS.map((group) => ({
+      ...group,
+      items: options.filter((family) => family.category === group.id),
+    }))
+    return groups.filter((group) => group.items.length > 0)
+  }, [options])
   const selectedFamilies = useMemo(() => new Set(value.families), [value.families])
   const hasQuery = value.query.trim().length > 0
   const hasSelections = selectedFamilies.size > 0 || hasQuery
@@ -62,27 +77,35 @@ export function ToolCommandFilter({ value, onChange }: ToolCommandFilterProps) {
           handleToggleFamily(String(key))
         }}
         allowsCustomValue
-        items={options}
+        items={groupedFamilies}
       >
-        {(item) => (
-          <ComboBoxItem
-            key={item.id}
-            id={item.id}
-            textValue={item.label}
-          >
-            <span className="flex flex-1 items-center gap-2">
-              <Check
-                className={cn('h-4 w-4', selectedFamilies.has(item.id) ? 'opacity-100' : 'opacity-0')}
-              />
-              {item.label}
-            </span>
-          </ComboBoxItem>
+        {(group) => (
+          <ComboBoxSection key={group.id} title={group.label} items={group.items}>
+            {(item) => (
+              <ComboBoxItem key={item.id} id={item.id} textValue={item.label}>
+                <div className="flex flex-1 items-start gap-3">
+                  <Check
+                    className={cn(
+                      'mt-0.5 h-4 w-4 shrink-0',
+                      selectedFamilies.has(item.id) ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
+                  <div className="flex flex-col">
+                    <span className="font-medium">{item.label}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {item.hint ?? `Matches ${item.label} commands`}
+                    </span>
+                  </div>
+                </div>
+              </ComboBoxItem>
+            )}
+          </ComboBoxSection>
         )}
       </ComboBox>
       {hasSelections ? (
         <div className="flex flex-wrap gap-2">
           {value.families.map((familyId) => {
-            const family = options.find((option) => option.id === familyId)
+            const family = familyLookup.get(familyId)
             if (!family) return null
             return (
               <Badge
