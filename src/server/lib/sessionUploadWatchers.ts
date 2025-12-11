@@ -1,4 +1,4 @@
-import { watch, type FSWatcher } from 'node:fs';
+import type { FSWatcher } from 'node:fs';
 import { logError, logWarn } from '~/lib/logger';
 import { uploadRecordToAsset, type DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import {
@@ -6,6 +6,17 @@ import {
   getSessionUploadSummaryById,
   refreshSessionUploadFromSource,
 } from '~/server/persistence/sessionUploads';
+
+type NodeFsModule = typeof import('node:fs');
+
+let fsModulePromise: Promise<NodeFsModule> | null = null;
+
+async function ensureNodeFs(): Promise<NodeFsModule> {
+  if (!fsModulePromise) {
+    fsModulePromise = import('node:fs');
+  }
+  return fsModulePromise;
+}
 
 export type UploadWatcherEvent =
   | { type: 'ready'; asset: DiscoveredSessionAsset }
@@ -57,6 +68,10 @@ class UploadWatcher {
   }
 
   private async initialize() {
+    if (typeof process === 'undefined' || !process.versions?.node) {
+      throw new Error('Session upload watcher requires a Node.js runtime.');
+    }
+
     const summary = getSessionUploadSummaryById(this.uploadId);
     if (!summary) {
       throw new Error('Session upload not found.');
@@ -69,7 +84,8 @@ class UploadWatcher {
       throw new Error('Session upload is not backed by a workspace file; live updates are unavailable.');
     }
     this.sourcePath = record.sourcePath;
-    this.fsWatcher = watch(record.sourcePath, { persistent: false }, (eventType) => {
+    const fs = await ensureNodeFs();
+    this.fsWatcher = fs.watch(record.sourcePath, { persistent: false }, (eventType) => {
       if (eventType === 'rename') {
         logWarn('session-upload-watch', 'Session file was renamed or deleted', {
           uploadId: this.uploadId,
@@ -104,8 +120,6 @@ class UploadWatcher {
         }
         this.latestAsset = uploadRecordToAsset(summary);
         this.broadcast({ type: 'update', asset: this.latestAsset });
-      } catch (error) {
-        throw error;
       } finally {
         this.refreshPromise = null;
       }
