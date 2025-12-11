@@ -1,4 +1,3 @@
-import * as crypto from 'node:crypto';
 import { parseAgentRules, type AgentRule } from '~/lib/agents-rules/parser';
 import type { SessionSnapshot } from '~/lib/sessions/model';
 
@@ -90,7 +89,7 @@ export async function loadAgentRules(rootDir: string = process.cwd()) {
   for (const filePath of files) {
     try {
       const buffer = await fs.readFile(filePath);
-      const hash = hashBuffer(buffer);
+      const hash = await hashBuffer(buffer);
       const existing = hashIndex.byHash.get(hash);
       if (existing) {
         existing.paths.add(filePath);
@@ -167,7 +166,7 @@ export async function checkDuplicateInstructionFile({
 
   const fs = await import('node:fs/promises');
   const buffer = await fs.readFile(filePath);
-  const hash = hashBuffer(buffer);
+  const hash = await hashBuffer(buffer);
   const existing = hashIndex.byHash.get(hash);
   if (existing) {
     const isCanonical = existing.canonicalPath === filePath;
@@ -193,6 +192,37 @@ function createInstructionHashIndex(): InstructionHashIndex {
   };
 }
 
-function hashBuffer(buffer: Buffer) {
-  return crypto.createHash('sha256').update(buffer).digest('hex');
+async function hashBuffer(buffer: ArrayBuffer | ArrayBufferView): Promise<string> {
+  const bytes = normalizeToUint8Array(buffer);
+  const cryptoApi = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+
+  if (cryptoApi?.subtle) {
+    const digest = await cryptoApi.subtle.digest('SHA-256', bytes);
+    const view = new Uint8Array(digest);
+    let hex = '';
+    for (let i = 0; i < view.length; i += 1) {
+      const value = view[i];
+      const nibble = value.toString(16);
+      hex += nibble.length === 1 ? `0${nibble}` : nibble;
+    }
+    return hex;
+  }
+
+  // Fallback to a deterministic (non-cryptographic) hash if Web Crypto is unavailable.
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i += 1) {
+    hash ^= bytes[i];
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16);
+}
+
+function normalizeToUint8Array(buffer: ArrayBuffer | ArrayBufferView): Uint8Array {
+  if (buffer instanceof Uint8Array) {
+    return buffer;
+  }
+  if (ArrayBuffer.isView(buffer)) {
+    return new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  }
+  return new Uint8Array(buffer);
 }
