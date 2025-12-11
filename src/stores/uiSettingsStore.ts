@@ -12,6 +12,8 @@ import {
   DEFAULT_TIMELINE_PREFERENCES,
   DEFAULT_UI_SETTINGS_SNAPSHOT,
   cloneUiSettingsSnapshot,
+  type TimelineRangeState,
+  type TimelineCommandFilterState,
 } from '~/lib/ui-settings'
 import { generateId } from '~/utils/id-generator'
 import { persistUiSettings } from '~/server/function/uiSettingsState'
@@ -37,6 +39,8 @@ export interface UiSettingsState extends UiSettingsSnapshot {
   isBookmarked: (type: BookmarkType, entityId: string) => boolean
   updateSessionExplorer: (updater: (prev: SessionExplorerPersistState) => SessionExplorerPersistState) => void
   updateTimelinePreferences: (updater: (prev: TimelinePreferencesState) => TimelinePreferencesState) => void
+  setTimelineRange: (range: TimelineRangeState | null) => void
+  setCommandFilter: (updater: (prev: TimelineCommandFilterState) => TimelineCommandFilterState) => void
   resetSessionExplorer: () => void
   resetTimelinePreferences: () => void
   reset: () => void
@@ -155,6 +159,14 @@ export const useUiSettingsStore = create<UiSettingsState>()((set, get) => ({
   },
   updateTimelinePreferences: (updater) => {
     set((state) => ({ timelinePreferences: updater(state.timelinePreferences) }))
+    persistSnapshot(get())
+  },
+  setTimelineRange: (range) => {
+    set((state) => ({ timelinePreferences: { ...state.timelinePreferences, eventRange: range } }))
+    persistSnapshot(get())
+  },
+  setCommandFilter: (updater) => {
+    set((state) => ({ timelinePreferences: { ...state.timelinePreferences, commandFilter: updater(state.timelinePreferences.commandFilter) } }))
     persistSnapshot(get())
   },
   resetSessionExplorer: () => {

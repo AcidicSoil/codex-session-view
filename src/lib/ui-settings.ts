@@ -11,6 +11,16 @@ import type {
   TimelineFilterValue,
 } from '~/components/viewer/TimelineFilters'
 
+export interface TimelineRangeState {
+  startIndex?: number | null
+  endIndex?: number | null
+}
+
+export interface TimelineCommandFilterState {
+  families: string[]
+  query: string
+}
+
 export type BookmarkType = 'session' | 'event' | 'chat' | 'rule'
 
 export interface BookmarkRecord {
@@ -44,6 +54,8 @@ export interface TimelinePreferencesState {
   roleFilter: RoleQuickFilter
   sortOrder: SortOrder
   searchQuery: string
+  eventRange: TimelineRangeState | null
+  commandFilter: TimelineCommandFilterState
 }
 
 export interface UiSettingsSnapshot {
@@ -83,6 +95,8 @@ export const DEFAULT_TIMELINE_PREFERENCES: TimelinePreferencesState = {
   roleFilter: 'all',
   sortOrder: 'desc',
   searchQuery: '',
+  eventRange: null,
+  commandFilter: { families: [], query: '' },
 }
 
 export const DEFAULT_UI_SETTINGS_SNAPSHOT: UiSettingsSnapshot = {
@@ -122,6 +136,8 @@ export function cloneUiSettingsSnapshot(source?: UiSettingsSnapshot | null): UiS
       roleFilter: source.timelinePreferences?.roleFilter ?? DEFAULT_TIMELINE_PREFERENCES.roleFilter,
       sortOrder: source.timelinePreferences?.sortOrder ?? DEFAULT_TIMELINE_PREFERENCES.sortOrder,
       searchQuery: source.timelinePreferences?.searchQuery ?? DEFAULT_TIMELINE_PREFERENCES.searchQuery,
+      eventRange: source.timelinePreferences?.eventRange ?? null,
+      commandFilter: source.timelinePreferences?.commandFilter ?? { families: [], query: '' },
     },
   }
 }

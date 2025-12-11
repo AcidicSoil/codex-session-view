@@ -35,6 +35,7 @@
     "@wigggle-ui": "https://wigggle-ui.vercel.app/r/{name}.json",
     "@systaliko-ui": "https://systaliko-ui.vercel.app/r/{name}.json",
     "@smoothui": "https://smoothui.dev/r/{name}.json",
-    "@abui": "https://abui.io/r/{name}.json"
+    "@abui": "https://abui.io/r/{name}.json",
+    "@taki": "https://taki-ui.com/r/{name}.json"
   }
 }
