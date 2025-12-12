@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useRouterState } from '@tanstack/react-router'
 import { logDebug, logError, logInfo, logWarn } from '~/lib/logger';
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import { buildSearchMatchers } from '~/utils/search';
-import type { MultiSelectorGroup, MultiSelectorOption, MultiSelectorValue } from '~/components/ui/multi-selector';
 import {
   type ActiveFilterBadge,
   type BranchGroup,
   type FilterBadgeKey,
   type RepositoryGroup,
   type SessionExplorerFilterState,
-  type SessionPreset,
-  type SessionRecencyPreset,
   defaultFilterState,
 } from './sessionExplorerTypes';
 import {
@@ -21,13 +19,12 @@ import {
   getRecencyWindowMs,
   getSortValue,
   matchesSearchText,
-  RECENCY_PRESETS,
   sortSessions,
   toBytes,
-  toLocalDateTimeInput,
   toTimestampMs,
 } from './sessionExplorerUtils'
 import { useUiSettingsStore } from '~/stores/uiSettingsStore'
+import { applySessionExplorerSearch, parseSessionExplorerSearch, sessionExplorerFiltersEqual } from '~/features/viewer/sessionExplorer.search'
 
 function cloneFilters(input: SessionExplorerFilterState): SessionExplorerFilterState {
   return {
@@ -53,7 +50,10 @@ export function useSessionExplorerModel({
 }: UseSessionExplorerModelOptions) {
   const sessionExplorerState = useUiSettingsStore((state) => state.sessionExplorer)
   const updateSessionExplorer = useUiSettingsStore((state) => state.updateSessionExplorer)
-  const [filters, setFilters] = useState<SessionExplorerFilterState>(() => cloneFilters(sessionExplorerState.filters));
+  const router = useRouter()
+  const locationState = useRouterState({ select: (state) => state.location })
+  const currentSearch = (locationState?.search as Record<string, unknown> | undefined) ?? {}
+  const filters = useMemo(() => parseSessionExplorerSearch(currentSearch), [currentSearch])
   const normalizedBranchFilters = useMemo(
     () => filters.branchFilters.map((branch) => branch.toLowerCase()),
     [filters.branchFilters],
@@ -64,7 +64,6 @@ export function useSessionExplorerModel({
   )
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
   const [loadingRepoId, setLoadingRepoId] = useState<string | null>(null);
-  const [sessionPreset, setSessionPreset] = useState<SessionPreset>(sessionExplorerState.sessionPreset);
   const searchMatchers = useMemo(
     () => buildSearchMatchers(filters.searchText),
     [filters.searchText]
@@ -78,77 +77,49 @@ export function useSessionExplorerModel({
   const recencyFromMs = typeof recencyWindowMs === 'number' ? snapshotTimestamp - recencyWindowMs : undefined
   const timestampFromMs = resolveTimestampFrom(manualTimestampFromMs, recencyFromMs)
 
+  const initialSearchAppliedRef = useRef(false)
   useEffect(() => {
-    setFilters((prev) => {
-      if (prev === sessionExplorerState.filters) return prev
-      return cloneFilters(sessionExplorerState.filters)
+    if (initialSearchAppliedRef.current) return
+    const persistedFilters = sessionExplorerState.filters ?? defaultFilterState
+    if (!sessionExplorerFiltersEqual(persistedFilters, filters)) {
+      initialSearchAppliedRef.current = true
+      const nextSearch = applySessionExplorerSearch(currentSearch, () => cloneFilters(persistedFilters))
+      void router.navigate({ search: nextSearch, replace: true })
+      return
+    }
+    initialSearchAppliedRef.current = true
+  }, [currentSearch, filters, router, sessionExplorerState.filters])
+
+  useEffect(() => {
+    updateSessionExplorer((state) => {
+      if (sessionExplorerFiltersEqual(state.filters, filters)) {
+        return state
+      }
+      return { ...state, filters: cloneFilters(filters) }
     })
-  }, [sessionExplorerState.filters])
+  }, [filters, updateSessionExplorer])
 
-  useEffect(() => {
-    setSessionPreset(sessionExplorerState.sessionPreset)
-  }, [sessionExplorerState.sessionPreset])
-
-  const persistFilters = useCallback(
+  const commitFilters = useCallback(
     (updater: (prev: SessionExplorerFilterState) => SessionExplorerFilterState) => {
-      setFilters((prev) => {
-        const next = updater(prev)
-        updateSessionExplorer((state) => ({ ...state, filters: next }))
-        return next
-      })
+      const nextSearch = applySessionExplorerSearch(currentSearch, updater)
+      void router.navigate({ search: nextSearch, replace: true })
     },
-    [updateSessionExplorer],
+    [currentSearch, router],
   )
 
   const updateFilter = useCallback(
     <K extends keyof SessionExplorerFilterState>(key: K, value: SessionExplorerFilterState[K]) => {
-      persistFilters((prev) => ({ ...prev, [key]: value }))
+      commitFilters((prev) => ({ ...prev, [key]: value }))
     },
-    [persistFilters],
+    [commitFilters],
   )
 
-  const commitSessionPreset = useCallback(
-    (next: SessionPreset) => {
-      setSessionPreset(next)
-      updateSessionExplorer((state) => ({ ...state, sessionPreset: next }))
+  const updateFilters = useCallback(
+    (updater: (prev: SessionExplorerFilterState) => SessionExplorerFilterState) => {
+      commitFilters(updater)
     },
-    [updateSessionExplorer],
+    [commitFilters],
   )
-
-  const applyPreset = useCallback(
-    (value: SessionPreset) => {
-      commitSessionPreset(value);
-      if (value === 'all') {
-        persistFilters((prev) => ({
-          ...prev,
-          timestampFrom: '',
-          timestampTo: '',
-          sizeMinValue: '',
-          sizeMaxValue: '',
-        }))
-        return;
-      }
-      if (value === 'recent') {
-        const fromIso = toLocalDateTimeInput(snapshotTimestamp - 1000 * 60 * 60 * 24 * 2);
-        persistFilters((prev) => ({
-          ...prev,
-          timestampFrom: fromIso,
-          timestampTo: '',
-        }))
-        return;
-      }
-      if (value === 'heavy') {
-        persistFilters((prev) => ({
-          ...prev,
-          sizeMinValue: '25',
-          sizeMinUnit: 'MB',
-          sizeMaxValue: '',
-        }))
-        return
-      }
-    },
-    [commitSessionPreset, persistFilters, snapshotTimestamp]
-  );
 
   useEffect(() => {
     if (sizeMinBytes !== undefined && sizeMaxBytes !== undefined && sizeMinBytes > sizeMaxBytes) {
@@ -171,97 +142,6 @@ export function useSessionExplorerModel({
   );
 
   const filterDimensions = useMemo(() => buildFilterDimensions(accessibleAssets), [accessibleAssets])
-
-  const multiSelectorGroups = useMemo<MultiSelectorGroup[]>(
-    () => [
-      {
-        id: 'sourceFilters',
-        label: 'Sources',
-        description: 'Bundled, external, or upload sessions',
-        allowMultiple: true,
-      },
-      {
-        id: 'branchFilters',
-        label: 'Branches',
-        description: 'Highlight specific repo branches',
-        allowMultiple: true,
-      },
-      {
-        id: 'tagFilters',
-        label: 'Tags',
-        description: 'Filter by session tags',
-        allowMultiple: true,
-      },
-      {
-        id: 'recency',
-        label: 'Recency',
-        description: 'Time window',
-        allowMultiple: false,
-      },
-    ],
-    [],
-  )
-
-  const multiSelectorOptions = useMemo<MultiSelectorOption[]>(() => {
-    const formatCountLabel = (count: number) => `${count} session${count === 1 ? '' : 's'}`
-    const options: MultiSelectorOption[] = []
-    filterDimensions.sources.forEach((option) => {
-      options.push({
-        id: option.id,
-        label: option.label,
-        description: formatCountLabel(option.count),
-        groupId: 'sourceFilters',
-        count: option.count,
-      })
-    })
-    filterDimensions.branches.forEach((option) => {
-      options.push({
-        id: option.id,
-        label: option.label,
-        description: formatCountLabel(option.count),
-        groupId: 'branchFilters',
-        count: option.count,
-      })
-    })
-    filterDimensions.tags.forEach((option) => {
-      options.push({
-        id: option.id,
-        label: option.label,
-        description: formatCountLabel(option.count),
-        groupId: 'tagFilters',
-        count: option.count,
-      })
-    })
-    RECENCY_PRESETS.forEach((option) => {
-      options.push({
-        id: option.id,
-        label: option.label,
-        description: option.description,
-        groupId: 'recency',
-      })
-    })
-    return options
-  }, [filterDimensions])
-
-  const multiSelectorValue = useMemo<MultiSelectorValue>(
-    () => ({
-      sourceFilters: filters.sourceFilters,
-      branchFilters: filters.branchFilters,
-      tagFilters: filters.tagFilters,
-      recency: filters.recency === 'all' ? [] : [filters.recency],
-    }),
-    [filters.branchFilters, filters.recency, filters.sourceFilters, filters.tagFilters],
-  )
-
-  const handleMultiSelectorChange = useCallback((value: MultiSelectorValue) => {
-    persistFilters((prev) => ({
-      ...prev,
-      sourceFilters: value.sourceFilters ?? [],
-      branchFilters: value.branchFilters ?? [],
-      tagFilters: value.tagFilters ?? [],
-      recency: (value.recency?.[0] as SessionRecencyPreset | undefined) ?? 'all',
-    }))
-  }, [persistFilters])
 
   const repositoryGroups = useMemo(
     () => aggregateByRepository(accessibleAssets),
@@ -404,7 +284,7 @@ export function useSessionExplorerModel({
       filterModel,
       beforeCount: filterLogRef.current.count,
       afterCount: filteredSessionCount,
-      navigation: 'local-state',
+      navigation: 'url-search',
     });
     filterLogRef.current = { modelKey, count: filteredSessionCount };
   }, [filteredSessionCount, filters, sizeMaxBytes, sizeMinBytes, timestampFromMs, timestampToMs]);
@@ -512,15 +392,14 @@ export function useSessionExplorerModel({
   );
 
   const resetFilters = useCallback(() => {
-    persistFilters(() => cloneFilters(defaultFilterState));
+    commitFilters(() => cloneFilters(defaultFilterState))
     setExpandedGroupIds([]);
-    commitSessionPreset('all');
     onSelectionChange?.(null);
-  }, [commitSessionPreset, onSelectionChange, persistFilters]);
+  }, [commitFilters, onSelectionChange]);
 
   const activeBadges = useMemo<ActiveFilterBadge[]>(() => buildActiveFilterBadges(filters), [filters]);
   const handleBadgeClear = useCallback((badgeKey: FilterBadgeKey) => {
-    persistFilters((prev) => {
+    commitFilters((prev) => {
       if (badgeKey === 'size') {
         return { ...prev, sizeMinValue: '', sizeMaxValue: '' };
       }
@@ -529,16 +408,15 @@ export function useSessionExplorerModel({
       }
       return prev;
     });
-  }, [persistFilters]);
+  }, [commitFilters]);
 
   const hasResults = filteredGroups.length > 0;
   const datasetEmpty = accessibleAssets.length === 0;
 
   return {
     filters,
-    sessionPreset,
-    applyPreset,
     updateFilter,
+    updateFilters,
     resetFilters,
     activeBadges,
     handleBadgeClear,
@@ -552,29 +430,7 @@ export function useSessionExplorerModel({
     hasResults,
     searchMatchers,
     filterDimensions,
-    multiSelectorGroups,
-    multiSelectorOptions,
-    multiSelectorValue,
-    handleMultiSelectorChange,
   };
-}
-
-function defaultState() {
-  return {
-    searchText: '',
-    sortKey: 'timestamp' as const,
-    sortDir: 'desc' as const,
-    sizeMinValue: '',
-    sizeMinUnit: 'MB' as const,
-    sizeMaxValue: '',
-    sizeMaxUnit: 'MB' as const,
-    timestampFrom: '',
-    timestampTo: '',
-    sourceFilters: [],
-    branchFilters: [],
-    tagFilters: [],
-    recency: 'all' as const,
-  } satisfies SessionExplorerFilterState;
 }
 
 function resolveTimestampFrom(manual?: number, recency?: number) {

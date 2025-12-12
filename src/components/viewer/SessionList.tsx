@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { Badge } from '~/components/ui/badge';
 import { Separator } from '~/components/ui/separator';
@@ -7,11 +7,9 @@ import { MeteorsField } from '~/components/aceternity/meteors';
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import { formatCount, formatDateTime } from '~/utils/intl';
 import { SessionFiltersToolbar } from '~/components/viewer/session-list/SessionFiltersToolbar';
-import { AdvancedFilterAccordion } from '~/components/viewer/session-list/AdvancedFilterAccordion';
 import { SessionRepositoryAccordion } from '~/components/viewer/session-list/SessionRepositoryAccordion';
 import { SessionSearchBar } from '~/components/viewer/session-list/SessionSearchBar';
 import { useSessionExplorerModel } from '~/components/viewer/session-list/useSessionExplorerModel';
-import type { SessionPreset } from '~/components/viewer/session-list/sessionExplorerTypes';
 
 export interface SessionListProps {
   sessionAssets: DiscoveredSessionAsset[];
@@ -36,9 +34,8 @@ export function SessionList({
 }: SessionListProps) {
   const {
     filters,
-    sessionPreset,
-    applyPreset,
     updateFilter,
+    updateFilters,
     resetFilters,
     activeBadges,
     handleBadgeClear,
@@ -51,53 +48,34 @@ export function SessionList({
     loadingRepoId,
     hasResults,
     searchMatchers,
-    multiSelectorGroups,
-    multiSelectorOptions,
-    multiSelectorValue,
-    handleMultiSelectorChange,
+    filterDimensions,
   } = useSessionExplorerModel({
     sessionAssets,
     snapshotTimestamp,
     selectedSessionPath,
     onSelectionChange,
   });
-  const [advancedSections, setAdvancedSections] = useState<string[]>([]);
-  const handleAdvancedToggle = useCallback(() => {
-    setAdvancedSections((current) => (current.length ? [] : ['size', 'timestamp']));
-  }, []);
 
   const filterToolbarNode = useMemo(
     () => (
       <SessionFiltersToolbar
         filters={filters}
-        sessionPreset={sessionPreset as SessionPreset}
-        applyPreset={applyPreset}
         updateFilter={updateFilter}
-        onAdvancedToggle={handleAdvancedToggle}
-        advancedOpen={advancedSections.length > 0}
+        updateFilters={updateFilters}
         onResetFilters={resetFilters}
         activeBadges={activeBadges}
         onBadgeClear={handleBadgeClear}
-        multiSelectorGroups={multiSelectorGroups}
-        multiSelectorOptions={multiSelectorOptions}
-        multiSelectorValue={multiSelectorValue}
-        onMultiSelectorChange={handleMultiSelectorChange}
+        filterDimensions={filterDimensions}
       />
     ),
     [
       activeBadges,
-      advancedSections.length,
-      applyPreset,
-      filters,
       handleBadgeClear,
-      handleMultiSelectorChange,
-      multiSelectorGroups,
-      multiSelectorOptions,
-      multiSelectorValue,
+      filterDimensions,
+      filters,
       resetFilters,
-      sessionPreset,
+      updateFilters,
       updateFilter,
-      handleAdvancedToggle,
     ]
   );
 
@@ -128,12 +106,6 @@ export function SessionList({
             </div>
           </div>
           {shouldRenderInlineFilters ? filterToolbarNode : null}
-          <AdvancedFilterAccordion
-            filters={filters}
-            updateFilter={updateFilter}
-            openValues={advancedSections}
-            onOpenChange={setAdvancedSections}
-          />
         </CardHeader>
         <CardContent className="flex flex-1 flex-col overflow-hidden px-0">
           <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-3">

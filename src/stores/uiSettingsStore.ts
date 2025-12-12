@@ -73,7 +73,6 @@ function snapshotFromState(state: UiSettingsState): UiSettingsSnapshot {
     ruleInspector: { ...state.ruleInspector },
     bookmarks: [...state.bookmarks],
     sessionExplorer: {
-      sessionPreset: state.sessionExplorer.sessionPreset,
       filters: {
         ...state.sessionExplorer.filters,
         sourceFilters: [...state.sessionExplorer.filters.sourceFilters],

@@ -1,10 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
+import { RouterProvider } from "@tanstack/react-router"
 import { SessionList } from "~/components/viewer/SessionList"
 import { createDiscoveredSessionAsset } from "~/lib/viewerDiscovery"
 import type { SessionAssetInput } from "~/lib/viewerDiscovery"
 import { useUiSettingsStore } from "~/stores/uiSettingsStore"
+import { getRouter } from "~/router"
 
 class ResizeObserverStub {
   observe() {}
@@ -51,13 +53,18 @@ const sampleInputs: SessionAssetInput[] = [
 
 const sampleSessions = sampleInputs.map((entry) => createDiscoveredSessionAsset(entry))
 
+function renderWithRouter(node: React.ReactElement) {
+  const router = getRouter()
+  return render(<RouterProvider router={router}>{node}</RouterProvider>)
+}
+
 describe("SessionList", () => {
   beforeEach(() => {
     useUiSettingsStore.getState().resetSessionExplorer()
   })
   it("filters repositories with search input", async () => {
     const user = userEvent.setup()
-    render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
+    renderWithRouter(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
     expect(screen.getByRole("button", { name: /Toggle example\/alpha repository/i })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Toggle example\/beta repository/i })).toBeInTheDocument()
@@ -75,7 +82,7 @@ describe("SessionList", () => {
 
   it("supports regex tokens and renders highlights", async () => {
     const user = userEvent.setup()
-    const { container } = render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
+    const { container } = renderWithRouter(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
     const searchInput = screen.getByPlaceholderText(/search repo/i)
     searchInput.focus()
@@ -89,12 +96,13 @@ describe("SessionList", () => {
 
   it("applies advanced size filters via the sheet", async () => {
     const user = userEvent.setup()
-    render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
+    renderWithRouter(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
-    await user.click(screen.getByRole("button", { name: /Advanced/i }))
-    const minInput = await screen.findByLabelText(/Minimum size/i, { selector: 'input' })
+    await user.click(screen.getByRole("button", { name: /Filters/i }))
+    const minInput = await screen.findByLabelText(/Minimum/i, { selector: 'input' })
     await user.clear(minInput)
     await user.type(minInput, "1")
+    await user.click(screen.getByRole("button", { name: /Done/i }))
 
     expect(screen.getAllByText(/Alpha/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/Beta/i)).not.toBeInTheDocument()
@@ -102,7 +110,7 @@ describe("SessionList", () => {
 
   it("expands repositories and shows sessions", async () => {
     const user = userEvent.setup()
-    render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
+    renderWithRouter(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
     await user.click(screen.getByRole("button", { name: /Toggle example\/alpha repository/i }))
     const matches = await screen.findAllByText(/run-a\.jsonl/i)
@@ -112,7 +120,7 @@ describe("SessionList", () => {
   it("calls onSessionOpen when load button pressed", async () => {
     const user = userEvent.setup()
     const handleOpen = vi.fn()
-    render(
+    renderWithRouter(
       <SessionList
         sessionAssets={sampleSessions}
         snapshotTimestamp={Date.now()}
@@ -126,7 +134,7 @@ describe("SessionList", () => {
   })
 
   it("renders empty state when dataset is empty", () => {
-    render(<SessionList sessionAssets={[]} snapshotTimestamp={Date.now()} />)
+    renderWithRouter(<SessionList sessionAssets={[]} snapshotTimestamp={Date.now()} />)
     expect(screen.getByText(/No session logs discovered yet/i)).toBeInTheDocument()
   })
 })

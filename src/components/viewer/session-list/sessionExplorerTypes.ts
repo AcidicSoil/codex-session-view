@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import type { DiscoveredSessionAsset, SessionAssetSource } from '~/lib/viewerDiscovery';
 import type { RepoMetadata } from '~/lib/repo-metadata';
 
@@ -62,7 +61,6 @@ export const defaultFilterState: SessionExplorerFilterState = {
 
 export type FilterBadgeKey = 'size' | 'timestamp';
 export const SIZE_UNITS: SizeUnit[] = ['KB', 'MB'];
-export type SessionPreset = 'all' | 'recent' | 'heavy';
 
 export interface ActiveFilterBadge {
   key: FilterBadgeKey;
@@ -75,10 +73,6 @@ export interface QuickFilterOption {
   label: string;
   description: string;
   apply: () => void;
-}
-
-export interface SessionExplorerRenderCallbacks {
-  onFiltersRender?: (node: ReactNode | null) => void;
 }
 
 export interface SessionExplorerFilterOption {

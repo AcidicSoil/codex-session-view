@@ -1,7 +1,9 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
+import { RouterProvider } from "@tanstack/react-router"
 import type { DiscoveredSessionAsset } from "~/lib/viewerDiscovery"
 import { DiscoveryPanel } from "~/components/viewer/DiscoveryPanel"
+import { getRouter } from "~/router"
 
 const sampleSessions: DiscoveredSessionAsset[] = [
     {
@@ -24,12 +26,17 @@ const sampleSessions: DiscoveredSessionAsset[] = [
     }
 ]
 
+function renderWithRouter(node: React.ReactElement) {
+    const router = getRouter()
+    return render(<RouterProvider router={router}>{node}</RouterProvider>)
+}
+
 describe("DiscoveryPanel", () => {
     it("renders counts, filters, and grouped session lists", () => {
         vi.useFakeTimers()
 
         try {
-            render(
+            renderWithRouter(
                 <DiscoveryPanel
                     projectFiles={["src/App.tsx", "README.md"]}
                     sessionAssets={sampleSessions}
@@ -42,7 +49,7 @@ describe("DiscoveryPanel", () => {
             expect(screen.getByText(/Session explorer/i)).toBeInTheDocument()
             expect(screen.getByText(/2 \/ 2 sessions/i)).toBeInTheDocument()
             expect(screen.getByPlaceholderText(/search repo, branch/i)).toBeInTheDocument()
-            expect(screen.getByRole("button", { name: /Advanced/i })).toBeInTheDocument()
+            expect(screen.getByRole("button", { name: /Filters/i })).toBeInTheDocument()
             const expandButton = screen.getByRole("button", { name: /Toggle example\/alpha/i })
 
             act(() => {
@@ -60,7 +67,7 @@ describe("DiscoveryPanel", () => {
     })
 
     it("shows empty state when no results match", () => {
-        render(
+        renderWithRouter(
             <DiscoveryPanel
                 projectFiles={[]}
                 sessionAssets={[]}

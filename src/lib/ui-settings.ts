@@ -1,7 +1,6 @@
 import type { Filter } from '~/components/ui/filters'
 import type {
   SessionExplorerFilterState,
-  SessionPreset,
 } from '~/components/viewer/session-list/sessionExplorerTypes'
 import { defaultFilterState } from '~/components/viewer/session-list/sessionExplorerTypes'
 import type {
@@ -45,7 +44,6 @@ export interface RuleInspectorState {
 
 export interface SessionExplorerPersistState {
   filters: SessionExplorerFilterState
-  sessionPreset: SessionPreset
 }
 
 export interface TimelinePreferencesState {
@@ -86,7 +84,6 @@ export const DEFAULT_RULE_INSPECTOR_STATE: RuleInspectorState = {
 
 export const DEFAULT_SESSION_EXPLORER_STATE: SessionExplorerPersistState = {
   filters: cloneSessionExplorerFilters(defaultFilterState),
-  sessionPreset: 'all',
 }
 
 export const DEFAULT_TIMELINE_PREFERENCES: TimelinePreferencesState = {
@@ -125,7 +122,6 @@ export function cloneUiSettingsSnapshot(source?: UiSettingsSnapshot | null): UiS
     ruleInspector: { ...DEFAULT_RULE_INSPECTOR_STATE, ...source.ruleInspector },
     bookmarks: Array.isArray(source.bookmarks) ? [...source.bookmarks] : [],
     sessionExplorer: {
-      sessionPreset: source.sessionExplorer?.sessionPreset ?? DEFAULT_SESSION_EXPLORER_STATE.sessionPreset,
       filters: cloneSessionExplorerFilters(
         source.sessionExplorer?.filters ?? DEFAULT_SESSION_EXPLORER_STATE.filters,
       ),
