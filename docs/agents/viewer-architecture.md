@@ -37,6 +37,18 @@ This document captures the technical details that would otherwise bloat the top-
 - Highlight spans are rendered inline via `<mark>` with MagicUI-inspired styling to keep accessibility intact while avoiding hydration flicker; `findHighlightRanges` enforces limits so virtualized lists keep scrolling under 5 ms.
 - When we eventually add a user-facing settings surface, expose a toggle that pipes through to `HighlightedText` so advanced users can disable the markup without touching the filter semantics.
 
+## Session Explorer Filters & URL Sync
+
+- Session Explorer filter state is now canonicalized in the router search params. `src/features/viewer/sessionExplorer.search.ts` owns the parser and serializer, ensuring the filters survive reloads, tab shares, and navigation without extra loader work.
+- Namespaced param keys (all prefixed with `sx`) cover every surface in the new Filters popover:
+  - `sxSearch` (text query), `sxSort` + `sxSortDir` (field/direction).
+  - `sxSizeMin`, `sxSizeMinUnit`, `sxSizeMax`, `sxSizeMaxUnit` (range inputs use `KB`/`MB` units).
+  - `sxTsFrom`, `sxTsTo` (ISO datetime-local strings).
+  - `sxSources`, `sxBranches`, `sxTags` (comma-delimited lists).
+  - `sxRecency` (one of `all`, `24h`, `7d`, `30d`).
+- `useSessionExplorerModel` reads these params via `parseSessionExplorerSearch`, mirrors the value into `useUiSettingsStore` (for offline persistence), and updates the router with `applySessionExplorerSearch` whenever the user changes a filter.
+- The legacy All/Recent/Large preset buttons and “Advanced” accordion have been replaced with a single Filters popover built on the shared `Popover` primitive. It now owns source/branch/tag toggles, recency chips, and the size/timestamp range inputs so the default view stays uncluttered.
+
 ## Session Metadata Heuristics
 
 To group sessions correctly, the viewer looks for repository info in this order:
