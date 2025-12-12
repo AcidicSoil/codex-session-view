@@ -61,7 +61,7 @@ export function Header() {
             />
           </Link>
           <a
-            href="https://github.com/instructa/constructa-starter-min"
+            href="https://github.com/AcidicSoil/codex-session-view"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
