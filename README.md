@@ -15,10 +15,7 @@
 ---
 
 <p>
-<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/demos/demo1.gif" alt="session preview" />
-</p>
-<p>
-<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/demos/demo2.gif" alt="session preview" />
+<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/demos/demo.gif" alt="session preview" />
 </p>
 
 ## Overview
