@@ -20,6 +20,7 @@ export interface SessionListProps {
   onSelectionChange?: (path: string | null) => void;
   onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void;
   onFiltersRender?: (node: ReactNode | null) => void;
+  uploadSlot?: ReactNode;
 }
 
 export function SessionList({
@@ -31,6 +32,7 @@ export function SessionList({
   onSelectionChange,
   onAddSessionToChat,
   onFiltersRender,
+  uploadSlot,
 }: SessionListProps) {
   const {
     filters,
@@ -107,6 +109,7 @@ export function SessionList({
           </div>
           {shouldRenderInlineFilters ? filterToolbarNode : null}
         </CardHeader>
+        {uploadSlot ? <div className="px-6 py-4">{uploadSlot}</div> : null}
         <CardContent className="flex flex-1 flex-col overflow-hidden px-0">
           <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-3">
             <div>

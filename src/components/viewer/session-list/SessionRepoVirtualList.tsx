@@ -34,6 +34,11 @@ export function SessionRepoVirtualList({
   const items = useMemo<SessionTimelineItem[]>(() => sessions.map((session, index) => ({ session, index })), [sessions]);
   const [gradients, setGradients] = useState({ top: 0, bottom: 0 });
   const viewportHeight = items.length ? Math.max(Math.min(items.length * 96, 520), 220) : 200;
+  const scrollToIndex = useMemo(() => {
+    if (!selectedSessionPath) return null;
+    const targetIndex = items.findIndex((item) => item.session.path === selectedSessionPath);
+    return targetIndex >= 0 ? targetIndex : null;
+  }, [items, selectedSessionPath]);
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-background/70">
@@ -43,6 +48,7 @@ export function SessionRepoVirtualList({
         estimateItemHeight={104}
         overscanPx={200}
         keyForIndex={(item) => `${item.session.path}:${item.index}`}
+        scrollToIndex={scrollToIndex}
         onScrollChange={({ scrollTop, totalHeight, height }) => {
           const top = Math.min(scrollTop / 80, 1);
           const bottomDistance = totalHeight - (scrollTop + height);

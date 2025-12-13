@@ -2,9 +2,10 @@ import { useMemo } from 'react'
 import { formatCount, formatDateTime } from '~/utils/intl'
 import { DiscoverySection } from '../viewer.discovery.section'
 import { useViewerWorkspace } from '../viewer.page'
+import { ExplorerUploadPanel } from './ExplorerUploadPanel'
 
 export function ViewerExplorerView() {
-  const { discovery, handleAddSessionToChat } = useViewerWorkspace()
+  const { discovery, handleAddSessionToChat, uploadController } = useViewerWorkspace()
   const snapshotTimestamp = discovery.snapshot?.generatedAt ?? Date.now()
   const repoCount = useMemo(() => {
     const repoNames = discovery.sessionAssets.map((asset) => asset.repoLabel ?? asset.repoName ?? asset.repoMeta?.repo)
@@ -21,8 +22,9 @@ export function ViewerExplorerView() {
       </header>
       <DiscoverySection
         {...discovery}
-        onFiltersRender={undefined}
+        uploadSlot={<ExplorerUploadPanel controller={uploadController} className="rounded-2xl border border-white/15 bg-black/40 p-4" />}
         onAddSessionToChat={handleAddSessionToChat}
+        onFiltersRender={undefined}
       />
     </div>
   )

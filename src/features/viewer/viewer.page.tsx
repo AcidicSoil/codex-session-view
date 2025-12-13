@@ -111,9 +111,29 @@ function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
   const loaderData = useLoaderData({ from: VIEWER_ROUTE_ID }) as ViewerSnapshot | undefined
   const loader = useFileLoader()
   const discovery = useViewerDiscovery({ loader })
+  const handleUploadsPersisted = useCallback(
+    (assets: DiscoveredSessionAsset[]) => {
+      discovery.appendSessionAssets(assets, 'upload')
+      if (!assets.length) {
+        return
+      }
+      const sortedBySortKey = [...assets].sort((a, b) => {
+        const aKey = typeof a.sortKey === 'number' ? a.sortKey : Number.NEGATIVE_INFINITY
+        const bKey = typeof b.sortKey === 'number' ? b.sortKey : Number.NEGATIVE_INFINITY
+        return bKey - aKey
+      })
+      const newestBySortKey = sortedBySortKey.find((entry) => typeof entry.sortKey === 'number')
+      const newest = newestBySortKey ?? assets[assets.length - 1]
+      if (newest) {
+        discovery.setSelectedSessionPath(newest.path)
+        logInfo('viewer.explorer', 'Auto-selected newly persisted session', { path: newest.path })
+      }
+    },
+    [discovery],
+  )
   const uploadController = useUploadController({
     loader,
-    onUploadsPersisted: (assets) => discovery.appendSessionAssets(assets, 'upload'),
+    onUploadsPersisted: handleUploadsPersisted,
   })
   const router = useRouter()
   const locationState = useRouterState({ select: (state) => state.location })

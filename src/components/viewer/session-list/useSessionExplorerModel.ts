@@ -26,6 +26,8 @@ import {
 import { useUiSettingsStore } from '~/stores/uiSettingsStore'
 import { applySessionExplorerSearch, parseSessionExplorerSearch, sessionExplorerFiltersEqual } from '~/features/viewer/sessionExplorer.search'
 
+const EMPTY_SEARCH: Record<string, unknown> = {}
+
 function cloneFilters(input: SessionExplorerFilterState): SessionExplorerFilterState {
   return {
     ...input,
@@ -52,7 +54,9 @@ export function useSessionExplorerModel({
   const updateSessionExplorer = useUiSettingsStore((state) => state.updateSessionExplorer)
   const router = useRouter()
   const locationState = useRouterState({ select: (state) => state.location })
-  const currentSearch = (locationState?.search as Record<string, unknown> | undefined) ?? {}
+  const searchSource = (locationState?.search as Record<string, unknown> | undefined) ?? EMPTY_SEARCH
+  const [optimisticSearch, setOptimisticSearch] = useState<Record<string, unknown> | null>(null)
+  const currentSearch = optimisticSearch ?? searchSource
   const filters = useMemo(() => parseSessionExplorerSearch(currentSearch), [currentSearch])
   const normalizedBranchFilters = useMemo(
     () => filters.branchFilters.map((branch) => branch.toLowerCase()),
@@ -78,6 +82,14 @@ export function useSessionExplorerModel({
   const timestampFromMs = resolveTimestampFrom(manualTimestampFromMs, recencyFromMs)
 
   const initialSearchAppliedRef = useRef(false)
+  const lastSearchSourceRef = useRef(searchSource)
+  useEffect(() => {
+    if (lastSearchSourceRef.current !== searchSource) {
+      lastSearchSourceRef.current = searchSource
+      setOptimisticSearch(null)
+    }
+  }, [searchSource])
+
   useEffect(() => {
     if (initialSearchAppliedRef.current) return
     const persistedFilters = sessionExplorerState.filters ?? defaultFilterState
@@ -103,6 +115,7 @@ export function useSessionExplorerModel({
     (updater: (prev: SessionExplorerFilterState) => SessionExplorerFilterState) => {
       const nextSearch = applySessionExplorerSearch(currentSearch, updater)
       void router.navigate({ search: nextSearch, replace: true })
+      setOptimisticSearch(nextSearch)
     },
     [currentSearch, router],
   )
@@ -323,8 +336,32 @@ export function useSessionExplorerModel({
 
   useEffect(() => {
     const visibleIds = new Set(filteredGroups.map((group) => group.id));
-    setExpandedGroupIds((current) => current.filter((id) => visibleIds.has(id)));
+    setExpandedGroupIds((current) => {
+      const next = current.filter((id) => visibleIds.has(id));
+      if (next.length === current.length && next.every((id, index) => id === current[index])) {
+        return current;
+      }
+      return next;
+    });
   }, [filteredGroups]);
+
+  useEffect(() => {
+    if (!selectedSessionPath) return;
+    const owningGroup = filteredGroups.find((group) =>
+      group.sessions.some((session) => session.path === selectedSessionPath),
+    );
+    if (!owningGroup) return;
+    setExpandedGroupIds((current) => {
+      if (current.includes(owningGroup.id)) {
+        return current;
+      }
+      logDebug('viewer.explorer', 'Auto-expanded repository for selected session', {
+        selectedSessionPath,
+        groupId: owningGroup.id,
+      });
+      return [...current, owningGroup.id];
+    });
+  }, [filteredGroups, selectedSessionPath]);
 
   useEffect(() => {
     if (accessibleAssets.length > 0 && filteredSessionCount === 0) {
