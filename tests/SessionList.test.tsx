@@ -1,12 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
-import { RouterProvider } from "@tanstack/react-router"
+import * as React from "react"
 import { SessionList } from "~/components/viewer/SessionList"
 import { createDiscoveredSessionAsset } from "~/lib/viewerDiscovery"
 import type { SessionAssetInput } from "~/lib/viewerDiscovery"
 import { useUiSettingsStore } from "~/stores/uiSettingsStore"
-import { getRouter } from "~/router"
+import type { AnchorHTMLAttributes, ReactNode } from "react"
 
 class ResizeObserverStub {
   observe() {}
@@ -51,12 +51,80 @@ const sampleInputs: SessionAssetInput[] = [
   },
 ]
 
+type MockSession = ReturnType<typeof createDiscoveredSessionAsset>
+
 const sampleSessions = sampleInputs.map((entry) => createDiscoveredSessionAsset(entry))
 
-function renderWithRouter(node: React.ReactElement) {
-  const router = getRouter()
-  return render(<RouterProvider router={router}>{node}</RouterProvider>)
-}
+vi.mock("@tanstack/react-router", () => {
+  const mockRouter = {
+    navigate: vi.fn(),
+    invalidate: vi.fn(),
+    state: { location: { search: {} } },
+  }
+  const mockLocationState = { location: { search: {} } }
+  return {
+    useRouter: () => mockRouter,
+    useRouterState: () => mockLocationState,
+    RouterProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+    Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => (
+      <a {...props}>{children}</a>
+    ),
+  }
+})
+
+vi.mock("~/components/viewer/session-list/SessionRepoVirtualList", () => ({
+  SessionRepoVirtualList: ({ sessions, onSessionOpen }: { sessions: MockSession[]; onSessionOpen?: (asset: MockSession) => void }) => (
+    <div>
+      {sessions.map((session) => (
+        <div key={session.path}>
+          <p>{session.path}</p>
+          <button type="button" onClick={() => onSessionOpen?.(session)}>
+            Load session
+          </button>
+        </div>
+      ))}
+    </div>
+  ),
+}))
+
+vi.mock("~/components/viewer/session-list/SessionRepositoryAccordion", () => {
+  return {
+    SessionRepositoryAccordion: ({
+      groups,
+      onSessionOpen,
+    }: {
+      groups: { id: string; label: string; sessions: MockSession[] }[]
+      onSessionOpen?: (asset: MockSession) => void
+    }) => {
+      const [openIds, setOpenIds] = React.useState<string[]>([])
+      const toggle = (id: string) =>
+        setOpenIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]))
+      return (
+        <div>
+          {groups.map((group) => (
+            <div key={group.id}>
+              <button type="button" onClick={() => toggle(group.id)}>
+                Toggle {group.label} repository
+              </button>
+              {openIds.includes(group.id) ? (
+                <div>
+                  {group.sessions.map((session) => (
+                    <div key={session.path}>
+                      <span>{session.path}</span>
+                      <button type="button" onClick={() => onSessionOpen?.(session)}>
+                        Load session
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )
+    },
+  }
+})
 
 describe("SessionList", () => {
   beforeEach(() => {
@@ -64,7 +132,7 @@ describe("SessionList", () => {
   })
   it("filters repositories with search input", async () => {
     const user = userEvent.setup()
-    renderWithRouter(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
+    render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
     expect(screen.getByRole("button", { name: /Toggle example\/alpha repository/i })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Toggle example\/beta repository/i })).toBeInTheDocument()
@@ -82,7 +150,7 @@ describe("SessionList", () => {
 
   it("supports regex tokens and renders highlights", async () => {
     const user = userEvent.setup()
-    const { container } = renderWithRouter(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
+    const { container } = render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
     const searchInput = screen.getByPlaceholderText(/search repo/i)
     searchInput.focus()
@@ -96,7 +164,7 @@ describe("SessionList", () => {
 
   it("applies advanced size filters via the sheet", async () => {
     const user = userEvent.setup()
-    renderWithRouter(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
+    render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
     await user.click(screen.getByRole("button", { name: /Filters/i }))
     const minInput = await screen.findByLabelText(/Minimum/i, { selector: 'input' })
@@ -110,7 +178,7 @@ describe("SessionList", () => {
 
   it("expands repositories and shows sessions", async () => {
     const user = userEvent.setup()
-    renderWithRouter(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
+    render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
     await user.click(screen.getByRole("button", { name: /Toggle example\/alpha repository/i }))
     const matches = await screen.findAllByText(/run-a\.jsonl/i)
@@ -120,7 +188,7 @@ describe("SessionList", () => {
   it("calls onSessionOpen when load button pressed", async () => {
     const user = userEvent.setup()
     const handleOpen = vi.fn()
-    renderWithRouter(
+    render(
       <SessionList
         sessionAssets={sampleSessions}
         snapshotTimestamp={Date.now()}
@@ -134,7 +202,7 @@ describe("SessionList", () => {
   })
 
   it("renders empty state when dataset is empty", () => {
-    renderWithRouter(<SessionList sessionAssets={[]} snapshotTimestamp={Date.now()} />)
+    render(<SessionList sessionAssets={[]} snapshotTimestamp={Date.now()} />)
     expect(screen.getByText(/No session logs discovered yet/i)).toBeInTheDocument()
   })
 })

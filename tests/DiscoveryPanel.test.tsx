@@ -1,9 +1,25 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { RouterProvider } from "@tanstack/react-router"
+import type { AnchorHTMLAttributes, ReactNode } from "react"
 import type { DiscoveredSessionAsset } from "~/lib/viewerDiscovery"
 import { DiscoveryPanel } from "~/components/viewer/DiscoveryPanel"
-import { getRouter } from "~/router"
+
+vi.mock("@tanstack/react-router", () => {
+    const mockRouter = {
+        navigate: vi.fn(),
+        invalidate: vi.fn(),
+        state: { location: { search: {} } },
+    }
+    const mockLocationState = { location: { search: {} } }
+    return {
+        useRouter: () => mockRouter,
+        useRouterState: () => mockLocationState,
+        RouterProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+        Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => (
+            <a {...props}>{children}</a>
+        ),
+    }
+})
 
 const sampleSessions: DiscoveredSessionAsset[] = [
     {
@@ -26,17 +42,12 @@ const sampleSessions: DiscoveredSessionAsset[] = [
     }
 ]
 
-function renderWithRouter(node: React.ReactElement) {
-    const router = getRouter()
-    return render(<RouterProvider router={router}>{node}</RouterProvider>)
-}
-
 describe("DiscoveryPanel", () => {
     it("renders counts, filters, and grouped session lists", () => {
         vi.useFakeTimers()
 
         try {
-            renderWithRouter(
+            render(
                 <DiscoveryPanel
                     projectFiles={["src/App.tsx", "README.md"]}
                     sessionAssets={sampleSessions}
@@ -67,7 +78,7 @@ describe("DiscoveryPanel", () => {
     })
 
     it("shows empty state when no results match", () => {
-        renderWithRouter(
+        render(
             <DiscoveryPanel
                 projectFiles={[]}
                 sessionAssets={[]}

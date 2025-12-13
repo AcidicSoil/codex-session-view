@@ -13,7 +13,7 @@ import {
   type TimelineFilterValue,
 } from '~/components/viewer/TimelineFilters'
 import { dedupeTimelineEvents } from '~/components/viewer/AnimatedTimelineList'
-import { buildSearchMatchers, matchesSearchMatchers, type SearchMatcher } from '~/utils/search'
+import { buildSearchMatchers, type SearchMatcher } from '~/utils/search'
 import { TimelineSearchBar } from '~/components/viewer/TimelineSearchBar'
 import { useUiSettingsStore } from '~/stores/uiSettingsStore'
 import { useTimelineSearchNavigation } from '~/components/viewer/TimelineSearchNavigation.hooks'
@@ -23,6 +23,7 @@ import { TimelineRangeControls } from '~/components/viewer/TimelineRangeControls
 import { ToolCommandFilter } from '~/components/viewer/ToolCommandFilter'
 import { applyViewerSearchUpdates } from '~/features/viewer/viewer.search'
 import type { ViewerSearchState } from '~/features/viewer/viewer.search'
+import { applyTimelineSearch } from '~/features/viewer/timeline/search'
 
 interface TimelineWithFiltersProps {
   /**
@@ -37,6 +38,7 @@ interface TimelineWithFiltersProps {
   flaggedEvents?: Map<number, TimelineFlagMarker>
   onFlaggedEventClick?: (marker: TimelineFlagMarker) => void
   focusEventIndex?: number | null
+  onEventSelect?: (event: TimelineEvent, info: { displayIndex: number; absoluteIndex: number }) => void
 }
 
 export function TimelineWithFilters({
@@ -48,6 +50,7 @@ export function TimelineWithFilters({
   flaggedEvents,
   onFlaggedEventClick,
   focusEventIndex,
+  onEventSelect,
 }: TimelineWithFiltersProps) {
   const timelinePreferences = useUiSettingsStore((state) => state.timelinePreferences)
   const updateTimelinePreferences = useUiSettingsStore((state) => state.updateTimelinePreferences)
@@ -266,79 +269,13 @@ export function TimelineWithFilters({
           flaggedEvents={flaggedEvents}
           onFlaggedEventClick={onFlaggedEventClick}
           externalFocusIndex={focusTimelineIndex}
+          onSelect={(event, index) => {
+            if (!onEventSelect) return
+            const displayNumber = displayNumberMap.get(event) ?? index + 1
+            onEventSelect(event, { displayIndex: displayNumber, absoluteIndex: index })
+          }}
         />
       )}
     </div>
   )
-}
-
-export function applyTimelineSearch(events: readonly ResponseItem[], matchers: SearchMatcher[]) {
-  if (!matchers.length) return events
-
-  return events.filter((event) => {
-    const anyEvent = event as any
-    const parts: string[] = []
-    const pushValue = (value: unknown) => {
-      if (value == null) return
-      if (typeof value === 'string') {
-        parts.push(value)
-        return
-      }
-      if (typeof value === 'number' || typeof value === 'boolean') {
-        parts.push(String(value))
-        return
-      }
-      if (Array.isArray(value)) {
-        value.forEach((entry) => pushValue(entry))
-        return
-      }
-      if (typeof value === 'object') {
-        try {
-          parts.push(JSON.stringify(value))
-        } catch {}
-      }
-    }
-
-    if (typeof anyEvent.type === 'string') parts.push(anyEvent.type)
-    if (typeof anyEvent.role === 'string') parts.push(anyEvent.role)
-    if (typeof anyEvent.name === 'string') parts.push(anyEvent.name)
-    if (typeof anyEvent.command === 'string') parts.push(anyEvent.command)
-    if (typeof anyEvent.path === 'string') parts.push(anyEvent.path)
-    if (typeof anyEvent.query === 'string') parts.push(anyEvent.query)
-
-    const content = anyEvent.content
-    if (typeof content === 'string') {
-      parts.push(content)
-    } else if (Array.isArray(content)) {
-      parts.push(
-        content
-          .map((part: unknown) =>
-            typeof part === 'string'
-              ? part
-              : typeof (part as any).text === 'string'
-                ? (part as any).text
-                : ''
-          )
-          .join(' ')
-      )
-    }
-
-    pushValue(anyEvent.stdout)
-    pushValue(anyEvent.stderr)
-    pushValue(anyEvent.result)
-    pushValue(anyEvent.args)
-    pushValue(anyEvent.output)
-    pushValue(anyEvent.data)
-    pushValue(anyEvent.meta)
-    pushValue(anyEvent.git)
-    pushValue(anyEvent.payload)
-
-    try {
-      parts.push(JSON.stringify(anyEvent))
-    } catch {}
-
-    const haystack = parts.join(' ')
-    if (!haystack.trim()) return false
-    return matchesSearchMatchers(haystack, matchers)
-  })
 }
