@@ -1,4 +1,8 @@
-import { deriveRepoDetailsFromLine, deriveSessionTimestampMs, type RepoDetails } from '~/lib/repo-metadata';
+import {
+  deriveRepoDetailsFromLine,
+  deriveSessionTimestampMs,
+  type RepoDetails,
+} from '~/lib/repo-metadata';
 import {
   sortSessionAssets,
   uploadRecordToAsset,
@@ -104,35 +108,42 @@ export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot>
   }
   const nodeDeps = await ensureNodeDeps();
   const sessionUploads = await ensureSessionUploadsModule();
-  const codeGlobs = import.meta.glob([
-    '/src/**/*',
-    '/scripts/**/*',
-    '/public/**/*',
-    '/package.json',
-    '/tsconfig.json',
-    '!/src/**/__tests__/**',
-    '!/src/**/__mocks__/**',
-    '!/src/**/*.test.{ts,tsx,js,jsx}',
-    '!/src/**/*.spec.{ts,tsx,js,jsx}',
-    '!/src/**/*.stories.{ts,tsx,js,jsx}',
-  ], {
-    as: 'url',
-  });
+  const codeGlobs = import.meta.glob(
+    [
+      '/src/**/*',
+      '/scripts/**/*',
+      '/public/**/*',
+      '/package.json',
+      '/tsconfig.json',
+      '!/src/**/__tests__/**',
+      '!/src/**/__mocks__/**',
+      '!/src/**/*.test.{ts,tsx,js,jsx}',
+      '!/src/**/*.spec.{ts,tsx,js,jsx}',
+      '!/src/**/*.stories.{ts,tsx,js,jsx}',
+    ],
+    {
+      query: '?url',
+      import: 'default',
+    }
+  );
   const docAssets = import.meta.glob(['/README*'], {
     eager: true,
     query: '?url',
     import: 'default',
   }) as Record<string, string>;
   const projectFiles = normalizePaths([...Object.keys(codeGlobs), ...Object.keys(docAssets)]);
-  const sessionMatches = import.meta.glob([
-    '/.codex/sessions/**/*.{jsonl,ndjson,json}',
-    '/sessions/**/*.{jsonl,ndjson,json}',
-    '/artifacts/sessions/**/*.{jsonl,ndjson,json}',
-  ], {
-    eager: true,
-    query: '?url',
-    import: 'default',
-  }) as Record<string, string>;
+  const sessionMatches = import.meta.glob(
+    [
+      '/.codex/sessions/**/*.{jsonl,ndjson,json}',
+      '/sessions/**/*.{jsonl,ndjson,json}',
+      '/artifacts/sessions/**/*.{jsonl,ndjson,json}',
+    ],
+    {
+      eager: true,
+      query: '?url',
+      import: 'default',
+    }
+  ) as Record<string, string>;
   const bundledCount = await synchronizeBundledSessions(sessionMatches, nodeDeps, sessionUploads);
   const directories = getExternalSessionDirectories(nodeDeps);
   const externalCount = await synchronizeExternalSessions(nodeDeps, directories, sessionUploads);
@@ -157,7 +168,7 @@ export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot>
 async function synchronizeBundledSessions(
   sessionMatches: Record<string, string>,
   deps: NodeDeps | null,
-  sessionUploads: SessionUploadsModule,
+  sessionUploads: SessionUploadsModule
 ) {
   if (!deps) return 0;
   await Promise.all(
@@ -176,7 +187,7 @@ async function synchronizeBundledSessions(
         sessionTimestampMs: repoDetails.sessionTimestampMs,
         source: 'bundled',
       });
-    }),
+    })
   );
   return Object.keys(sessionMatches).length;
 }
@@ -184,7 +195,7 @@ async function synchronizeBundledSessions(
 async function synchronizeExternalSessions(
   deps: NodeDeps | null,
   directories: SessionDirectoryInfo[],
-  sessionUploads: SessionUploadsModule,
+  sessionUploads: SessionUploadsModule
 ) {
   if (!deps) return 0;
   const { default: fg } = await import('fast-glob');
@@ -208,7 +219,7 @@ async function synchronizeExternalSessions(
           sessionTimestampMs: repoDetails.sessionTimestampMs,
           source: 'external',
         });
-      }),
+      })
     );
     count += matches.length;
   }
@@ -264,7 +275,9 @@ function normalizeSlashes(value: string) {
   return value.replace(/\\/g, '/').replace(/\/+$/, '');
 }
 
-async function discoverStoredSessionAssets(sessionUploads: SessionUploadsModule): Promise<DiscoveredSessionAsset[]> {
+async function discoverStoredSessionAssets(
+  sessionUploads: SessionUploadsModule
+): Promise<DiscoveredSessionAsset[]> {
   if (!isServerRuntime) return [];
   const records = await sessionUploads.listSessionUploadRecords();
   return records.map(uploadRecordToAsset);
@@ -277,7 +290,10 @@ function resolveWorkspacePath(relativePath: string, deps: NodeDeps | null) {
 
 type RepoDetailsWithTimestamp = RepoDetails & { sessionTimestampMs?: number };
 
-async function readRepoDetailsFromFile(absolutePath: string | undefined, deps: NodeDeps | null): Promise<RepoDetailsWithTimestamp> {
+async function readRepoDetailsFromFile(
+  absolutePath: string | undefined,
+  deps: NodeDeps | null
+): Promise<RepoDetailsWithTimestamp> {
   if (!absolutePath || !deps) return {};
   try {
     const firstLine = await readFirstLine(absolutePath, deps);
