@@ -213,6 +213,7 @@ export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDi
 interface DiscoverySectionProps extends ViewerDiscoveryState {
   onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void
   onFiltersRender?: (node: React.ReactNode | null) => void
+  uploadSlot?: React.ReactNode
 }
 
 export function DiscoverySection(props: DiscoverySectionProps) {
@@ -226,6 +227,7 @@ export function DiscoverySection(props: DiscoverySectionProps) {
     setSelectedSessionPath,
     onAddSessionToChat,
     onFiltersRender,
+    uploadSlot,
   } = props
   if (!snapshot) {
     return <DiscoveryUnavailable />
@@ -241,6 +243,7 @@ export function DiscoverySection(props: DiscoverySectionProps) {
         onSelectionChange={setSelectedSessionPath}
         onAddSessionToChat={onAddSessionToChat}
         onFiltersRender={onFiltersRender}
+        uploadSlot={uploadSlot}
       />
     </SessionExplorerBoundary>
   )

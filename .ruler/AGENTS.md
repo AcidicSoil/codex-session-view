@@ -120,9 +120,9 @@
 * Never start the dev server with `pnpm run dev` or `npm run dev`.
 * Never create a local pnpm --store
 * Always run `pnpm test` after modifying javascript
-* Run `pnpm lint` before ending your turn
+* Always resolve failing test before ending your turn
 * Document public utilities in `docs/` when you change behavior.
-* Never use `git reset --hard HEAD` 
+* Never use `git reset --hard HEAD`
 
 ## docs map
 

@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { Input } from '~/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select'
 import {
@@ -251,11 +252,15 @@ function RangeInput({
   onValueChange: (value: string) => void
   onUnitChange: (value: SizeUnit) => void
 }) {
+  const inputId = useId()
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-white/60">{label}</label>
+      <label className="text-xs font-medium text-white/60" htmlFor={inputId}>
+        {label}
+      </label>
       <div className="flex items-center gap-2">
         <Input
+          id={inputId}
           type="number"
           inputMode="numeric"
           min={0}

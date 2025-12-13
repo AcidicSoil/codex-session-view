@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useUiSettingsStore } from '~/stores/uiSettingsStore'
-import { UploadControlsCard, UploadTimelineSection } from '../viewer.upload.section'
+import { UploadTimelineSection } from '../viewer.upload.section'
 import { useViewerWorkspace } from '../viewer.page'
 import { HookGateNotice } from '~/components/chatbot/HookGateNotice'
 import { MisalignmentBanner } from '~/components/chatbot/MisalignmentBanner'
@@ -32,9 +32,11 @@ export function ViewerInspectorView({ focusPanel }: ViewerInspectorViewProps) {
     }
   }, [focusPanel, openRuleInspector, activeSessionId, hookGate?.assetPath])
 
+  const hasInspectorRail = misalignments.length > 0 || Boolean(hookGate)
+
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,1fr)]">
-      <section className="min-w-0 space-y-6">
+    <div className="flex flex-col gap-8 xl:flex-row">
+      <section className="min-w-0 flex-1 space-y-6">
         <div className="rounded-3xl border border-white/10 bg-background/80 p-6 shadow-sm">
           <UploadTimelineSection
             controller={uploadController}
@@ -42,31 +44,33 @@ export function ViewerInspectorView({ focusPanel }: ViewerInspectorViewProps) {
             flaggedEvents={flaggedEventMarkers}
             onFlaggedEventClick={handleFlaggedEventClick}
             focusEventIndex={focusEventIndex}
+            className="w-full"
           />
         </div>
       </section>
-      <aside className="min-w-0 space-y-6">
-        <UploadControlsCard controller={uploadController} className="rounded-3xl border border-white/10 bg-background/80 p-5 shadow-sm" />
-        {misalignments.length ? (
-          <MisalignmentBanner misalignments={misalignments} onReview={handleRemediationPrefill} />
-        ) : null}
-        {hookGate ? (
-          <HookGateNotice
-            blocked={hookGate.blocked}
-            severity={hookGate.severity}
-            message={hookGate.message}
-            annotations={hookGate.annotations}
-            rules={hookGate.rules}
-            sessionId={hookGate.sessionId}
-            assetPath={hookGate.assetPath}
-            onDismiss={() => setHookGate(null)}
-            onJumpToEvent={(index) => {
-              void handleHookGateJump(index)
-            }}
-            resolveEventContext={resolveEvidenceContext}
-          />
-        ) : null}
-      </aside>
+      {hasInspectorRail ? (
+        <aside className="xl:w-[360px] xl:flex-none xl:space-y-6 xl:self-start xl:rounded-3xl xl:border xl:border-white/10 xl:bg-background/80 xl:p-6 xl:shadow-sm xl:sticky xl:top-28">
+          {misalignments.length ? (
+            <MisalignmentBanner misalignments={misalignments} onReview={handleRemediationPrefill} />
+          ) : null}
+          {hookGate ? (
+            <HookGateNotice
+              blocked={hookGate.blocked}
+              severity={hookGate.severity}
+              message={hookGate.message}
+              annotations={hookGate.annotations}
+              rules={hookGate.rules}
+              sessionId={hookGate.sessionId}
+              assetPath={hookGate.assetPath}
+              onDismiss={() => setHookGate(null)}
+              onJumpToEvent={(index) => {
+                void handleHookGateJump(index)
+              }}
+              resolveEventContext={resolveEvidenceContext}
+            />
+          ) : null}
+        </aside>
+      ) : null}
     </div>
   )
 }

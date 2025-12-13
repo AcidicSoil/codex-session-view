@@ -11,6 +11,7 @@ interface DiscoveryPanelProps {
   onSelectionChange?: (path: string | null) => void;
   onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void;
   onFiltersRender?: (node: ReactNode | null) => void;
+  uploadSlot?: ReactNode;
 }
 
 export function DiscoveryPanel({
@@ -22,6 +23,7 @@ export function DiscoveryPanel({
   onSelectionChange,
   onAddSessionToChat,
   onFiltersRender,
+  uploadSlot,
 }: DiscoveryPanelProps) {
   return (
     <section className="space-y-3">
@@ -34,6 +36,7 @@ export function DiscoveryPanel({
         onSelectionChange={onSelectionChange}
         onAddSessionToChat={onAddSessionToChat}
         onFiltersRender={onFiltersRender}
+        uploadSlot={uploadSlot}
       />
     </section>
   );

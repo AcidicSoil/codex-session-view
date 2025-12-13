@@ -56,15 +56,28 @@ type MockSession = ReturnType<typeof createDiscoveredSessionAsset>
 const sampleSessions = sampleInputs.map((entry) => createDiscoveredSessionAsset(entry))
 
 vi.mock("@tanstack/react-router", () => {
+  const subscribers = new Set<() => void>()
+  const mockLocationState = { location: { search: {} as Record<string, unknown> } }
   const mockRouter = {
-    navigate: vi.fn(),
+    navigate: vi.fn((options?: { search?: Record<string, unknown> }) => {
+      if (options?.search) {
+        mockLocationState.location.search = options.search
+        subscribers.forEach((listener) => listener())
+      }
+    }),
     invalidate: vi.fn(),
-    state: { location: { search: {} } },
   }
-  const mockLocationState = { location: { search: {} } }
   return {
     useRouter: () => mockRouter,
-    useRouterState: () => mockLocationState,
+    useRouterState: () =>
+      React.useSyncExternalStore(
+        (listener) => {
+          subscribers.add(listener)
+          return () => subscribers.delete(listener)
+        },
+        () => mockLocationState,
+        () => mockLocationState,
+      ),
     RouterProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
     Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => (
       <a {...props}>{children}</a>
@@ -92,13 +105,16 @@ vi.mock("~/components/viewer/session-list/SessionRepositoryAccordion", () => {
     SessionRepositoryAccordion: ({
       groups,
       onSessionOpen,
+      searchMatchers,
     }: {
       groups: { id: string; label: string; sessions: MockSession[] }[]
       onSessionOpen?: (asset: MockSession) => void
+      searchMatchers?: Array<(input: string) => boolean>
     }) => {
       const [openIds, setOpenIds] = React.useState<string[]>([])
       const toggle = (id: string) =>
         setOpenIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]))
+      const shouldHighlight = Boolean(searchMatchers && searchMatchers.length > 0)
       return (
         <div>
           {groups.map((group) => (
@@ -110,7 +126,7 @@ vi.mock("~/components/viewer/session-list/SessionRepositoryAccordion", () => {
                 <div>
                   {group.sessions.map((session) => (
                     <div key={session.path}>
-                      <span>{session.path}</span>
+                      {shouldHighlight ? <mark>{session.path}</mark> : <span>{session.path}</span>}
                       <button type="button" onClick={() => onSessionOpen?.(session)}>
                         Load session
                       </button>

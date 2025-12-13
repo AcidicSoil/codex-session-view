@@ -1,19 +1,33 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
+import * as React from "react"
 import type { AnchorHTMLAttributes, ReactNode } from "react"
 import type { DiscoveredSessionAsset } from "~/lib/viewerDiscovery"
 import { DiscoveryPanel } from "~/components/viewer/DiscoveryPanel"
 
 vi.mock("@tanstack/react-router", () => {
+    const subscribers = new Set<() => void>()
+    const mockLocationState = { location: { search: {} as Record<string, unknown> } }
     const mockRouter = {
-        navigate: vi.fn(),
+        navigate: vi.fn((options?: { search?: Record<string, unknown> }) => {
+            if (options?.search) {
+                mockLocationState.location.search = options.search
+                subscribers.forEach((listener) => listener())
+            }
+        }),
         invalidate: vi.fn(),
-        state: { location: { search: {} } },
     }
-    const mockLocationState = { location: { search: {} } }
     return {
         useRouter: () => mockRouter,
-        useRouterState: () => mockLocationState,
+        useRouterState: () =>
+            React.useSyncExternalStore(
+                (listener) => {
+                    subscribers.add(listener)
+                    return () => subscribers.delete(listener)
+                },
+                () => mockLocationState,
+                () => mockLocationState,
+            ),
         RouterProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
         Link: ({ children, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => (
             <a {...props}>{children}</a>
