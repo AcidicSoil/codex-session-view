@@ -122,6 +122,7 @@
 * Always run `pnpm test` after modifying javascript
 * Run `pnpm lint` before ending your turn
 * Document public utilities in `docs/` when you change behavior.
+* Never use `git reset --hard HEAD` 
 
 ## docs map
 
