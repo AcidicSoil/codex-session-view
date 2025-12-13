@@ -12,6 +12,8 @@ import { uploadRecordToAsset } from '~/lib/viewerDiscovery'
 import { cn } from '~/lib/utils'
 import { SessionUploadDropzone } from '~/components/viewer/SessionUploadDropzone'
 import { TimelineTracingBeam } from '~/components/viewer/TimelineTracingBeam'
+import { useSessionExportController } from '~/features/viewer/export/useSessionExportController'
+import { SessionExportButton } from '~/features/viewer/export/SessionExportButton'
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
@@ -208,6 +210,7 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
   const hasEvents = loader.state.events.length > 0
   const [timelineHeight, setTimelineHeight] = useState(720)
   const [searchBarSlot, setSearchBarSlot] = useState<ReactNode | null>(null)
+  const exportController = useSessionExportController({ events: loader.state.events, sessionMeta: controller.meta })
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -231,6 +234,7 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             {searchBarSlot ? <div className="min-w-[240px] sm:w-72">{searchBarSlot}</div> : null}
+            <SessionExportButton controller={exportController} disabled={!controller.hasEvents} />
             <Button
               variant="outline"
               size="sm"
@@ -256,6 +260,7 @@ export function UploadTimelineSection({ controller, onAddTimelineEventToChat, cl
             flaggedEvents={flaggedEvents}
             onFlaggedEventClick={onFlaggedEventClick}
             focusEventIndex={focusEventIndex}
+            onEventSelect={exportController.handleEventSelect}
           />
         </TimelineTracingBeam>
       ) : (

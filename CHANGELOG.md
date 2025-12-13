@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Playwright coverage** for Session Coach and General Chat flows along with a `pnpm test:e2e:prod` script that validates `pnpm start -- --prod` against the LM Studio/OpenAI-compatible model defaults.
 - **Component & server tests** covering the chat model registry, evidence mapper, and the ChatDockPanel’s key interactions.
 - **Live session updates** that watch workspace-backed session files and stream timeline changes in real time without manual reloads.
+- **Granular session export tooling** including a modal with scope/format controls, CSV/JSON/Markdown/TXT generators, and Blob-based downloads that respect the viewer’s filters, range, and metadata toggles.
 
 ### Changed
 - `fetchChatbotState`, `/api/chatbot/*`, and the chat dock now return model metadata, persist chat state per `{ sessionId, mode }`, and respect reset requests.
