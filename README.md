@@ -34,7 +34,7 @@ This application serves as an advanced implementation of a modern web app starte
 - **Data Persistence Control:** Easily toggle session persistence in `localStorage` to save analysis across browser sessions.
 - **Modern Tech Stack:** Built with the latest [TanStack ecosystem](https://tanstack.com/) (Start RC1, Router, Query), [React](https://react.dev/), and [TypeScript](https://www.typescriptlang.org/) for a robust, type-safe, and performant experience.
 - **Beautiful & Accessible UI:** Crafted with [shadcn/ui](https://ui.shadcn.com/) and [Tailwind CSS v4](https://tailwindcss.com/) for a polished, responsive, and accessible user interface.
-- **Enhanced Client-Side Debugging:** Leverages [Browser Echo](https://github.com/browser-echo/browser-echo) for advanced client-side logging and inspection.
+- **Enhanced Client-Side Debugging:** Leverages [Browser Echo](https://github.com/instructa/browser-echo) for advanced client-side logging and inspection.
 
 ## 🧠 Session Coach
 
