@@ -7,8 +7,6 @@ import {
   type BranchGroup,
   type FilterBadgeKey,
   type RepositoryGroup,
-  type SessionExplorerFilterDimensions,
-  type SessionExplorerFilterOption,
   type SessionExplorerFilterState,
   type SessionRecencyPreset,
   type SizeUnit,
@@ -190,10 +188,6 @@ export function buildFilterModel(
     timestampTo: derived.timestampToMs ?? null,
     sortKey: state.sortKey,
     sortOrder: state.sortDir,
-    repoFilter: null,
-    branchFilter: state.branchFilters,
-    sourceFilter: state.sourceFilters,
-    tagFilter: state.tagFilters,
     recency: state.recency,
   };
 }
@@ -300,58 +294,6 @@ export function getFilterBadgeByKey(
   key: FilterBadgeKey
 ): ActiveFilterBadge | undefined {
   return badges.find((badge) => badge.key === key);
-}
-
-export function buildFilterDimensions(assets: DiscoveredSessionAsset[]): SessionExplorerFilterDimensions {
-  const sourceMap = new Map<string, SessionExplorerFilterOption>()
-  const branchMap = new Map<string, SessionExplorerFilterOption>()
-  const tagMap = new Map<string, SessionExplorerFilterOption>()
-
-  const increment = (
-    target: Map<string, SessionExplorerFilterOption>,
-    id: string,
-    label: string,
-  ) => {
-    const entry = target.get(id)
-    if (entry) {
-      entry.count += 1
-      return
-    }
-    target.set(id, { id, label, count: 1 })
-  }
-
-  for (const asset of assets) {
-    increment(sourceMap, asset.source, labelSource(asset.source))
-    const branchId = (asset.branch || 'Unknown').toLowerCase()
-    increment(branchMap, branchId, asset.branch || 'Unknown branch')
-    asset.tags?.forEach((tag) => {
-      const normalized = tag.trim()
-      if (!normalized) return
-      increment(tagMap, normalized.toLowerCase(), normalized)
-    })
-  }
-
-  const toSortedArray = (target: Map<string, SessionExplorerFilterOption>) =>
-    Array.from(target.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-
-  return {
-    sources: toSortedArray(sourceMap),
-    branches: toSortedArray(branchMap),
-    tags: toSortedArray(tagMap),
-  }
-}
-
-function labelSource(source: string) {
-  switch (source) {
-    case 'bundled':
-      return 'Bundled'
-    case 'external':
-      return 'External'
-    case 'upload':
-      return 'Upload'
-    default:
-      return source
-  }
 }
 
 export const RECENCY_PRESETS: Array<{

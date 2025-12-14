@@ -14,7 +14,6 @@ import {
 import {
   aggregateByRepository,
   buildActiveFilterBadges,
-  buildFilterDimensions,
   buildFilterModel,
   getRecencyWindowMs,
   getSortValue,
@@ -31,9 +30,6 @@ const EMPTY_SEARCH: Record<string, unknown> = {}
 function cloneFilters(input: SessionExplorerFilterState): SessionExplorerFilterState {
   return {
     ...input,
-    sourceFilters: [...input.sourceFilters],
-    branchFilters: [...input.branchFilters],
-    tagFilters: [...input.tagFilters],
   }
 }
 
@@ -58,14 +54,6 @@ export function useSessionExplorerModel({
   const [optimisticSearch, setOptimisticSearch] = useState<Record<string, unknown> | null>(null)
   const currentSearch = optimisticSearch ?? searchSource
   const filters = useMemo(() => parseSessionExplorerSearch(currentSearch), [currentSearch])
-  const normalizedBranchFilters = useMemo(
-    () => filters.branchFilters.map((branch) => branch.toLowerCase()),
-    [filters.branchFilters],
-  )
-  const normalizedTagFilters = useMemo(
-    () => filters.tagFilters.map((tag) => tag.toLowerCase()),
-    [filters.tagFilters],
-  )
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
   const [loadingRepoId, setLoadingRepoId] = useState<string | null>(null);
   const searchMatchers = useMemo(
@@ -127,13 +115,6 @@ export function useSessionExplorerModel({
     [commitFilters],
   )
 
-  const updateFilters = useCallback(
-    (updater: (prev: SessionExplorerFilterState) => SessionExplorerFilterState) => {
-      commitFilters(updater)
-    },
-    [commitFilters],
-  )
-
   useEffect(() => {
     if (sizeMinBytes !== undefined && sizeMaxBytes !== undefined && sizeMinBytes > sizeMaxBytes) {
       logWarn('viewer.filters', 'Manual size range invalid', { sizeMinBytes, sizeMaxBytes });
@@ -153,8 +134,6 @@ export function useSessionExplorerModel({
     () => sessionAssets.filter((asset) => typeof asset.url === 'string' && asset.url.includes('/api/uploads/')),
     [sessionAssets]
   );
-
-  const filterDimensions = useMemo(() => buildFilterDimensions(accessibleAssets), [accessibleAssets])
 
   const repositoryGroups = useMemo(
     () => aggregateByRepository(accessibleAssets),
@@ -192,17 +171,6 @@ export function useSessionExplorerModel({
                 ? matchesSearchText(searchMatchers, group, session)
                 : true;
               if (!matchesSearch) return false;
-              const matchesSource =
-                filters.sourceFilters.length === 0 || filters.sourceFilters.includes(session.source);
-              if (!matchesSource) return false;
-              const branchName = (session.branch || 'unknown').toLowerCase();
-              const matchesBranch =
-                normalizedBranchFilters.length === 0 || normalizedBranchFilters.includes(branchName);
-              if (!matchesBranch) return false;
-              const tagSet = session.tags?.map((tag) => tag.toLowerCase()) ?? [];
-              const matchesTags =
-                normalizedTagFilters.length === 0 || tagSet.some((tag) => normalizedTagFilters.includes(tag));
-              if (!matchesTags) return false;
               const size = session.size ?? 0;
               const meetsMin = min === undefined || size >= min;
               const meetsMax = max === undefined || size <= max;
@@ -270,9 +238,6 @@ export function useSessionExplorerModel({
     filters.sortDir,
     timestampFromMs,
     timestampToMs,
-    filters.sourceFilters,
-    normalizedBranchFilters,
-    normalizedTagFilters,
   ]);
 
   const filterLogRef = useRef<{ modelKey: string; count: number }>({
@@ -453,7 +418,6 @@ export function useSessionExplorerModel({
   return {
     filters,
     updateFilter,
-    updateFilters,
     resetFilters,
     activeBadges,
     handleBadgeClear,
@@ -466,7 +430,6 @@ export function useSessionExplorerModel({
     loadingRepoId,
     hasResults,
     searchMatchers,
-    filterDimensions,
   };
 }
 

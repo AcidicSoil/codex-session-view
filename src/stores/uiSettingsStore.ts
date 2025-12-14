@@ -75,9 +75,6 @@ function snapshotFromState(state: UiSettingsState): UiSettingsSnapshot {
     sessionExplorer: {
       filters: {
         ...state.sessionExplorer.filters,
-        sourceFilters: [...state.sessionExplorer.filters.sourceFilters],
-        branchFilters: [...state.sessionExplorer.filters.branchFilters],
-        tagFilters: [...state.sessionExplorer.filters.tagFilters],
       },
     },
     timelinePreferences: { ...state.timelinePreferences },

@@ -175,7 +175,8 @@ describe("SessionList", () => {
     render(<SessionList sessionAssets={sampleSessions} snapshotTimestamp={Date.now()} />)
 
     await user.click(screen.getByRole("button", { name: /Filters/i }))
-    const minInput = await screen.findByLabelText(/Minimum/i, { selector: 'input' })
+    await user.click(await screen.findByRole("button", { name: /Size Range/i }))
+    const minInput = await screen.findByLabelText(/Minimum/i, { selector: "input" })
     await user.clear(minInput)
     await user.type(minInput, "1")
 
