@@ -28,17 +28,23 @@ function getDateTimeFormatter(options: {
   locale?: Intl.LocalesArgument
   timeZone?: string
   kind: typeof DATE_TIME_KEY | typeof CLOCK_TIME_KEY
+  clockSeconds?: boolean
 }) {
   const locale = options.locale ?? DEFAULT_LOCALE
   const timeZone = options.timeZone ?? DEFAULT_TIME_ZONE
-  const key = `${options.kind}:${locale}:${timeZone}`
+  const precisionKey = options.kind === CLOCK_TIME_KEY && options.clockSeconds ? ':seconds' : ':minutes'
+  const key = `${options.kind}:${locale}:${timeZone}${precisionKey}`
   const cached = dateTimeFormatterCache.get(key)
   if (cached) return cached
 
   const formatter = new Intl.DateTimeFormat(locale, {
     ...(options.kind === DATE_TIME_KEY
       ? { dateStyle: 'medium', timeStyle: 'short' }
-      : { hour: '2-digit', minute: '2-digit' }),
+      : {
+          hour: '2-digit',
+          minute: '2-digit',
+          ...(options.clockSeconds ? { second: '2-digit' } : {}),
+        }),
     timeZone,
   })
   dateTimeFormatterCache.set(key, formatter)
@@ -74,6 +80,7 @@ interface FormatClockTimeOptions {
   locale?: Intl.LocalesArgument
   timeZone?: string
   fallback?: string
+  includeSeconds?: boolean
 }
 
 export function formatClockTime(value: DateInput, options?: FormatClockTimeOptions): string {
@@ -83,5 +90,6 @@ export function formatClockTime(value: DateInput, options?: FormatClockTimeOptio
     locale: options?.locale,
     timeZone: options?.timeZone,
     kind: CLOCK_TIME_KEY,
+    clockSeconds: options?.includeSeconds ?? false,
   }).format(date)
 }

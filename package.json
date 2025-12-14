@@ -90,6 +90,7 @@
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^3.0.6",
     "react-stately": "^3.42.0",
+    "react-use-measure": "^2.1.7",
     "redaxios": "^0.5.1",
     "remark-gfm": "^4.0.1",
     "rxdb": "^16.21.1",
