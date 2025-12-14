@@ -11,7 +11,9 @@ interface DiscoveryPanelProps {
   onSelectionChange?: (path: string | null) => void;
   onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void;
   onFiltersRender?: (node: ReactNode | null) => void;
-  uploadSlot?: ReactNode;
+  uploadDrawerContent?: ReactNode;
+  onSessionEject?: () => void;
+  isSessionEjecting?: boolean;
 }
 
 export function DiscoveryPanel({
@@ -23,7 +25,9 @@ export function DiscoveryPanel({
   onSelectionChange,
   onAddSessionToChat,
   onFiltersRender,
-  uploadSlot,
+  uploadDrawerContent,
+  onSessionEject,
+  isSessionEjecting,
 }: DiscoveryPanelProps) {
   return (
     <section className="space-y-3">
@@ -36,7 +40,9 @@ export function DiscoveryPanel({
         onSelectionChange={onSelectionChange}
         onAddSessionToChat={onAddSessionToChat}
         onFiltersRender={onFiltersRender}
-        uploadSlot={uploadSlot}
+        uploadDrawerContent={uploadDrawerContent}
+        onSessionEject={onSessionEject}
+        isSessionEjecting={isSessionEjecting}
       />
     </section>
   );

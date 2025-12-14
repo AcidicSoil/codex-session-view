@@ -75,6 +75,7 @@ interface ViewerWorkspaceContextValue {
   refreshSessionCoach: (sessionId: string) => Promise<void>
   bindSessionToAsset: (sessionId: string, assetPath: string) => Promise<void>
   activeAssetPath: string | null
+  handleSessionEject: () => void
 }
 
 const ViewerWorkspaceContext = createContext<ViewerWorkspaceContextValue | null>(null)
@@ -373,6 +374,23 @@ function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
     [handleRemediationPrefill],
   )
 
+  const handleSessionEject = useCallback(() => {
+    if (uploadController.isEjecting) return
+    uploadController.ejectSession()
+    discovery.stopLiveWatcher()
+    discovery.setSelectedSessionPath(null)
+    setLastSessionPath(null)
+    setActiveSessionId(initialSessionId)
+    setFocusEventIndex(null)
+  }, [
+    discovery,
+    initialSessionId,
+    setActiveSessionId,
+    setFocusEventIndex,
+    setLastSessionPath,
+    uploadController,
+  ])
+
   const ensureSessionAssetLoaded = useCallback(
     async (assetPath?: string | null) => {
       if (!assetPath) return
@@ -438,6 +456,7 @@ function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
     refreshSessionCoach,
     bindSessionToAsset,
     activeAssetPath,
+    handleSessionEject,
   }
 
   return <ViewerWorkspaceContext.Provider value={contextValue}>{children}</ViewerWorkspaceContext.Provider>

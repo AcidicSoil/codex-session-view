@@ -5,12 +5,18 @@ import { useViewerWorkspace } from '../viewer.page'
 import { ExplorerUploadPanel } from './ExplorerUploadPanel'
 
 export function ViewerExplorerView() {
-  const { discovery, handleAddSessionToChat, uploadController } = useViewerWorkspace()
+  const { discovery, handleAddSessionToChat, uploadController, handleSessionEject } = useViewerWorkspace()
   const snapshotTimestamp = discovery.snapshot?.generatedAt ?? Date.now()
   const repoCount = useMemo(() => {
     const repoNames = discovery.sessionAssets.map((asset) => asset.repoLabel ?? asset.repoName ?? asset.repoMeta?.repo)
     return new Set(repoNames.filter(Boolean)).size
   }, [discovery.sessionAssets])
+  const uploadDrawerContent = useMemo(
+    () => (
+      <ExplorerUploadPanel controller={uploadController} className="rounded-2xl border border-white/15 bg-black/40 p-4" />
+    ),
+    [uploadController],
+  )
 
   return (
     <div className="space-y-8 min-w-0">
@@ -22,9 +28,11 @@ export function ViewerExplorerView() {
       </header>
       <DiscoverySection
         {...discovery}
-        uploadSlot={<ExplorerUploadPanel controller={uploadController} className="rounded-2xl border border-white/15 bg-black/40 p-4" />}
+        uploadDrawerContent={uploadDrawerContent}
         onAddSessionToChat={handleAddSessionToChat}
         onFiltersRender={undefined}
+        onSessionEject={handleSessionEject}
+        isSessionEjecting={uploadController.isEjecting}
       />
     </div>
   )

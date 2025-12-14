@@ -8,17 +8,6 @@ import type { SessionAssetInput } from "~/lib/viewerDiscovery"
 import { useUiSettingsStore } from "~/stores/uiSettingsStore"
 import type { AnchorHTMLAttributes, ReactNode } from "react"
 
-class ResizeObserverStub {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-if (typeof globalThis.ResizeObserver === "undefined") {
-  // @ts-expect-error: jsdom test shim
-  globalThis.ResizeObserver = ResizeObserverStub
-}
-
 const sampleInputs: SessionAssetInput[] = [
   {
     path: "sessions/alpha/run-a.jsonl",
@@ -201,6 +190,40 @@ describe("SessionList", () => {
     await user.click(screen.getByRole("button", { name: /Toggle example\/alpha repository/i }))
     const matches = await screen.findAllByText(/run-a\.jsonl/i)
     expect(matches.length).toBeGreaterThan(0)
+  })
+
+  it("renders the upload drawer trigger when content is provided", async () => {
+    const user = userEvent.setup()
+    render(
+      <SessionList
+        sessionAssets={sampleSessions}
+        snapshotTimestamp={Date.now()}
+        uploadDrawerContent={<div data-testid="upload-drawer-content">Upload drawer body</div>}
+      />,
+    )
+
+    const trigger = screen.getByRole("button", { name: /Upload session/i })
+    expect(trigger).toBeInTheDocument()
+    await user.click(trigger)
+    expect(await screen.findByTestId("upload-drawer-content")).toBeInTheDocument()
+  })
+
+  it("calls onSessionEject when the eject button is pressed", async () => {
+    const user = userEvent.setup()
+    const handleEject = vi.fn()
+    render(
+      <SessionList
+        sessionAssets={sampleSessions}
+        snapshotTimestamp={Date.now()}
+        selectedSessionPath="sessions/alpha/run-a.jsonl"
+        onSessionEject={handleEject}
+      />,
+    )
+
+    const ejectButton = screen.getByRole("button", { name: /Eject session/i })
+    expect(ejectButton).toBeEnabled()
+    await user.click(ejectButton)
+    expect(handleEject).toHaveBeenCalledTimes(1)
   })
 
   it("calls onSessionOpen when load button pressed", async () => {
