@@ -67,9 +67,6 @@ export interface UiSettingsSnapshot {
 function cloneSessionExplorerFilters(source: SessionExplorerFilterState): SessionExplorerFilterState {
   return {
     ...source,
-    sourceFilters: [...source.sourceFilters],
-    branchFilters: [...source.branchFilters],
-    tagFilters: [...source.tagFilters],
   }
 }
 

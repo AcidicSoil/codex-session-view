@@ -39,15 +39,14 @@ This document captures the technical details that would otherwise bloat the top-
 
 ## Session Explorer Filters & URL Sync
 
-- Session Explorer filter state is now canonicalized in the router search params. `src/features/viewer/sessionExplorer.search.ts` owns the parser and serializer, ensuring the filters survive reloads, tab shares, and navigation without extra loader work.
-- Namespaced param keys (all prefixed with `sx`) cover every surface in the new Filters popover:
+- Session Explorer filters still live entirely in router search params. `src/features/viewer/sessionExplorer.search.ts` parses/stringifies them so reloads, tab shares, and navigation rehydrate the exact state without extra loaders or client `fetch` calls.
+- Namespaced param keys (all prefixed with `sx`) now focus on the four surviving categories:
   - `sxSearch` (text query), `sxSort` + `sxSortDir` (field/direction).
-  - `sxSizeMin`, `sxSizeMinUnit`, `sxSizeMax`, `sxSizeMaxUnit` (range inputs use `KB`/`MB` units).
-  - `sxTsFrom`, `sxTsTo` (ISO datetime-local strings).
-  - `sxSources`, `sxBranches`, `sxTags` (comma-delimited lists).
-  - `sxRecency` (one of `all`, `24h`, `7d`, `30d`).
-- `useSessionExplorerModel` reads these params via `parseSessionExplorerSearch`, mirrors the value into `useUiSettingsStore` (for offline persistence), and updates the router with `applySessionExplorerSearch` whenever the user changes a filter.
-- The legacy All/Recent/Large preset buttons and “Advanced” accordion have been replaced with a single Filters popover built on the shared `Popover` primitive. It now owns source/branch/tag toggles, recency chips, and the size/timestamp range inputs so the default view stays uncluttered.
+  - `sxSizeMin`, `sxSizeMinUnit`, `sxSizeMax`, `sxSizeMaxUnit` for the MB inputs (units default to `MB` but still parse legacy `KB` values).
+  - `sxTsFrom`, `sxTsTo` (ISO `datetime-local` strings) and `sxRecency` (`all`, `24h`, `7d`, `30d`).
+- Deprecated facets (`sxSources`, `sxBranches`, `sxTags`) have been removed end-to-end from state, URL params, and persistence. Upload workflows now keep search state untouched instead of forcing a “source=upload” filter.
+- `useSessionExplorerModel` mirrors parsed filters into `useUiSettingsStore` for persistence, warns when the user enters invalid ranges, and exposes helpers for badge clearing/resetting without any `useEffect` fetching.
+- The Filters UI is now a Cult UI `FamilyDrawer` with a root navigation view (summaries + Reset/Apply buttons) and four dedicated child views (Sort Order, Recency, Size Range, Timestamp Range). Each child renders just its controls, uses `useFamilyDrawer` to handle Back navigation, and mutates router-backed state via `updateFilter`, keeping the main layout focused on the session list.
 
 ## Session Metadata Heuristics
 

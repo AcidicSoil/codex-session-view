@@ -7,7 +7,15 @@ import dotenv from "dotenv"
 // ensure env vars are loaded before any database import
 dotenv.config({ path: ".env.test" })
 
-const DrawerContext = React.createContext<{ open: boolean; setOpen: (next: boolean) => void } | null>(null)
+type DrawerContextValue = {
+  open: boolean
+  setOpen: (next: boolean) => void
+  view: string
+  setView: (view: string) => void
+  views?: Record<string, React.ComponentType>
+}
+
+const DrawerContext = React.createContext<DrawerContextValue | null>(null)
 
 function useDrawerMock() {
   const context = React.useContext(DrawerContext)
@@ -22,8 +30,10 @@ vi.mock("~/components/ui/family-drawer", () => {
     open,
     onOpenChange,
     children,
-  }: { open?: boolean; onOpenChange?: (open: boolean) => void; children: React.ReactNode }) {
+    views,
+  }: { open?: boolean; onOpenChange?: (open: boolean) => void; children: React.ReactNode; views?: Record<string, React.ComponentType> }) {
     const [internalOpen, setInternalOpen] = React.useState(open ?? false)
+    const [currentView, setCurrentView] = React.useState("default")
     const actualOpen = open ?? internalOpen
     const setOpen = React.useCallback(
       (next: boolean) => {
@@ -34,7 +44,10 @@ vi.mock("~/components/ui/family-drawer", () => {
       },
       [open, onOpenChange],
     )
-    const value = React.useMemo(() => ({ open: actualOpen, setOpen }), [actualOpen, setOpen])
+    const value = React.useMemo(
+      () => ({ open: actualOpen, setOpen, view: currentView, setView: setCurrentView, views }),
+      [actualOpen, setOpen, currentView, views],
+    )
     return <DrawerContext.Provider value={value}>{children}</DrawerContext.Provider>
   }
 
@@ -123,6 +136,31 @@ vi.mock("~/components/ui/family-drawer", () => {
     )
   }
 
+  function FamilyDrawerViewContent({ views }: { views?: Record<string, React.ComponentType> }) {
+    const context = useDrawerMock()
+    const registry = views ?? context.views
+    if (!registry) {
+      return null
+    }
+    const ViewComponent = registry[context.view] ?? registry.default
+    if (!ViewComponent) return null
+    return <ViewComponent />
+  }
+
+  function useFamilyDrawer() {
+    const context = useDrawerMock()
+    return {
+      isOpen: context.open,
+      view: context.view,
+      setView: context.setView,
+      opacityDuration: 0,
+      elementRef: () => null,
+      bounds: { height: 0, width: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0 },
+      views: context.views,
+      setOpen: context.setOpen,
+    }
+  }
+
   return {
     FamilyDrawerRoot,
     FamilyDrawerTrigger,
@@ -133,6 +171,8 @@ vi.mock("~/components/ui/family-drawer", () => {
     FamilyDrawerAnimatedContent,
     FamilyDrawerHeader,
     FamilyDrawerClose,
+    FamilyDrawerViewContent,
+    useFamilyDrawer,
   }
 })
 

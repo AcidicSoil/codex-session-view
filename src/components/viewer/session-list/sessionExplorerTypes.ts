@@ -1,4 +1,4 @@
-import type { DiscoveredSessionAsset, SessionAssetSource } from '~/lib/viewerDiscovery';
+import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import type { RepoMetadata } from '~/lib/repo-metadata';
 
 export interface BranchGroup {
@@ -37,9 +37,6 @@ export interface SessionExplorerFilterState {
   sizeMaxUnit: SizeUnit;
   timestampFrom: string;
   timestampTo: string;
-  sourceFilters: SessionAssetSource[];
-  branchFilters: string[];
-  tagFilters: string[];
   recency: SessionRecencyPreset;
 }
 
@@ -53,9 +50,6 @@ export const defaultFilterState: SessionExplorerFilterState = {
   sizeMaxUnit: 'MB',
   timestampFrom: '',
   timestampTo: '',
-  sourceFilters: [],
-  branchFilters: [],
-  tagFilters: [],
   recency: 'all',
 };
 
@@ -73,17 +67,4 @@ export interface QuickFilterOption {
   label: string;
   description: string;
   apply: () => void;
-}
-
-export interface SessionExplorerFilterOption {
-  id: string;
-  label: string;
-  count: number;
-  description?: string;
-}
-
-export interface SessionExplorerFilterDimensions {
-  sources: SessionExplorerFilterOption[];
-  branches: SessionExplorerFilterOption[];
-  tags: SessionExplorerFilterOption[];
 }

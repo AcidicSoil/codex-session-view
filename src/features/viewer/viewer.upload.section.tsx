@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useRouter, useRouterState } from '@tanstack/react-router'
 import { TimelineWithFilters } from '~/components/viewer/TimelineWithFilters'
 import type { TimelineEvent, TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
 import { Button } from '~/components/ui/button'
@@ -15,7 +14,6 @@ import { SessionUploadDropzone } from '~/components/viewer/SessionUploadDropzone
 import { TimelineTracingBeam } from '~/components/viewer/TimelineTracingBeam'
 import { useSessionExportController } from '~/features/viewer/export/useSessionExportController'
 import { SessionExportButton } from '~/features/viewer/export/SessionExportButton'
-import { applySessionExplorerSearch } from '~/features/viewer/sessionExplorer.search'
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
@@ -37,9 +35,6 @@ export type UploadController = ReturnType<typeof useUploadController>
 export function useUploadController({ loader, onUploadsPersisted }: UploadControllerOptions) {
   const [isEjecting, setIsEjecting] = useState(false)
   const [isPersistingUpload, setIsPersistingUpload] = useState(false)
-  const router = useRouter()
-  const locationState = useRouterState({ select: (state) => state.location })
-  const currentSearch = (locationState?.search as Record<string, unknown> | undefined) ?? {}
 
   const persistUploads = useCallback(
     async (files: File[]) => {
@@ -58,15 +53,6 @@ export function useUploadController({ loader, onUploadsPersisted }: UploadContro
         if (appendedAssets.length) {
           onUploadsPersisted?.(appendedAssets)
           const latestPath = appendedAssets[0]?.path
-          const nextSearch = applySessionExplorerSearch(currentSearch, (prev) => ({
-            ...prev,
-            sourceFilters: ['upload'],
-          }))
-          logInfo('viewer.filters', 'Auto-focused upload source after persistence', {
-            navigation: 'upload-persisted',
-            sourceFilters: ['upload'],
-          })
-          void router.navigate({ search: nextSearch, replace: true })
           if (latestPath) {
             logInfo('viewer.discovery', 'Auto-selecting persisted upload asset', { path: latestPath })
           }
@@ -86,7 +72,7 @@ export function useUploadController({ loader, onUploadsPersisted }: UploadContro
         setIsPersistingUpload(false)
       }
     },
-    [onUploadsPersisted, currentSearch, router],
+    [onUploadsPersisted],
   )
 
   const handleFile = useCallback(

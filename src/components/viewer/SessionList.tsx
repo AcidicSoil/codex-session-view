@@ -41,7 +41,6 @@ export function SessionList({
   const {
     filters,
     updateFilter,
-    updateFilters,
     resetFilters,
     activeBadges,
     handleBadgeClear,
@@ -54,7 +53,6 @@ export function SessionList({
     loadingRepoId,
     hasResults,
     searchMatchers,
-    filterDimensions,
   } = useSessionExplorerModel({
     sessionAssets,
     snapshotTimestamp,
@@ -67,11 +65,9 @@ export function SessionList({
       <SessionExplorerToolbar
         filters={filters}
         updateFilter={updateFilter}
-        updateFilters={updateFilters}
         onResetFilters={resetFilters}
         activeBadges={activeBadges}
         onBadgeClear={handleBadgeClear}
-        filterDimensions={filterDimensions}
         filteredSessionCount={filteredSessionCount}
         totalSessionCount={accessibleAssets.length}
         uploadDrawerContent={uploadDrawerContent}
@@ -80,10 +76,8 @@ export function SessionList({
     [
       activeBadges,
       handleBadgeClear,
-      filterDimensions,
       filters,
       resetFilters,
-      updateFilters,
       updateFilter,
       filteredSessionCount,
       accessibleAssets.length,

@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -11,29 +11,31 @@ import {
   FamilyDrawerPortal,
   FamilyDrawerRoot,
   FamilyDrawerTrigger,
+  FamilyDrawerViewContent,
+  type ViewsRegistry,
 } from '~/components/ui/family-drawer';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { formatCount } from '~/utils/intl';
-import { SessionFiltersPanel } from './SessionFiltersPanel';
+import {
+  FiltersDrawerRecencyView,
+  FiltersDrawerRootView,
+  FiltersDrawerSizeView,
+  FiltersDrawerSortView,
+  FiltersDrawerTimestampView,
+  buildFiltersDrawerSummaries,
+} from './filters';
 import { SessionSearchBar } from './SessionSearchBar';
 import type {
   ActiveFilterBadge,
   FilterBadgeKey,
-  SessionExplorerFilterDimensions,
   SessionExplorerFilterState,
-  SortDirection,
-  SortKey,
 } from './sessionExplorerTypes';
 
 interface SessionExplorerToolbarProps {
   filters: SessionExplorerFilterState;
   updateFilter: <K extends keyof SessionExplorerFilterState>(key: K, value: SessionExplorerFilterState[K]) => void;
-  updateFilters: (updater: (prev: SessionExplorerFilterState) => SessionExplorerFilterState) => void;
   onResetFilters: () => void;
   activeBadges: ActiveFilterBadge[];
   onBadgeClear: (key: FilterBadgeKey) => void;
-  filterDimensions: SessionExplorerFilterDimensions;
   filteredSessionCount: number;
   totalSessionCount: number;
   uploadDrawerContent?: ReactNode;
@@ -42,21 +44,69 @@ interface SessionExplorerToolbarProps {
 export function SessionExplorerToolbar({
   filters,
   updateFilter,
-  updateFilters,
   onResetFilters,
   activeBadges,
   onBadgeClear,
-  filterDimensions,
   filteredSessionCount,
   totalSessionCount,
   uploadDrawerContent,
 }: SessionExplorerToolbarProps) {
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [isFiltersOpen, setFiltersOpen] = useState(false);
+  const [filtersDrawerKey, setFiltersDrawerKey] = useState(0);
+
+  const handleFiltersOpenChange = useCallback((nextOpen: boolean) => {
+    setFiltersOpen(nextOpen);
+    if (!nextOpen) {
+      setFiltersDrawerKey((prev) => prev + 1);
+    }
+  }, []);
 
   const activeBadgePreview = useMemo(() => activeBadges.slice(0, 3), [activeBadges]);
   const remainingBadgeCount = Math.max(0, activeBadges.length - activeBadgePreview.length);
   const showUploadButton = Boolean(uploadDrawerContent);
+  const filterSummaries = useMemo(() => buildFiltersDrawerSummaries(filters), [filters]);
+
+  const filterViews = useMemo<ViewsRegistry>(
+    () => ({
+      default: () => (
+        <FiltersDrawerRootView
+          summaries={filterSummaries}
+          onReset={onResetFilters}
+          onApply={() => handleFiltersOpenChange(false)}
+        />
+      ),
+      sort: () => (
+        <FiltersDrawerSortView
+          sortKey={filters.sortKey}
+          sortDir={filters.sortDir}
+          onSortKeyChange={(value) => updateFilter('sortKey', value)}
+          onSortDirChange={(value) => updateFilter('sortDir', value)}
+        />
+      ),
+      recency: () => (
+        <FiltersDrawerRecencyView value={filters.recency} onSelect={(value) => updateFilter('recency', value)} />
+      ),
+      size: () => (
+        <FiltersDrawerSizeView
+          minValue={filters.sizeMinValue}
+          maxValue={filters.sizeMaxValue}
+          minUnit={filters.sizeMinUnit}
+          maxUnit={filters.sizeMaxUnit}
+          onValueChange={(key, value) => updateFilter(key, value)}
+          onUnitChange={(key, unit) => updateFilter(key, unit)}
+        />
+      ),
+      timestamp: () => (
+        <FiltersDrawerTimestampView
+          from={filters.timestampFrom}
+          to={filters.timestampTo}
+          onChange={(key, value) => updateFilter(key, value)}
+        />
+      ),
+    }),
+    [filterSummaries, filters, updateFilter, onResetFilters, handleFiltersOpenChange],
+  );
 
   return (
     <div className="rounded-3xl border border-white/15 bg-[#04070f] p-4 text-white shadow-[0_30px_80px_rgba(0,0,0,0.35)]">
@@ -108,7 +158,7 @@ export function SessionExplorerToolbar({
               </FamilyDrawerPortal>
             </FamilyDrawerRoot>
           ) : null}
-          <FamilyDrawerRoot open={isFiltersOpen} onOpenChange={setFiltersOpen}>
+          <FamilyDrawerRoot key={filtersDrawerKey} open={isFiltersOpen} onOpenChange={handleFiltersOpenChange}>
             <FamilyDrawerTrigger asChild>
               <Button type="button" variant="outline">
                 Filters
@@ -119,71 +169,7 @@ export function SessionExplorerToolbar({
               <FamilyDrawerContent>
                 <FamilyDrawerAnimatedWrapper>
                   <FamilyDrawerAnimatedContent>
-                    <FamilyDrawerHeader
-                      icon={<span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Filters</span>}
-                      title="Adjust filters"
-                      description="Combine sources, branches, tags, and ranges without losing context."
-                    />
-                    <div className="mt-4 space-y-4">
-                      <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/60">Sort order</p>
-                        <p className="text-xs text-white/50">Choose how sessions appear when browsing repositories.</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-3">
-                          <Select value={filters.sortKey} onValueChange={(value: SortKey) => updateFilter('sortKey', value)}>
-                            <SelectTrigger aria-label="Sort sessions by" className="w-40 border-white/20 bg-transparent text-white">
-                              <SelectValue placeholder="Sort by" />
-                            </SelectTrigger>
-                            <SelectContent align="start" className="border-white/10 bg-[#090c15] text-white">
-                              <SelectItem value="timestamp">Timestamp</SelectItem>
-                              <SelectItem value="size">Size</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <ToggleGroup
-                            type="single"
-                            value={filters.sortDir}
-                            onValueChange={(value) => value && updateFilter('sortDir', value as SortDirection)}
-                            aria-label="Sort direction"
-                            className="flex rounded-full border border-white/15"
-                          >
-                            <ToggleGroupItem value="asc" aria-label="Sort ascending" className="text-xs">
-                              ↑ ASC
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="desc" aria-label="Sort descending" className="text-xs">
-                              ↓ DESC
-                            </ToggleGroupItem>
-                          </ToggleGroup>
-                        </div>
-                      </div>
-                      <SessionFiltersPanel
-                        filters={filters}
-                        filterDimensions={filterDimensions}
-                        updateFilter={updateFilter}
-                        updateFilters={updateFilters}
-                        onResetFilters={onResetFilters}
-                      />
-                      {activeBadges.length ? (
-                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          {activeBadges.map((badge) => (
-                            <button
-                              key={badge.key}
-                              type="button"
-                              className="rounded-full border border-white/20 px-3 py-0.5 text-white"
-                              onClick={() => onBadgeClear(badge.key)}
-                            >
-                              {badge.label} ×
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <Button type="button" variant="ghost" className="text-sm" onClick={onResetFilters}>
-                          Reset
-                        </Button>
-                        <Button type="button" onClick={() => setFiltersOpen(false)}>
-                          Apply filters
-                        </Button>
-                      </div>
-                    </div>
+                    <FamilyDrawerViewContent views={filterViews} />
                     <FamilyDrawerClose className="top-6">✕</FamilyDrawerClose>
                   </FamilyDrawerAnimatedContent>
                 </FamilyDrawerAnimatedWrapper>
