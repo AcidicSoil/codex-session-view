@@ -9,7 +9,8 @@ import type { ResponseItemParsed } from '~/lib/session-parser';
 import { TimelineView } from '~/components/viewer/TimelineView';
 import { useTimelineBeamScrollRegistrar } from '~/components/viewer/TimelineTracingBeam';
 import { eventKey } from '~/utils/event-key';
-import { formatClockTime } from '~/utils/intl';
+import { LocalTimestamp } from '~/components/viewer/LocalTimestamp';
+import { formatLogTimestamp } from '~/utils/log-timestamp';
 import type { SearchMatcher } from '~/utils/search';
 import { HighlightedText } from '~/components/ui/highlighted-text';
 import type { MisalignmentRecord, MisalignmentSeverity } from '~/lib/sessions/model';
@@ -245,7 +246,14 @@ function renderTimelineItem(
     mouseEvent.stopPropagation();
     onAddEventToChat?.(event, index);
   };
-  const timestampLabel = event.at ? formatTimestamp(event.at) : null;
+  const timestampNode = event.at ? (
+    <LocalTimestamp
+      value={event.at}
+      variant="clock"
+      includeSeconds
+      className="rounded-full border border-white/5 bg-white/5 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+    />
+  ) : null;
   const eventIndex =
     typeof (event as { index?: number }).index === 'number'
       ? (event as { index?: number }).index
@@ -327,11 +335,7 @@ function renderTimelineItem(
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
-              {timestampLabel ? (
-                <span className="rounded-full border border-white/5 bg-white/5 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {timestampLabel}
-                </span>
-              ) : null}
+              {timestampNode}
               <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {event.type}
               </span>
@@ -480,7 +484,9 @@ function buildMetaLine(event: TimelineEvent) {
       value = event.toolName;
       break;
     default:
-      value = event.at ? formatTimestamp(event.at) : 'Event';
+      value =
+        (event.at && formatLogTimestamp(event.at, { fallback: 'Event', style: 'datetime' })) ||
+        'Event';
   }
   return value && value.length > 0 ? value : 'Event';
 }
@@ -673,10 +679,6 @@ function summarizeCommand(value?: string | null, limit = 72) {
 function truncate(value: string, limit = SNIPPET_LENGTH) {
   if (!value) return '';
   return value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
-}
-
-function formatTimestamp(date: string | number | Date) {
-  return formatClockTime(date);
 }
 
 function capitalize(value: string) {

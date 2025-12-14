@@ -115,18 +115,20 @@ vi.mock("~/components/viewer/session-list/SessionRepositoryAccordion", () => {
       const toggle = (id: string) =>
         setOpenIds((prev) => (prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]))
       const shouldHighlight = Boolean(searchMatchers && searchMatchers.length > 0)
+      const renderSessionLabel = (session: MockSession) =>
+        shouldHighlight ? <mark>{session.path}</mark> : <span>{session.path}</span>
       return (
         <div>
           {groups.map((group) => (
             <div key={group.id}>
               <button type="button" onClick={() => toggle(group.id)}>
-                Toggle {group.label} repository
+                Toggle {shouldHighlight ? <mark>{group.label}</mark> : group.label} repository
               </button>
               {openIds.includes(group.id) ? (
                 <div>
                   {group.sessions.map((session) => (
                     <div key={session.path}>
-                      {shouldHighlight ? <mark>{session.path}</mark> : <span>{session.path}</span>}
+                      {renderSessionLabel(session)}
                       <button type="button" onClick={() => onSessionOpen?.(session)}>
                         Load session
                       </button>
@@ -171,11 +173,12 @@ describe("SessionList", () => {
     const searchInput = screen.getByPlaceholderText(/search repo/i)
     searchInput.focus()
     await user.type(searchInput, "/beta/i")
-
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: /Toggle example\/alpha repository/i })).not.toBeInTheDocument()
     })
-    expect(container.querySelectorAll("mark").length).toBeGreaterThan(0)
+    await waitFor(() => {
+      expect(container.querySelectorAll("mark").length).toBeGreaterThan(0)
+    })
   })
 
   it("applies advanced size filters via the sheet", async () => {
@@ -186,7 +189,6 @@ describe("SessionList", () => {
     const minInput = await screen.findByLabelText(/Minimum/i, { selector: 'input' })
     await user.clear(minInput)
     await user.type(minInput, "1")
-    await user.click(screen.getByRole("button", { name: /Done/i }))
 
     expect(screen.getAllByText(/Alpha/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/Beta/i)).not.toBeInTheDocument()

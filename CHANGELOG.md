@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `fetchChatbotState`, `/api/chatbot/*`, and the chat dock now return model metadata, persist chat state per `{ sessionId, mode }`, and respect reset requests.
 - README instructions now document the LM Studio model overrides and new e2e scripts so contributors understand how to run dev vs. prod parity checks locally.
+- Inspector timeline timestamps now render exactly as recorded in the session log, removing unintended timezone conversions in event cards and lists.
 
 ## [1.0.0] - 2025-09-25
 

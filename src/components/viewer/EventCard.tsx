@@ -3,13 +3,7 @@ import { Badge } from '~/components/ui/badge';
 import { BorderBeam } from '~/components/ui/border-beam';
 import type { MessagePart, ResponseItem } from '~/lib/viewer-types';
 import { cn } from '~/lib/utils';
-import { formatDateTime } from '~/utils/intl';
-
-function formatTimestamp(value?: string | number) {
-  if (!value) return null;
-  const formatted = formatDateTime(value, { fallback: '' });
-  return formatted || String(value);
-}
+import { LocalTimestamp } from '~/components/viewer/LocalTimestamp';
 
 function summarizeShellSnippet(event: Extract<ResponseItem, { type: 'LocalShellCall' }>) {
   const preferred = event.stdout?.trim() || event.stderr?.trim() || event.command || '';
@@ -78,7 +72,6 @@ interface EventCardProps {
 
 export function EventCard({ item, index }: EventCardProps) {
   const summary = renderSummary(item);
-  const at = formatTimestamp(item.at);
   return (
     <Card className="relative overflow-hidden rounded-lg border bg-card/70 px-4 py-3">
       <BorderBeam className="opacity-80" size={120} duration={8} borderWidth={1.5} />
@@ -94,7 +87,14 @@ export function EventCard({ item, index }: EventCardProps) {
           {item.type === 'Message' && typeof (item as any).role === 'string' ? (
             <span>{(item as any).role}</span>
           ) : null}
-          {at ? <span>{at}</span> : null}
+          {item.at ? (
+            <LocalTimestamp
+              value={item.at}
+              variant="datetime"
+              showZone
+              className="text-muted-foreground"
+            />
+          ) : null}
         </div>
         <div className="space-y-2">
           {item.type === 'Message' ? (
