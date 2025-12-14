@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import { TimelineView } from '~/components/viewer/TimelineView';
@@ -34,11 +34,28 @@ export function SessionRepoVirtualList({
   const items = useMemo<SessionTimelineItem[]>(() => sessions.map((session, index) => ({ session, index })), [sessions]);
   const [gradients, setGradients] = useState({ top: 0, bottom: 0 });
   const viewportHeight = items.length ? Math.max(Math.min(items.length * 96, 520), 220) : 200;
+  const lastScrollPathRef = useRef<string | null>(null);
   const scrollToIndex = useMemo(() => {
     if (!selectedSessionPath) return null;
     const targetIndex = items.findIndex((item) => item.session.path === selectedSessionPath);
-    return targetIndex >= 0 ? targetIndex : null;
+    if (targetIndex < 0) {
+      return null;
+    }
+    if (lastScrollPathRef.current === selectedSessionPath) {
+      return null;
+    }
+    return targetIndex;
   }, [items, selectedSessionPath]);
+  useEffect(() => {
+    if (selectedSessionPath == null) {
+      lastScrollPathRef.current = null;
+    }
+  }, [selectedSessionPath]);
+  useEffect(() => {
+    if (scrollToIndex != null && selectedSessionPath) {
+      lastScrollPathRef.current = selectedSessionPath;
+    }
+  }, [scrollToIndex, selectedSessionPath]);
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-background/70">

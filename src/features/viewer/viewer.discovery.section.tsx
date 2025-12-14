@@ -27,6 +27,7 @@ export interface ViewerDiscoveryState {
   loadingSessionPath: string | null
   selectedSessionPath: string | null
   setSelectedSessionPath: (path: string | null) => void
+  stopLiveWatcher: () => void
 }
 
 export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDiscoveryState {
@@ -207,13 +208,16 @@ export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDi
     loadingSessionPath,
     selectedSessionPath,
     setSelectedSessionPath,
+    stopLiveWatcher,
   }
 }
 
 interface DiscoverySectionProps extends ViewerDiscoveryState {
   onAddSessionToChat?: (asset: DiscoveredSessionAsset) => void
   onFiltersRender?: (node: React.ReactNode | null) => void
-  uploadSlot?: React.ReactNode
+  uploadDrawerContent?: React.ReactNode
+  onSessionEject?: () => void
+  isSessionEjecting?: boolean
 }
 
 export function DiscoverySection(props: DiscoverySectionProps) {
@@ -227,7 +231,9 @@ export function DiscoverySection(props: DiscoverySectionProps) {
     setSelectedSessionPath,
     onAddSessionToChat,
     onFiltersRender,
-    uploadSlot,
+    uploadDrawerContent,
+    onSessionEject,
+    isSessionEjecting,
   } = props
   if (!snapshot) {
     return <DiscoveryUnavailable />
@@ -243,7 +249,9 @@ export function DiscoverySection(props: DiscoverySectionProps) {
         onSelectionChange={setSelectedSessionPath}
         onAddSessionToChat={onAddSessionToChat}
         onFiltersRender={onFiltersRender}
-        uploadSlot={uploadSlot}
+        uploadDrawerContent={uploadDrawerContent}
+        onSessionEject={onSessionEject}
+        isSessionEjecting={isSessionEjecting}
       />
     </SessionExplorerBoundary>
   )

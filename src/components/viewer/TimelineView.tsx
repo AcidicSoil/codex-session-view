@@ -61,6 +61,7 @@ export function TimelineView<T>({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [measured, setMeasured] = useState<Map<number, number>>(new Map());
+  const lastScrollSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     registerScrollContainer?.(containerRef.current);
@@ -122,23 +123,34 @@ export function TimelineView<T>({
   const visible: number[] = [];
   for (let i = start; i <= end; i++) visible.push(i);
 
-  if (scrollToIndex != null) {
+  useEffect(() => {
+    if (scrollToIndex == null) {
+      lastScrollSignatureRef.current = null;
+      return;
+    }
     const el = containerRef.current;
-    if (el && scrollToIndex >= 0 && scrollToIndex < items.length) {
-      const baseTop = offsets[scrollToIndex] ?? 0;
-      const itemHeight = measured.get(scrollToIndex) ?? estimateItemHeight;
-      const maxScrollTop = Math.max(0, totalHeight - height);
-      const centeredTop = baseTop - height / 2 + itemHeight / 2;
-      const clampedTop = Math.max(0, Math.min(maxScrollTop, centeredTop));
-      if (Math.abs(el.scrollTop - clampedTop) > 4) {
-        if (typeof el.scrollTo === 'function') {
-          el.scrollTo({ top: clampedTop, behavior: 'smooth' });
-        } else {
-          el.scrollTop = clampedTop;
-        }
+    if (!el) return;
+    if (scrollToIndex < 0 || scrollToIndex >= items.length) {
+      return;
+    }
+    const baseTop = offsets[scrollToIndex] ?? 0;
+    const signature = `${scrollToIndex}:${baseTop}:${totalHeight}:${height}`;
+    if (lastScrollSignatureRef.current === signature) {
+      return;
+    }
+    lastScrollSignatureRef.current = signature;
+    const itemHeight = measured.get(scrollToIndex) ?? estimateItemHeight;
+    const maxScrollTop = Math.max(0, totalHeight - height);
+    const centeredTop = baseTop - height / 2 + itemHeight / 2;
+    const clampedTop = Math.max(0, Math.min(maxScrollTop, centeredTop));
+    if (Math.abs(el.scrollTop - clampedTop) > 4) {
+      if (typeof el.scrollTo === 'function') {
+        el.scrollTo({ top: clampedTop, behavior: 'smooth' });
+      } else {
+        el.scrollTop = clampedTop;
       }
     }
-  }
+  }, [estimateItemHeight, height, items.length, measured, offsets, scrollToIndex, totalHeight]);
 
   return (
     <div
