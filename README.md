@@ -6,6 +6,8 @@
   [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
   [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
   [![PNPM Build](https://github.com/AcidicSoil/codex-session-view/actions/workflows/build.yml/badge.svg)](https://github.com/AcidicSoil/codex-session-view/actions/workflows/build.yml)
+  [![pnpm dev (smoke)](https://github.com/AcidicSoil/codex-session-view/actions/workflows/dev.yml/badge.svg?branch=main)](https://github.com/AcidicSoil/codex-session-view/actions/workflows/dev.yml)
+
 </div>
 
 [![LM Studio](https://img.shields.io/badge/LM%20Studio-14151A)](https://lmstudio.ai/)
