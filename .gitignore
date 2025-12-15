@@ -48,7 +48,7 @@ session-id.md
 **/.mcp-workflows/**
 .browser-echo-mcp.json
 #.TODO/
-.gemini/
+.gemini
 **/.archived/**
 .taskmaster
 #.taskmaster/docs/v1/
