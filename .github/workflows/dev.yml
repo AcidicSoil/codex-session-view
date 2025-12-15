@@ -1,0 +1,39 @@
+# .github/workflows/dev.yml
+name: pnpm dev (smoke)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  dev-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Start dev server (fail if it exits)
+        run: |
+          set -euo pipefail
+          pnpm dev &
+          PID=$!
+          sleep 10
+          if ! kill -0 "$PID" >/dev/null 2>&1; then
+            echo "pnpm dev exited early"
+            wait "$PID"
+            exit 1
+          fi
+          kill "$PID"
+          wait "$PID" || true
