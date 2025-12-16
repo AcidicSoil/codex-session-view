@@ -8,7 +8,7 @@ import { useUploadController, type UploadController } from './viewer.upload.sect
 import type { TimelineEvent, TimelineFlagMarker } from '~/components/viewer/AnimatedTimelineList'
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery'
 import { logInfo } from '~/lib/logger'
-import type { MisalignmentRecord } from '~/lib/sessions/model'
+import type { MisalignmentRecord, ChatMode } from '~/lib/sessions/model'
 import type { CoachPrefillPayload, ChatRemediationMetadata } from '~/lib/chatbot/types'
 import { hookifyAddToChat } from '~/server/function/hookifyAddToChat'
 import { fetchChatbotState } from '~/server/function/chatbotState'
@@ -59,8 +59,8 @@ interface ViewerWorkspaceContextValue {
   refreshRuleInventory: () => Promise<void>
   hookGate: HookGateState | null
   setHookGate: React.Dispatch<React.SetStateAction<HookGateState | null>>
-  coachPrefill: CoachPrefillPayload | null
-  setCoachPrefill: React.Dispatch<React.SetStateAction<CoachPrefillPayload | null>>
+  chatPrefills: Record<ChatMode, CoachPrefillPayload | null>
+  setChatPrefill: (mode: ChatMode, payload: CoachPrefillPayload | null) => void
   handleAddTimelineEventToChat: (event: TimelineEvent, index: number) => void
   handleAddSessionToChat: (asset: DiscoveredSessionAsset) => void
   handleRemediationPrefill: (records: MisalignmentRecord[]) => void
@@ -156,7 +156,18 @@ function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
   const [activeSessionId, setActiveSessionId] = useState(initialSessionId)
   const [sessionCoachState, setSessionCoachState] = useState<ViewerChatState | null>(loaderData?.sessionCoach ?? null)
   const [ruleSheetEntries, setRuleSheetEntries] = useState(loaderData?.ruleSheet ?? [])
-  const [coachPrefill, setCoachPrefill] = useState<CoachPrefillPayload | null>(null)
+  const [chatPrefills, setChatPrefills] = useState<Record<ChatMode, CoachPrefillPayload | null>>({
+    session: null,
+    general: null,
+  })
+  const setChatPrefill = useCallback((mode: ChatMode, payload: CoachPrefillPayload | null) => {
+    setChatPrefills((prev) => {
+      if (prev[mode] === payload) {
+        return prev
+      }
+      return { ...prev, [mode]: payload }
+    })
+  }, [])
   const [hookGate, setHookGate] = useState<HookGateState | null>(null)
   const [focusEventIndex, setFocusEventIndex] = useState<number | null>(null)
 
@@ -296,7 +307,8 @@ function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
           prompt: response.prefill.prompt,
           metadata: metadataOverride ?? response.prefill.metadata,
         }
-        setCoachPrefill(mergedPrefill)
+        setChatPrefill('session', mergedPrefill)
+        setChatPrefill('general', mergedPrefill)
         void router.navigate({ to: VIEWER_CHAT_ROUTE_PATH })
       } catch (error) {
         toast.error('Hookify check failed', {
@@ -304,7 +316,7 @@ function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
         })
       }
     },
-    [activeAssetPath, activeSessionId, router],
+    [activeAssetPath, activeSessionId, router, setChatPrefill],
   )
 
   const handleAddTimelineEventToChat = useCallback(
@@ -440,8 +452,8 @@ function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
     refreshRuleInventory,
     hookGate,
     setHookGate,
-    coachPrefill,
-    setCoachPrefill,
+    chatPrefills,
+    setChatPrefill,
     handleAddTimelineEventToChat,
     handleAddSessionToChat,
     handleRemediationPrefill,

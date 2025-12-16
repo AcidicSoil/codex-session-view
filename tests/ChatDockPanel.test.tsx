@@ -114,8 +114,8 @@ describe('ChatDockPanel interactions', () => {
   it('requests a reset when clicking New chat', async () => {
     fetchChatbotState.mockResolvedValue({ ...baseState, messages: [] })
     renderChatDockPanel()
-    const newChatButtons = screen.getAllByRole('button', { name: /New chat/i })
-    await userEvent.click(newChatButtons[0])
+    const newChatButton = screen.getByRole('button', { name: /New chat/i })
+    await userEvent.click(newChatButton)
     await waitFor(() => expect(fetchChatbotState).toHaveBeenCalled())
     expect(fetchChatbotState).toHaveBeenCalledWith({ data: { sessionId: 'session-default', mode: 'session', reset: true } })
   })

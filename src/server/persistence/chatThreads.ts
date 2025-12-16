@@ -244,6 +244,22 @@ export async function touchChatThread(threadId: string, updates: { lastMessagePr
   await schedulePersist()
 }
 
+export async function resetChatThreadMessages(threadId: string) {
+  await ensureHydrated()
+  const existing = chatThreadsCollection.get(threadId)
+  if (!existing) {
+    throw new Error(`Chat thread ${threadId} not found`)
+  }
+  await chatThreadsCollection.update(threadId, (draft) => {
+    draft.messageCount = 0
+    draft.lastMessagePreview = undefined
+    draft.lastMessageAt = undefined
+    draft.updatedAt = new Date().toISOString()
+  })
+  await schedulePersist()
+  return chatThreadsCollection.get(threadId)!
+}
+
 export async function clearThreadsForSession(sessionId: SessionId) {
   await ensureHydrated()
   const matches = chatThreadsCollection.toArray.filter((thread) => thread.sessionId === sessionId)

@@ -4,24 +4,38 @@ import type { ViewerChatState } from '~/features/viewer/viewer.loader';
 import { fetchChatbotState } from '~/server/function/chatbotState';
 import { useChatDockController } from '~/components/chatbot/hooks/useChatDockController';
 import type { CoachPrefillPayload } from '~/lib/chatbot/types';
+import type { ChatMode } from '~/lib/sessions/model';
 import { ChatDockBootstrapCard } from '~/components/chatbot/ChatDockBootstrapCard';
 import { ChatDockHeader } from '~/components/chatbot/ChatDockHeader';
 import { ChatDockMessages, MisalignmentList } from '~/components/chatbot/ChatDockMessages';
 import { ChatDockComposer } from '~/components/chatbot/ChatDockComposer';
-import AIChatHistory from '~/components/ui/ai-chat-history';
+import { ChatDockSidebar } from '~/components/chatbot/ChatDockSidebar';
+import { ChatDockCollateral } from '~/components/chatbot/ChatDockCollateral';
+import { useChatDockSettings } from '~/stores/chatDockSettings';
+import { DEFAULT_CHAT_AI_SETTINGS, type ChatAiSettings } from '~/lib/chatbot/aiSettings';
+import { providerKeepAlive } from '~/server/function/providerKeepAlive';
+import { toast } from 'sonner';
+import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
+import type { SessionRepoBindingRecord } from '~/server/persistence/sessionRepoBindings';
 
 interface ChatDockPanelProps {
   sessionId: string;
   state?: ViewerChatState | null;
-  prefill?: CoachPrefillPayload | null;
-  onPrefillConsumed?: () => void;
+  assets?: DiscoveredSessionAsset[];
+  prefills?: Partial<Record<ChatMode, CoachPrefillPayload | null>>;
+  onPrefillConsumed?: (mode: ChatMode) => void;
+  onPrefillInject?: (payload: CoachPrefillPayload, targets?: ChatMode[] | 'both') => void;
+  onRepoContextChange?: (context: SessionRepoBindingRecord | null) => Promise<void> | void;
 }
 
 export function ChatDockPanel({
   sessionId,
   state,
-  prefill,
+  assets,
+  prefills,
   onPrefillConsumed,
+  onPrefillInject,
+  onRepoContextChange,
 }: ChatDockPanelProps) {
   const [bootState, setBootState] = useState<ViewerChatState | null>(state ?? null);
   const [bootStatus, setBootStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>(
@@ -62,8 +76,10 @@ export function ChatDockPanel({
     <ChatDockContent
       sessionId={sessionId}
       initialState={bootState}
-      prefill={prefill}
+      assets={assets}
+      prefills={prefills}
       onPrefillConsumed={onPrefillConsumed}
+      onRepoContextChange={onRepoContextChange}
     />
   );
 }
@@ -71,13 +87,17 @@ export function ChatDockPanel({
 function ChatDockContent({
   sessionId,
   initialState,
-  prefill,
+  assets,
+  prefills,
   onPrefillConsumed,
+  onRepoContextChange,
 }: {
   sessionId: string;
   initialState: ViewerChatState;
-  prefill?: CoachPrefillPayload | null;
-  onPrefillConsumed?: () => void;
+  assets?: DiscoveredSessionAsset[];
+  prefills?: Partial<Record<ChatMode, CoachPrefillPayload | null>>;
+  onPrefillConsumed?: (mode: ChatMode) => void;
+  onRepoContextChange?: (context: SessionRepoBindingRecord | null) => Promise<void> | void;
 }) {
   const {
     activeState,
@@ -108,12 +128,18 @@ function ChatDockContent({
     handleThreadRename,
     handleThreadDelete,
     handleThreadArchive,
+    handleThreadClear,
+    handleNewChat,
   } = useChatDockController({
     sessionId,
     initialState,
-    prefill,
+    prefills,
     onPrefillConsumed,
   });
+  const aiSettings = useChatDockSettings((state) => state.aiSettings);
+  const setAiSettingsStore = useChatDockSettings((state) => state.setAiSettings);
+  const keepLoadedProviders = useChatDockSettings((state) => state.keepLoadedProviders);
+  const setKeepLoadedProvider = useChatDockSettings((state) => state.setKeepLoaded);
 
   const contextDescription = useMemo(() => {
     const headings = activeState.contextSections?.map((section) => section.heading).join(', ') || 'n/a';
@@ -129,69 +155,100 @@ function ChatDockContent({
       ? "Summarize this session's status"
       : 'Ask anything about the viewer';
 
+  const providerKey = selectedModel?.provider ?? selectedModel?.id ?? 'default-provider';
+  const keepLoaded = keepLoadedProviders[providerKey] ?? false;
+  const handleAiSettingsChange = useCallback(
+    (next: ChatAiSettings) => {
+      setAiSettingsStore(next);
+    },
+    [setAiSettingsStore]
+  );
+  const handleAiSettingsReset = useCallback(() => {
+    setAiSettingsStore(DEFAULT_CHAT_AI_SETTINGS);
+  }, [setAiSettingsStore]);
+  const handleKeepLoadedToggle = useCallback(
+    async (value: boolean) => {
+      setKeepLoadedProvider(providerKey, value);
+      if (value) {
+        try {
+          await providerKeepAlive({ data: { providerId: providerKey } });
+        } catch (error) {
+          toast.error('Failed to keep model loaded', {
+            description: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+    },
+    [providerKey, setKeepLoadedProvider]
+  );
+
   return (
-    <Card className="flex h-full flex-col gap-4">
-      <ChatDockHeader
-        mode={activeState.mode}
-        onModeChange={handleModeSwitch}
-        isStreaming={isStreaming}
-        isResetting={isResetting}
-        sessionId={sessionId}
-        streamError={streamError}
-        availableModels={availableModels}
-        selectValue={selectValue}
-        onModelChange={handleModelChange}
-        selectedModel={selectedModel}
-        onReset={handleReset}
-        contextDescription={contextDescription}
-      />
-      <CardContent className="flex flex-1 flex-col gap-4 p-4">
-        <div className="flex flex-col gap-4 lg:flex-row">
-          <div className="flex flex-1 flex-col gap-4 min-w-0">
-            <ChatDockMessages
-              messages={orderedMessages}
-              showEvidence={showMisalignments}
-              activeStreamId={activeStreamId}
-            />
-            <ChatDockComposer
-              draft={draft}
-              onDraftChange={setDraft}
-              onSend={() => void handleSend()}
-              isStreaming={isStreaming}
-              placeholder={composerPlaceholder}
-              onTextareaKeyDown={handleTextareaKeyDown}
-              vanishText={vanishText}
-              onVanishComplete={handleVanishComplete}
-              placeholderPills={placeholderPills}
-            />
-            {showMisalignments ? (
-              <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
-            ) : null}
-          </div>
-          <div className="w-full lg:max-w-sm">
-            <AIChatHistory
-              activeConversationId={threadId ?? undefined}
-              conversations={threads.map((thread) => ({
-                id: thread.id,
-                title: thread.title,
-                lastMessage: thread.lastMessagePreview,
-                lastMessageAt: thread.lastMessageAt ? new Date(thread.lastMessageAt) : undefined,
-                messageCount: thread.messageCount,
-                isArchived: thread.status === 'archived',
-                isActive: thread.status === 'active',
-              }))}
-              onSelect={(conversationId) => handleThreadSelect(conversationId)}
-              onNewConversation={() => void handleReset()}
-              onRename={(conversationId, newTitle) => handleThreadRename(conversationId, newTitle)}
-              onDelete={(conversationId) => handleThreadDelete(conversationId)}
-              onArchive={(conversationId) => handleThreadArchive(conversationId)}
-              onUnarchive={(conversationId) => handleThreadSelect(conversationId)}
-              showNewButton
-            />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="grid h-full gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
+      <Card className="flex h-full flex-col overflow-hidden">
+        <ChatDockHeader
+          mode={activeState.mode}
+          onModeChange={handleModeSwitch}
+          isStreaming={isStreaming}
+          isResetting={isResetting}
+          sessionId={sessionId}
+          streamError={streamError}
+          availableModels={availableModels}
+          selectValue={selectValue}
+          onModelChange={handleModelChange}
+          selectedModel={selectedModel}
+          onReset={handleReset}
+          onClearChat={handleThreadClear}
+          contextDescription={contextDescription}
+        />
+        <CardContent className="flex flex-1 flex-col gap-4 p-4 min-h-0 overflow-y-auto">
+          <ChatDockMessages
+            messages={orderedMessages}
+            showEvidence={showMisalignments}
+            activeStreamId={activeStreamId}
+          />
+          <ChatDockComposer
+            draft={draft}
+            onDraftChange={setDraft}
+            onSend={() => void handleSend()}
+            isStreaming={isStreaming}
+            placeholder={composerPlaceholder}
+            onTextareaKeyDown={handleTextareaKeyDown}
+            vanishText={vanishText}
+            onVanishComplete={handleVanishComplete}
+            placeholderPills={placeholderPills}
+          />
+          {showMisalignments ? (
+            <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
+          ) : null}
+        </CardContent>
+      </Card>
+      <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-1">
+        <ChatDockSidebar
+          threads={threads}
+          activeThreadId={threadId}
+          onSelect={handleThreadSelect}
+          onRename={handleThreadRename}
+          onDelete={handleThreadDelete}
+          onArchive={handleThreadArchive}
+          onUnarchive={handleThreadSelect}
+          onNewChat={handleNewChat}
+          onClearChat={handleThreadClear}
+          isBusy={isResetting || isStreaming}
+        />
+        <ChatDockCollateral
+          sessionId={sessionId}
+          assets={assets ?? []}
+          repoContext={initialState.repoContext}
+          onRepoContextChange={onRepoContextChange}
+          aiSettings={aiSettings}
+          onAiSettingsChange={handleAiSettingsChange}
+          onAiSettingsReset={handleAiSettingsReset}
+          keepLoaded={keepLoaded}
+          onKeepLoadedChange={handleKeepLoadedToggle}
+          isBusy={isResetting || isStreaming}
+        />
+      </div>
+    </div>
   );
 }
 
