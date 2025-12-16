@@ -1,4 +1,5 @@
 import { CardHeader, CardTitle } from '~/components/ui/card';
+import { Button } from '~/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import {
   Select,
@@ -10,6 +11,7 @@ import {
 import { SessionAnalysisPopouts } from '~/components/chatbot/SessionAnalysisPopouts';
 import type { ChatMode } from '~/lib/sessions/model';
 import type { ViewerChatState } from '~/features/viewer/viewer.loader';
+import { History } from 'lucide-react';
 
 interface ChatDockHeaderProps {
   mode: ChatMode;
@@ -23,6 +25,10 @@ interface ChatDockHeaderProps {
   onModelChange: (modelId: string) => void;
   selectedModel?: ViewerChatState['modelOptions'][number];
   contextDescription: string;
+  onHistoryToggle: () => void;
+  isHistoryOpen: boolean;
+  onReset?: () => void;
+  onClearChat?: () => void;
 }
 
 export function ChatDockHeader({
@@ -37,6 +43,8 @@ export function ChatDockHeader({
   onModelChange,
   selectedModel,
   contextDescription,
+  onHistoryToggle,
+  isHistoryOpen,
 }: ChatDockHeaderProps) {
   return (
     <CardHeader className="space-y-3 border-b pb-4">
@@ -63,6 +71,17 @@ export function ChatDockHeader({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant={isHistoryOpen ? 'default' : 'outline'}
+            size="sm"
+            aria-pressed={isHistoryOpen}
+            onClick={onHistoryToggle}
+            className="gap-1.5"
+          >
+            <History className="h-4 w-4" />
+            History
+          </Button>
           <Select
             value={selectValue}
             onValueChange={onModelChange}

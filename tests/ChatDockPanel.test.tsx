@@ -111,10 +111,18 @@ describe('ChatDockPanel interactions', () => {
     )
   })
 
+  it('opens the chat history drawer when toggled', async () => {
+    renderChatDockPanel()
+    expect(screen.queryByRole('button', { name: /New chat/i })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /History/i }))
+    expect(await screen.findByRole('button', { name: /New chat/i })).toBeInTheDocument()
+  })
+
   it('requests a reset when clicking New chat', async () => {
     fetchChatbotState.mockResolvedValue({ ...baseState, messages: [] })
     renderChatDockPanel()
-    const newChatButton = screen.getByRole('button', { name: /New chat/i })
+    await userEvent.click(screen.getByRole('button', { name: /History/i }))
+    const newChatButton = await screen.findByRole('button', { name: /New chat/i })
     await userEvent.click(newChatButton)
     await waitFor(() => expect(fetchChatbotState).toHaveBeenCalled())
     expect(fetchChatbotState).toHaveBeenCalledWith({ data: { sessionId: 'session-default', mode: 'session', reset: true } })

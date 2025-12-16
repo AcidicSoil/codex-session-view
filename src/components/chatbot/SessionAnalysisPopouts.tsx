@@ -139,28 +139,30 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                   onClick={() => handleAnalyze('commits')}
                 />
               ) : (
-                <div className="flex-1 flex flex-col gap-2">
-                  <div className="text-sm text-muted-foreground mb-2">
-                    Copy these messages to your git client:
-                  </div>
-                  {(results.commits.content as string[]).map((message) => (
-                    <div key={message} className="flex gap-2">
-                      <CodeBlock code={message} language="text" className="flex-1" />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                            void navigator.clipboard.writeText(message);
-                          }
-                        }}
-                      >
-                        <span className="sr-only">Copy commit</span>
-                        <FileCode2 className="h-4 w-4" />
-                      </Button>
+                <ScrollArea className="flex-1 rounded-md border bg-card p-4">
+                  <div className="space-y-3">
+                    <div className="text-sm text-muted-foreground">
+                      Copy these messages to your git client:
                     </div>
-                  ))}
-                </div>
+                    {(results.commits.content as string[]).map((message) => (
+                      <div key={message} className="flex gap-2">
+                        <CodeBlock code={message} language="text" className="flex-1" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                              void navigator.clipboard.writeText(message);
+                            }
+                          }}
+                        >
+                          <span className="sr-only">Copy commit</span>
+                          <FileCode2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               )}
             </TabsContent>
 
