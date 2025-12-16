@@ -12,11 +12,10 @@ import {
 import { ScrollArea } from '~/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { toast } from 'sonner';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { CodeBlock } from '~/components/kibo-ui/code-block';
 import type { ChatMode } from '~/lib/sessions/model';
 import { requestChatAnalysis } from '~/features/chatbot/chatbot.runtime';
+import { FormattedContent } from '~/components/ui/formatted-content';
 
 type AnalysisTab = 'summary' | 'commits' | 'hooks';
 type AnalysisResult = {
@@ -123,12 +122,7 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                 />
               ) : (
                 <ScrollArea className="flex-1 rounded-md border bg-card p-6">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    className="prose prose-sm dark:prose-invert max-w-none"
-                  >
-                    {results.summary.content as string}
-                  </ReactMarkdown>
+                  <FormattedContent text={results.summary.content as string} />
                 </ScrollArea>
               )}
             </TabsContent>
@@ -202,12 +196,7 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                     </Button>
                   </div>
                   <ScrollArea className="flex-1 rounded-md border bg-card p-6">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      className="prose prose-sm dark:prose-invert max-w-none"
-                    >
-                      {results.hooks.content as string}
-                    </ReactMarkdown>
+                    <FormattedContent text={results.hooks.content as string} />
                   </ScrollArea>
                 </div>
               )}

@@ -4,7 +4,7 @@ import { detectMisalignments } from '~/features/chatbot/misalignment-detector';
 import { assertChatModeEnabled } from '~/features/chatbot/chatModeConfig';
 import { logError, logInfo, logWarn } from '~/lib/logger';
 import type { ChatMessageEvidence, SessionSnapshot } from '~/lib/sessions/model';
-import { appendChatMessage, listChatMessages } from '~/server/persistence/chatMessages';
+import { appendChatMessage, listChatMessages, activateChatThread } from '~/server/persistence/chatMessages';
 import {
   ingestMisalignmentCandidates,
   listMisalignments,
@@ -27,6 +27,7 @@ import {
 import { ensureLmStudioModelsRegistered } from '~/server/lib/lmStudioModels';
 import type { ChatRemediationMetadata } from '~/lib/chatbot/types';
 import { getSessionRepoBinding } from '~/server/persistence/sessionRepoBindings';
+import { getActiveChatThread } from '~/server/persistence/chatThreads';
 
 const metadataSchema = z
   .object({
@@ -49,6 +50,7 @@ const streamInputSchema = z.object({
   clientMessageId: z.string().optional(),
   metadata: metadataSchema,
   modelId: z.string().optional(),
+  threadId: z.string().optional(),
 });
 
 const analyzeInputSchema = z.object({
@@ -132,6 +134,10 @@ export async function streamChatFromPayload(payload: unknown): Promise<Response>
 
   const startedAt = Date.now();
   try {
+    if (input.data.threadId) {
+      await activateChatThread(input.data.sessionId, input.data.mode, input.data.threadId);
+    }
+    const activeThread = await getActiveChatThread(input.data.sessionId, input.data.mode);
     if (input.data.mode === 'general') {
       return await handleGeneralChatStream({
         sessionId: input.data.sessionId,
@@ -139,6 +145,7 @@ export async function streamChatFromPayload(payload: unknown): Promise<Response>
         clientMessageId: input.data.clientMessageId,
         modelId,
         startedAt,
+        threadId: activeThread.id,
       });
     }
     return await handleSessionChatStream({
@@ -148,6 +155,7 @@ export async function streamChatFromPayload(payload: unknown): Promise<Response>
       metadata: input.data.metadata ?? undefined,
       modelId,
       startedAt,
+      threadId: activeThread.id,
     });
   } catch (error) {
     if (isProviderUnavailableError(error)) {
@@ -211,7 +219,8 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
       });
     }
     const misalignments = await listMisalignments(input.data.sessionId);
-    const history = await listChatMessages(input.data.sessionId, input.data.mode);
+    const activeThread = await getActiveChatThread(input.data.sessionId, input.data.mode);
+    const history = await listChatMessages(input.data.sessionId, input.data.mode, activeThread.id);
     const context = buildChatContext({
       snapshot,
       misalignments,
@@ -325,6 +334,7 @@ interface SessionStreamOptions {
   metadata?: ChatRemediationMetadata;
   modelId: string;
   startedAt: number;
+  threadId: string;
 }
 
 interface GeneralStreamOptions {
@@ -333,6 +343,7 @@ interface GeneralStreamOptions {
   clientMessageId?: string;
   modelId: string;
   startedAt: number;
+  threadId: string;
 }
 
 async function handleSessionChatStream(options: SessionStreamOptions) {
@@ -345,10 +356,11 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
     });
   }
   const existingMisalignments = await listMisalignments(options.sessionId);
-  const history = await listChatMessages(options.sessionId, 'session');
+  const history = await listChatMessages(options.sessionId, 'session', options.threadId);
   const userMessage = await appendChatMessage({
     sessionId: options.sessionId,
     mode: 'session',
+    threadId: options.threadId,
     role: 'user',
     content: options.prompt,
     clientMessageId: options.clientMessageId,
@@ -391,6 +403,7 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
       const assistantRecord = await appendChatMessage({
         sessionId: options.sessionId,
         mode: 'session',
+        threadId: options.threadId,
         role: 'assistant',
         content: assistantText,
         misalignmentId: options.metadata?.misalignmentId,
@@ -427,10 +440,11 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
 }
 
 async function handleGeneralChatStream(options: GeneralStreamOptions) {
-  const history = await listChatMessages(options.sessionId, 'general');
+  const history = await listChatMessages(options.sessionId, 'general', options.threadId);
   const userMessage = await appendChatMessage({
     sessionId: options.sessionId,
     mode: 'general',
+    threadId: options.threadId,
     role: 'user',
     content: options.prompt,
     clientMessageId: options.clientMessageId,
@@ -443,6 +457,7 @@ async function handleGeneralChatStream(options: GeneralStreamOptions) {
       const assistantRecord = await appendChatMessage({
         sessionId: options.sessionId,
         mode: 'general',
+        threadId: options.threadId,
         role: 'assistant',
         content: assistantText,
       });

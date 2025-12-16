@@ -27,6 +27,16 @@ const baseState: ViewerChatState = {
   sessionId: 'session-default',
   mode: 'session',
   featureEnabled: true,
+  threadId: 'thread-default',
+  threads: [
+    {
+      id: 'thread-default',
+      title: 'Session Coach',
+      status: 'active',
+      messageCount: 0,
+      mode: 'session',
+    },
+  ],
   snapshot: { sessionId: 'session-default', meta: undefined, events: [] } as any,
   misalignments: [],
   messages: [],
@@ -49,6 +59,7 @@ const baseState: ViewerChatState = {
 beforeEach(() => {
   requestChatStream.mockReset()
   fetchChatbotState.mockReset()
+  fetchChatbotState.mockResolvedValue(baseState)
   mutateMisalignmentStatus.mockResolvedValue(undefined)
   if (typeof crypto === 'undefined' || !crypto.randomUUID) {
     vi.stubGlobal('crypto', { randomUUID: () => 'uuid' })
@@ -103,7 +114,8 @@ describe('ChatDockPanel interactions', () => {
   it('requests a reset when clicking New chat', async () => {
     fetchChatbotState.mockResolvedValue({ ...baseState, messages: [] })
     renderChatDockPanel()
-    await userEvent.click(screen.getByRole('button', { name: /New chat/i }))
+    const newChatButtons = screen.getAllByRole('button', { name: /New chat/i })
+    await userEvent.click(newChatButtons[0])
     await waitFor(() => expect(fetchChatbotState).toHaveBeenCalled())
     expect(fetchChatbotState).toHaveBeenCalledWith({ data: { sessionId: 'session-default', mode: 'session', reset: true } })
   })

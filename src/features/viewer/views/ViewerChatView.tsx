@@ -15,7 +15,7 @@ export function ViewerChatView() {
   } = useViewerWorkspace()
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]">
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
       <section className="min-w-0 rounded-3xl border border-white/10 bg-background/80 p-6 shadow-sm">
         <div className="mb-4 space-y-2">
           <p className="text-xs uppercase tracking-[0.3em] text-white/60">Session coach</p>

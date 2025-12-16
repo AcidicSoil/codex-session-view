@@ -8,6 +8,7 @@ export interface ChatStreamRequestBody {
   clientMessageId?: string
   metadata?: ChatRemediationMetadata
   modelId?: string
+  threadId?: string
 }
 
 export interface ChatAnalyzeRequestBody {

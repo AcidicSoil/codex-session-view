@@ -8,10 +8,15 @@ import {
 } from 'react';
 import type { ViewerChatState } from '~/features/viewer/viewer.loader';
 import type { ChatMessageRecord, ChatMode, MisalignmentRecord } from '~/lib/sessions/model';
-import type { ChatRemediationMetadata, CoachPrefillPayload } from '~/lib/chatbot/types';
+import type { ChatRemediationMetadata, CoachPrefillPayload, ChatThreadSummary } from '~/lib/chatbot/types';
 import { mutateMisalignmentStatus } from '~/server/function/misalignments';
 import { requestChatStream } from '~/features/chatbot/chatbot.runtime';
 import { fetchChatbotState } from '~/server/function/chatbotState';
+import {
+  archiveChatThreadState,
+  deleteChatThreadState,
+  renameChatThreadState,
+} from '~/server/function/chatThreadsState';
 
 export interface LocalMessage extends ChatMessageRecord {
   pending?: boolean;
@@ -53,6 +58,12 @@ export interface UseChatDockControllerResult {
     status: MisalignmentRecord['status']
   ) => void;
   handleReset: () => Promise<void>;
+  threadId: string | null;
+  threads: ChatThreadSummary[];
+  handleThreadSelect: (threadId: string) => Promise<void>;
+  handleThreadRename: (threadId: string, title: string) => Promise<void>;
+  handleThreadDelete: (threadId: string) => Promise<void>;
+  handleThreadArchive: (threadId: string) => Promise<void>;
 }
 
 export function useChatDockController({
@@ -82,6 +93,27 @@ export function useChatDockController({
   const availableModels = useMemo(
     () => activeState.modelOptions ?? [],
     [activeState.modelOptions]
+  );
+
+  const loadChatState = useCallback(
+    async (mode: ChatMode, options?: { reset?: boolean; threadId?: string }) => {
+      const nextState = await fetchChatbotState({
+        data: {
+          sessionId,
+          mode,
+          reset: options?.reset,
+          threadId: options?.threadId,
+        },
+      });
+      stateCacheRef.current.set(mode, nextState);
+      setActiveState(nextState);
+      setMessages(nextState.messages ?? []);
+      if (mode === 'session') {
+        setMisalignments(nextState.misalignments ?? []);
+      }
+      return nextState;
+    },
+    [sessionId]
   );
 
   // Initialize from LocalStorage if available, otherwise fall back to server default
@@ -196,6 +228,7 @@ export function useChatDockController({
         clientMessageId,
         metadata: pendingMetadata,
         modelId: resolvedModelId,
+        threadId: activeState.threadId ?? undefined,
       });
       setPendingMetadata(undefined);
       if (!stream) {
@@ -212,15 +245,7 @@ export function useChatDockController({
       }
       updateAssistantMessage(assistantMessageId, buffer, false);
 
-      const refreshed = await fetchChatbotState({
-        data: { sessionId, mode: activeState.mode },
-      });
-      stateCacheRef.current.set(activeState.mode, refreshed);
-      setMessages(refreshed.messages ?? []);
-      if (activeState.mode === 'session') {
-        setMisalignments(refreshed.misalignments ?? []);
-      }
-      setActiveState(refreshed);
+      await loadChatState(activeState.mode, { threadId: activeState.threadId ?? undefined });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       setStreamError(message);
@@ -233,12 +258,14 @@ export function useChatDockController({
   }, [
     draft,
     activeState.mode,
+    activeState.threadId,
     isStreaming,
     pendingMetadata,
     sessionId,
     selectedModelId,
     defaultModelId,
     updateAssistantMessage,
+    loadChatState,
   ]);
 
   const handleTextareaKeyDown = useCallback(
@@ -276,24 +303,16 @@ export function useChatDockController({
     setStreamError(null);
     setIsResetting(true);
     try {
-      const refreshed = await fetchChatbotState({
-        data: { sessionId, mode: activeState.mode, reset: true },
-      });
-      setMessages(refreshed.messages ?? []);
+      await loadChatState(activeState.mode, { reset: true });
       setActiveStreamId(null);
       setPendingMetadata(undefined);
       setVanishText(null);
-      if (activeState.mode === 'session') {
-        setMisalignments(refreshed.misalignments ?? []);
-      }
-      stateCacheRef.current.set(activeState.mode, refreshed);
-      setActiveState(refreshed);
     } catch (error) {
       setStreamError(error instanceof Error ? error.message : 'Failed to reset chat');
     } finally {
       setIsResetting(false);
     }
-  }, [activeState.mode, sessionId]);
+  }, [activeState.mode, loadChatState]);
 
   const handleModeSwitch = useCallback(
     async (mode: ChatMode) => {
@@ -304,11 +323,13 @@ export function useChatDockController({
       setIsResetting(true);
       try {
         const cached = stateCacheRef.current.get(mode);
-        const nextState = cached ?? (await fetchChatbotState({ data: { sessionId, mode } }));
-        stateCacheRef.current.set(mode, nextState);
-        setActiveState(nextState);
-        setMessages(nextState.messages ?? []);
-        setMisalignments(nextState.misalignments ?? []);
+        if (cached) {
+          setActiveState(cached);
+          setMessages(cached.messages ?? []);
+          setMisalignments(cached.misalignments ?? []);
+        } else {
+          await loadChatState(mode);
+        }
         setDraftState('');
         setPendingMetadata(undefined);
         setVanishText(null);
@@ -318,7 +339,7 @@ export function useChatDockController({
         setIsResetting(false);
       }
     },
-    [activeState.mode, isStreaming, sessionId]
+    [activeState.mode, isStreaming, loadChatState]
   );
 
   useEffect(() => {
@@ -331,6 +352,50 @@ export function useChatDockController({
   const handleVanishComplete = useCallback(() => {
     setVanishText(null);
   }, []);
+
+  const handleThreadSelect = useCallback(
+    async (threadId: string) => {
+      setStreamError(null);
+      setIsResetting(true);
+      try {
+        await loadChatState(activeState.mode, { threadId });
+      } catch (error) {
+        setStreamError(error instanceof Error ? error.message : 'Failed to load conversation');
+        throw error;
+      } finally {
+        setIsResetting(false);
+      }
+    },
+    [activeState.mode, loadChatState]
+  );
+
+  const handleThreadRename = useCallback(
+    async (threadId: string, title: string) => {
+      await renameChatThreadState({ data: { threadId, title } });
+      await loadChatState(activeState.mode, { threadId: activeState.threadId ?? undefined });
+    },
+    [activeState.mode, activeState.threadId, loadChatState]
+  );
+
+  const handleThreadDelete = useCallback(
+    async (threadId: string) => {
+      const result = await deleteChatThreadState({ data: { threadId } });
+      const nextThreadId =
+        result.nextActiveId ?? (threadId === activeState.threadId ? undefined : activeState.threadId ?? undefined);
+      await loadChatState(activeState.mode, { threadId: nextThreadId });
+    },
+    [activeState.mode, activeState.threadId, loadChatState]
+  );
+
+  const handleThreadArchive = useCallback(
+    async (threadId: string) => {
+      const result = await archiveChatThreadState({ data: { threadId } });
+      const nextThreadId =
+        result.nextActiveId ?? (threadId === activeState.threadId ? undefined : activeState.threadId ?? undefined);
+      await loadChatState(activeState.mode, { threadId: nextThreadId });
+    },
+    [activeState.mode, activeState.threadId, loadChatState]
+  );
 
   return {
     activeState,
@@ -356,5 +421,11 @@ export function useChatDockController({
     handleTextareaKeyDown,
     handleMisalignmentUpdate,
     handleReset,
+    threadId: activeState.threadId ?? null,
+    threads: activeState.threads ?? [],
+    handleThreadSelect,
+    handleThreadRename,
+    handleThreadDelete,
+    handleThreadArchive,
   };
 }

@@ -8,6 +8,7 @@ import { ChatDockBootstrapCard } from '~/components/chatbot/ChatDockBootstrapCar
 import { ChatDockHeader } from '~/components/chatbot/ChatDockHeader';
 import { ChatDockMessages, MisalignmentList } from '~/components/chatbot/ChatDockMessages';
 import { ChatDockComposer } from '~/components/chatbot/ChatDockComposer';
+import AIChatHistory from '~/components/ui/ai-chat-history';
 
 interface ChatDockPanelProps {
   sessionId: string;
@@ -101,6 +102,12 @@ function ChatDockContent({
     handleTextareaKeyDown,
     handleMisalignmentUpdate,
     handleReset,
+    threadId,
+    threads,
+    handleThreadSelect,
+    handleThreadRename,
+    handleThreadDelete,
+    handleThreadArchive,
   } = useChatDockController({
     sessionId,
     initialState,
@@ -109,9 +116,13 @@ function ChatDockContent({
   });
 
   const contextDescription = useMemo(() => {
-    const headings = activeState.contextSections?.map((section) => section.heading).join(', ');
-    return `Context sections: ${headings || 'n/a'}`;
-  }, [activeState.contextSections]);
+    const headings = activeState.contextSections?.map((section) => section.heading).join(', ') || 'n/a';
+    const repoLabel = activeState.repoContext?.rootDir
+      ? truncateLabel(activeState.repoContext.rootDir)
+      : 'Unbound repo';
+    const sessionLabel = activeState.snapshot?.sessionId ?? sessionId;
+    return `Session ${sessionLabel} • ${repoLabel} • Sections: ${headings}`;
+  }, [activeState.contextSections, activeState.repoContext, activeState.snapshot, sessionId]);
 
   const composerPlaceholder =
     activeState.mode === 'session'
@@ -135,26 +146,58 @@ function ChatDockContent({
         contextDescription={contextDescription}
       />
       <CardContent className="flex flex-1 flex-col gap-4 p-4">
-        <ChatDockMessages
-          messages={orderedMessages}
-          showEvidence={showMisalignments}
-          activeStreamId={activeStreamId}
-        />
-        <ChatDockComposer
-          draft={draft}
-          onDraftChange={setDraft}
-          onSend={() => void handleSend()}
-          isStreaming={isStreaming}
-          placeholder={composerPlaceholder}
-          onTextareaKeyDown={handleTextareaKeyDown}
-          vanishText={vanishText}
-          onVanishComplete={handleVanishComplete}
-          placeholderPills={placeholderPills}
-        />
-        {showMisalignments ? (
-          <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
-        ) : null}
+        <div className="flex flex-col gap-4 lg:flex-row">
+          <div className="flex flex-1 flex-col gap-4 min-w-0">
+            <ChatDockMessages
+              messages={orderedMessages}
+              showEvidence={showMisalignments}
+              activeStreamId={activeStreamId}
+            />
+            <ChatDockComposer
+              draft={draft}
+              onDraftChange={setDraft}
+              onSend={() => void handleSend()}
+              isStreaming={isStreaming}
+              placeholder={composerPlaceholder}
+              onTextareaKeyDown={handleTextareaKeyDown}
+              vanishText={vanishText}
+              onVanishComplete={handleVanishComplete}
+              placeholderPills={placeholderPills}
+            />
+            {showMisalignments ? (
+              <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
+            ) : null}
+          </div>
+          <div className="w-full lg:max-w-sm">
+            <AIChatHistory
+              activeConversationId={threadId ?? undefined}
+              conversations={threads.map((thread) => ({
+                id: thread.id,
+                title: thread.title,
+                lastMessage: thread.lastMessagePreview,
+                lastMessageAt: thread.lastMessageAt ? new Date(thread.lastMessageAt) : undefined,
+                messageCount: thread.messageCount,
+                isArchived: thread.status === 'archived',
+                isActive: thread.status === 'active',
+              }))}
+              onSelect={(conversationId) => handleThreadSelect(conversationId)}
+              onNewConversation={() => void handleReset()}
+              onRename={(conversationId, newTitle) => handleThreadRename(conversationId, newTitle)}
+              onDelete={(conversationId) => handleThreadDelete(conversationId)}
+              onArchive={(conversationId) => handleThreadArchive(conversationId)}
+              onUnarchive={(conversationId) => handleThreadSelect(conversationId)}
+              showNewButton
+            />
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
+}
+
+function truncateLabel(value: string, maxLength = 48) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `…${value.slice(-maxLength)}`;
 }
