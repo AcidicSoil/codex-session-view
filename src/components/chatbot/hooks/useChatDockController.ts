@@ -66,6 +66,7 @@ export interface UseChatDockControllerResult {
   handleThreadDelete: (threadId: string) => Promise<void>;
   handleThreadArchive: (threadId: string) => Promise<void>;
   handleThreadClear: () => Promise<void>;
+  handleNewChat: () => Promise<void>;
 }
 
 export function useChatDockController({
@@ -323,6 +324,23 @@ export function useChatDockController({
     }
   }, [activeState.mode, loadChatState]);
 
+  const handleNewChat = useCallback(async () => {
+    setStreamError(null);
+    setIsResetting(true);
+    try {
+      await loadChatState(activeState.mode, { reset: true });
+      setDraftState('');
+      setPendingMetadata(undefined);
+      setVanishText(null);
+      setActiveStreamId(null);
+    } catch (error) {
+      setStreamError(error instanceof Error ? error.message : 'Failed to start new chat');
+      throw error;
+    } finally {
+      setIsResetting(false);
+    }
+  }, [activeState.mode, loadChatState]);
+
   const handleModeSwitch = useCallback(
     async (mode: ChatMode) => {
       if (mode === activeState.mode || isStreaming) {
@@ -455,5 +473,6 @@ export function useChatDockController({
     handleThreadDelete,
     handleThreadArchive,
     handleThreadClear,
+    handleNewChat,
   };
 }

@@ -1,6 +1,7 @@
 import { Button } from '~/components/ui/button';
 import AIChatHistory from '~/components/ui/ai-chat-history';
 import type { ChatThreadSummary } from '~/lib/chatbot/types';
+import { cn } from '~/lib/utils';
 
 interface ChatDockSidebarProps {
   threads: ChatThreadSummary[]
@@ -10,9 +11,10 @@ interface ChatDockSidebarProps {
   onDelete: (threadId: string) => Promise<void>
   onArchive: (threadId: string) => Promise<void>
   onUnarchive: (threadId: string) => Promise<void>
-  onNewChat: () => void
-  onClearChat: () => void
+  onNewChat: () => void | Promise<void>
+  onClearChat: () => void | Promise<void>
   isBusy: boolean
+  className?: string
 }
 
 export function ChatDockSidebar({
@@ -26,9 +28,15 @@ export function ChatDockSidebar({
   onNewChat,
   onClearChat,
   isBusy,
+  className,
 }: ChatDockSidebarProps) {
   return (
-    <aside className="flex h-full min-h-0 flex-col gap-3 rounded-2xl border border-border/50 bg-background/70 p-3">
+    <aside
+      className={cn(
+        'flex h-full min-h-0 flex-col gap-3 rounded-2xl border border-border/50 bg-background/70 p-3',
+        className,
+      )}
+    >
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>

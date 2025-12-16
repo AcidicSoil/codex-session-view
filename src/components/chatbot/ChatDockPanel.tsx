@@ -9,8 +9,9 @@ import { ChatDockBootstrapCard } from '~/components/chatbot/ChatDockBootstrapCar
 import { ChatDockHeader } from '~/components/chatbot/ChatDockHeader';
 import { ChatDockMessages, MisalignmentList } from '~/components/chatbot/ChatDockMessages';
 import { ChatDockComposer } from '~/components/chatbot/ChatDockComposer';
-import { ChatDockSidebar } from '~/components/chatbot/ChatDockSidebar';
 import { ChatDockCollateral } from '~/components/chatbot/ChatDockCollateral';
+import { ChatDockSidebar } from '~/components/chatbot/ChatDockSidebar';
+import MotionDrawer from '~/components/ui/motion-drawer';
 import { useChatDockSettings } from '~/stores/chatDockSettings';
 import { DEFAULT_CHAT_AI_SETTINGS, type ChatAiSettings } from '~/lib/chatbot/aiSettings';
 import { providerKeepAlive } from '~/server/function/providerKeepAlive';
@@ -157,6 +158,7 @@ function ChatDockContent({
 
   const providerKey = selectedModel?.provider ?? selectedModel?.id ?? 'default-provider';
   const keepLoaded = keepLoadedProviders[providerKey] ?? false;
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const handleAiSettingsChange = useCallback(
     (next: ChatAiSettings) => {
       setAiSettingsStore(next);
@@ -181,74 +183,112 @@ function ChatDockContent({
     },
     [providerKey, setKeepLoadedProvider]
   );
+  const handleHistoryToggle = useCallback(() => {
+    setIsHistoryOpen((prev) => !prev);
+  }, []);
+  const closeHistoryDrawer = useCallback(() => {
+    setIsHistoryOpen(false);
+  }, []);
+  const handleThreadSelectFromDrawer = useCallback(
+    async (targetThreadId: string) => {
+      await handleThreadSelect(targetThreadId);
+      closeHistoryDrawer();
+    },
+    [handleThreadSelect, closeHistoryDrawer]
+  );
+  const handleNewChatFromDrawer = useCallback(async () => {
+    await handleNewChat();
+    closeHistoryDrawer();
+  }, [handleNewChat, closeHistoryDrawer]);
+  const handleClearChatFromDrawer = useCallback(async () => {
+    await handleThreadClear();
+    closeHistoryDrawer();
+  }, [handleThreadClear, closeHistoryDrawer]);
 
   return (
-    <div className="grid h-full gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
-      <Card className="flex h-full flex-col overflow-hidden">
-        <ChatDockHeader
-          mode={activeState.mode}
-          onModeChange={handleModeSwitch}
-          isStreaming={isStreaming}
-          isResetting={isResetting}
-          sessionId={sessionId}
-          streamError={streamError}
-          availableModels={availableModels}
-          selectValue={selectValue}
-          onModelChange={handleModelChange}
-          selectedModel={selectedModel}
-          onReset={handleReset}
-          onClearChat={handleThreadClear}
-          contextDescription={contextDescription}
-        />
-        <CardContent className="flex flex-1 flex-col gap-4 p-4 min-h-0 overflow-y-auto">
-          <ChatDockMessages
-            messages={orderedMessages}
-            showEvidence={showMisalignments}
-            activeStreamId={activeStreamId}
-          />
-          <ChatDockComposer
-            draft={draft}
-            onDraftChange={setDraft}
-            onSend={() => void handleSend()}
+    <>
+      <div className="grid h-full gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
+        <Card className="flex h-full flex-col overflow-hidden">
+          <ChatDockHeader
+            mode={activeState.mode}
+            onModeChange={handleModeSwitch}
             isStreaming={isStreaming}
-            placeholder={composerPlaceholder}
-            onTextareaKeyDown={handleTextareaKeyDown}
-            vanishText={vanishText}
-            onVanishComplete={handleVanishComplete}
-            placeholderPills={placeholderPills}
+            isResetting={isResetting}
+            sessionId={sessionId}
+            streamError={streamError}
+            availableModels={availableModels}
+            selectValue={selectValue}
+            onModelChange={handleModelChange}
+            selectedModel={selectedModel}
+            onReset={handleReset}
+            onClearChat={handleThreadClear}
+            onHistoryToggle={handleHistoryToggle}
+            isHistoryOpen={isHistoryOpen}
+            contextDescription={contextDescription}
           />
-          {showMisalignments ? (
-            <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
-          ) : null}
-        </CardContent>
-      </Card>
-      <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-1">
+          <CardContent className="flex flex-1 flex-col gap-4 p-4 min-h-0 overflow-hidden">
+            <ChatDockMessages
+              messages={orderedMessages}
+              showEvidence={showMisalignments}
+              activeStreamId={activeStreamId}
+            />
+            <ChatDockComposer
+              draft={draft}
+              onDraftChange={setDraft}
+              onSend={() => void handleSend()}
+              isStreaming={isStreaming}
+              placeholder={composerPlaceholder}
+              onTextareaKeyDown={handleTextareaKeyDown}
+              vanishText={vanishText}
+              onVanishComplete={handleVanishComplete}
+              placeholderPills={placeholderPills}
+            />
+            {showMisalignments ? (
+              <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
+            ) : null}
+          </CardContent>
+        </Card>
+        <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-1">
+          <ChatDockCollateral
+            sessionId={sessionId}
+            assets={assets ?? []}
+            repoContext={initialState.repoContext}
+            onRepoContextChange={onRepoContextChange}
+            aiSettings={aiSettings}
+            onAiSettingsChange={handleAiSettingsChange}
+            onAiSettingsReset={handleAiSettingsReset}
+            keepLoaded={keepLoaded}
+            onKeepLoadedChange={handleKeepLoadedToggle}
+            isBusy={isResetting || isStreaming}
+          />
+        </div>
+      </div>
+      <MotionDrawer
+        direction="right"
+        width={380}
+        overlayColor="rgba(4,5,20,0.75)"
+        isOpen={isHistoryOpen}
+        onToggle={setIsHistoryOpen}
+        showToggleButton={false}
+        ariaLabel="Chat history drawer"
+        contentClassName="bg-background text-foreground border-l border-border/50 p-0"
+        contentPadding="24px"
+      >
         <ChatDockSidebar
+          className="border-none bg-transparent p-0"
           threads={threads}
           activeThreadId={threadId}
-          onSelect={handleThreadSelect}
+          onSelect={handleThreadSelectFromDrawer}
           onRename={handleThreadRename}
           onDelete={handleThreadDelete}
           onArchive={handleThreadArchive}
           onUnarchive={handleThreadSelect}
-          onNewChat={handleNewChat}
-          onClearChat={handleThreadClear}
+          onNewChat={handleNewChatFromDrawer}
+          onClearChat={handleClearChatFromDrawer}
           isBusy={isResetting || isStreaming}
         />
-        <ChatDockCollateral
-          sessionId={sessionId}
-          assets={assets ?? []}
-          repoContext={initialState.repoContext}
-          onRepoContextChange={onRepoContextChange}
-          aiSettings={aiSettings}
-          onAiSettingsChange={handleAiSettingsChange}
-          onAiSettingsReset={handleAiSettingsReset}
-          keepLoaded={keepLoaded}
-          onKeepLoadedChange={handleKeepLoadedToggle}
-          isBusy={isResetting || isStreaming}
-        />
-      </div>
-    </div>
+      </MotionDrawer>
+    </>
   );
 }
 
