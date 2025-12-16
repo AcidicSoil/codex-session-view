@@ -14,21 +14,22 @@ import { requestChatStream } from '~/features/chatbot/chatbot.runtime';
 import { fetchChatbotState } from '~/server/function/chatbotState';
 import {
   archiveChatThreadState,
+  clearChatThreadState,
   deleteChatThreadState,
   renameChatThreadState,
 } from '~/server/function/chatThreadsState';
+import { useChatDockSettings } from '~/stores/chatDockSettings';
+import { DEFAULT_CHAT_AI_SETTINGS } from '~/lib/chatbot/aiSettings';
 
 export interface LocalMessage extends ChatMessageRecord {
   pending?: boolean;
 }
 
-export const STORAGE_KEY_MODEL_PREF = 'codex-session-view:model-preference';
-
 interface UseChatDockControllerOptions {
   sessionId: string;
   initialState: ViewerChatState;
-  prefill?: CoachPrefillPayload | null;
-  onPrefillConsumed?: () => void;
+  prefills?: Partial<Record<ChatMode, CoachPrefillPayload | null>>;
+  onPrefillConsumed?: (mode: ChatMode) => void;
 }
 
 export interface UseChatDockControllerResult {
@@ -64,14 +65,21 @@ export interface UseChatDockControllerResult {
   handleThreadRename: (threadId: string, title: string) => Promise<void>;
   handleThreadDelete: (threadId: string) => Promise<void>;
   handleThreadArchive: (threadId: string) => Promise<void>;
+  handleThreadClear: () => Promise<void>;
 }
 
 export function useChatDockController({
   sessionId,
   initialState,
-  prefill,
+  prefills,
   onPrefillConsumed,
 }: UseChatDockControllerOptions): UseChatDockControllerResult {
+  const aiSettings = useChatDockSettings((state) => state.aiSettings);
+  const setAiSettings = useChatDockSettings((state) => state.setAiSettings);
+  const streamParameters = useMemo(() => {
+    const { model: _ignored, ...rest } = aiSettings ?? DEFAULT_CHAT_AI_SETTINGS;
+    return rest;
+  }, [aiSettings]);
   const stateCacheRef = useRef(
     new Map<ChatMode, ViewerChatState>([[initialState.mode, initialState]])
   );
@@ -118,14 +126,12 @@ export function useChatDockController({
 
   // Initialize from LocalStorage if available, otherwise fall back to server default
   const defaultModelId = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      const persisted = localStorage.getItem(STORAGE_KEY_MODEL_PREF);
-      if (persisted && availableModels.some((m) => m.id === persisted)) {
-        return persisted;
-      }
+    const storedModel = aiSettings.model;
+    if (storedModel && availableModels.some((m) => m.id === storedModel)) {
+      return storedModel;
     }
     return activeState.initialModelId ?? availableModels[0]?.id ?? null;
-  }, [activeState.initialModelId, availableModels]);
+  }, [activeState.initialModelId, aiSettings.model, availableModels]);
 
   useEffect(() => {
     if (defaultModelId && !selectedModelId) {
@@ -133,12 +139,13 @@ export function useChatDockController({
     }
   }, [defaultModelId, selectedModelId]);
 
-  const handleModelChange = useCallback((modelId: string) => {
-    setSelectedModelId(modelId);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY_MODEL_PREF, modelId);
-    }
-  }, []);
+  const handleModelChange = useCallback(
+    (modelId: string) => {
+      setSelectedModelId(modelId);
+      setAiSettings((prev) => ({ ...DEFAULT_CHAT_AI_SETTINGS, ...prev, model: modelId }));
+    },
+    [setAiSettings]
+  );
 
   const selectedModel = useMemo(
     () => availableModels.find((model) => model.id === (selectedModelId ?? defaultModelId)),
@@ -229,6 +236,7 @@ export function useChatDockController({
         metadata: pendingMetadata,
         modelId: resolvedModelId,
         threadId: activeState.threadId ?? undefined,
+        parameters: streamParameters,
       });
       setPendingMetadata(undefined);
       if (!stream) {
@@ -266,6 +274,7 @@ export function useChatDockController({
     defaultModelId,
     updateAssistantMessage,
     loadChatState,
+    streamParameters,
   ]);
 
   const handleTextareaKeyDown = useCallback(
@@ -342,12 +351,14 @@ export function useChatDockController({
     [activeState.mode, isStreaming, loadChatState]
   );
 
+  const activePrefill = prefills?.[activeState.mode];
+
   useEffect(() => {
-    if (!prefill?.prompt || activeState.mode !== 'session') return;
-    setDraftState(prefill.prompt);
-    setPendingMetadata(prefill.metadata);
-    onPrefillConsumed?.();
-  }, [prefill, onPrefillConsumed, activeState.mode]);
+    if (!activePrefill?.prompt) return;
+    setDraftState(activePrefill.prompt);
+    setPendingMetadata(activePrefill.metadata);
+    onPrefillConsumed?.(activeState.mode);
+  }, [activePrefill, onPrefillConsumed, activeState.mode]);
 
   const handleVanishComplete = useCallback(() => {
     setVanishText(null);
@@ -397,6 +408,22 @@ export function useChatDockController({
     [activeState.mode, activeState.threadId, loadChatState]
   );
 
+  const handleThreadClear = useCallback(async () => {
+    if (!activeState.threadId) {
+      return;
+    }
+    setStreamError(null);
+    setIsResetting(true);
+    try {
+      await clearChatThreadState({ data: { threadId: activeState.threadId } });
+      await loadChatState(activeState.mode, { threadId: activeState.threadId });
+    } catch (error) {
+      setStreamError(error instanceof Error ? error.message : 'Failed to clear chat');
+    } finally {
+      setIsResetting(false);
+    }
+  }, [activeState.mode, activeState.threadId, loadChatState]);
+
   return {
     activeState,
     orderedMessages,
@@ -427,5 +454,6 @@ export function useChatDockController({
     handleThreadRename,
     handleThreadDelete,
     handleThreadArchive,
+    handleThreadClear,
   };
 }

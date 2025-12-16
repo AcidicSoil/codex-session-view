@@ -7,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select';
-import { Button } from '~/components/ui/button';
 import { SessionAnalysisPopouts } from '~/components/chatbot/SessionAnalysisPopouts';
 import type { ChatMode } from '~/lib/sessions/model';
 import type { ViewerChatState } from '~/features/viewer/viewer.loader';
@@ -23,7 +22,6 @@ interface ChatDockHeaderProps {
   selectValue: string | undefined;
   onModelChange: (modelId: string) => void;
   selectedModel?: ViewerChatState['modelOptions'][number];
-  onReset: () => void;
   contextDescription: string;
 }
 
@@ -38,7 +36,6 @@ export function ChatDockHeader({
   selectValue,
   onModelChange,
   selectedModel,
-  onReset,
   contextDescription,
 }: ChatDockHeaderProps) {
   return (
@@ -88,9 +85,6 @@ export function ChatDockHeader({
             </SelectContent>
           </Select>
           {mode === 'session' ? <SessionAnalysisPopouts sessionId={sessionId} mode={mode} /> : null}
-          <Button size="sm" variant="outline" onClick={onReset} disabled={isStreaming || isResetting}>
-            {isResetting ? 'Resetting…' : 'New chat'}
-          </Button>
         </div>
       </div>
       {selectedModel ? (

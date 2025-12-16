@@ -6,6 +6,7 @@ import {
   listChatThreads,
   removeChatThreadRecord,
   renameChatThread,
+  resetChatThreadMessages,
   setActiveChatThread,
   startNewChatThread,
   type ChatThreadRecord,
@@ -77,3 +78,17 @@ async function ensureActiveThreadAfterRemoval(thread: ChatThreadRecord) {
   const next = await startNewChatThread(thread.sessionId, thread.mode)
   return next
 }
+
+const clearInput = z.object({
+  threadId: z.string().min(1),
+})
+
+export const clearChatThreadState = createServerFn({ method: 'POST' })
+  .inputValidator((data: unknown) => clearInput.parse(data))
+  .handler(async ({ data }) => {
+    await deleteMessagesForThread(data.threadId)
+    const thread = await resetChatThreadMessages(data.threadId)
+    return {
+      clearedId: thread.id,
+    }
+  })
