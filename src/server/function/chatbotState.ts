@@ -2,17 +2,19 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { buildChatContext } from '~/features/chatbot/context-builder'
 import { featureFlags } from '~/config/features'
-import { listChatMessages, resetChatThread } from '~/server/persistence/chatMessages'
+import { activateChatThread, listChatMessages, resetChatThread } from '~/server/persistence/chatMessages'
 import { listMisalignments } from '~/server/persistence/misalignments'
 import { getChatModelOptions, getDefaultModelForMode } from '~/lib/ai/client'
 import { ensureLmStudioModelsRegistered } from '~/server/lib/lmStudioModels'
 import { logWarn } from '~/lib/logger'
 import { getSessionRepoBinding } from '~/server/persistence/sessionRepoBindings'
+import { getActiveChatThread, listChatThreads } from '~/server/persistence/chatThreads'
 
 const inputSchema = z.object({
   sessionId: z.string().min(1),
   mode: z.union([z.literal('session'), z.literal('general')]).default('session'),
   reset: z.boolean().optional(),
+  threadId: z.string().optional(),
 })
 
 export const fetchChatbotState = createServerFn({ method: 'POST' })
@@ -23,6 +25,10 @@ export const fetchChatbotState = createServerFn({ method: 'POST' })
     if (data.reset) {
       await resetChatThread(data.sessionId, data.mode)
     }
+    if (data.threadId) {
+      await activateChatThread(data.sessionId, data.mode, data.threadId)
+    }
+    const activeThread = await getActiveChatThread(data.sessionId, data.mode)
     const snapshot = await loadSessionSnapshot(data.sessionId)
     const repoBinding = data.mode === 'session' ? getSessionRepoBinding(data.sessionId) : null
     const agentRules = repoBinding ? await loadAgentRules(repoBinding.rootDir) : []
@@ -31,16 +37,27 @@ export const fetchChatbotState = createServerFn({ method: 'POST' })
         sessionId: data.sessionId,
       })
     }
-    const messages = await listChatMessages(data.sessionId, data.mode)
+    const messages = await listChatMessages(data.sessionId, data.mode, activeThread.id)
     const misalignments = data.mode === 'session' ? await listMisalignments(data.sessionId) : []
     const contextPreview =
       data.mode === 'session'
         ? buildChatContext({ snapshot, misalignments, history: messages, agentRules })
         : null
     const contextSections = contextPreview?.sections ?? []
+    const threadSummaries = await listChatThreads(data.sessionId, data.mode)
     return {
       sessionId: data.sessionId,
       mode: data.mode,
+      threadId: activeThread.id,
+      threads: threadSummaries.map((thread) => ({
+        id: thread.id,
+        title: thread.title,
+        status: thread.status,
+        messageCount: thread.messageCount,
+        lastMessagePreview: thread.lastMessagePreview,
+        lastMessageAt: thread.lastMessageAt,
+        mode: thread.mode,
+      })),
       featureEnabled: featureFlags.sessionCoach.enabled(),
       repoContext: repoBinding,
       snapshot,

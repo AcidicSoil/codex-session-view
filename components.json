@@ -37,6 +37,7 @@
     "@smoothui": "https://smoothui.dev/r/{name}.json",
     "@abui": "https://abui.io/r/{name}.json",
     "@taki": "https://taki-ui.com/r/{name}.json",
-    "@algolia": "https://sitesearch.algolia.com/r/{name}.json"
+    "@algolia": "https://sitesearch.algolia.com/r/{name}.json",
+    "@hextaui": "https://hextaui.com/r/{name}.json"
   }
 }

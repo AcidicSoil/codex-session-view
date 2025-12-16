@@ -1,0 +1,58 @@
+[
+  {
+    "id": "thread_0886b277-d9a9-496e-8a4f-12e05330ce2c",
+    "sessionId": "session-75706c6f6164732f7e2f2e636f6465782f736573",
+    "mode": "session",
+    "title": "Session Coach(chat).test.md",
+    "status": "archived",
+    "messageCount": 2,
+    "createdAt": "2025-12-15T23:39:55.776Z",
+    "updatedAt": "2025-12-16T00:07:12.848Z",
+    "lastMessagePreview": "**Summary of the session so far**\n\n* The assistant was asked to review the codebase for any violations of the **AGENT** rules that pertain to fetching, mutating data, and keeping UI state in the URL.  \n* Recent activity included reading `src/components/viewer/ChatDock.tsx` and fl",
+    "lastMessageAt": "2025-12-15T23:52:35.351Z"
+  },
+  {
+    "id": "thread_1a629f0b-2c96-4d00-964a-b34a59dc4bbe",
+    "sessionId": "session-75706c6f6164732f7e2f2e636f6465782f736573",
+    "mode": "session",
+    "title": "Session Coach #2",
+    "status": "active",
+    "messageCount": 0,
+    "createdAt": "2025-12-16T00:07:12.849Z",
+    "updatedAt": "2025-12-16T00:07:12.849Z"
+  },
+  {
+    "id": "thread_201ca0e5-0165-4da9-920f-5c7e01d62a1e",
+    "sessionId": "session-75706c6f6164732f7e2f2e636f6465782f736573",
+    "mode": "general",
+    "title": "chat",
+    "status": "active",
+    "messageCount": 2,
+    "createdAt": "2025-12-16T00:01:25.593Z",
+    "updatedAt": "2025-12-16T00:06:43.026Z",
+    "lastMessagePreview": "It looks like you're trying to start a new chat. How can I assist you today? Feel free to ask me anything or continue a conversation you were previously having.",
+    "lastMessageAt": "2025-12-16T00:02:15.693Z"
+  },
+  {
+    "id": "thread_3983efad-ab5b-40b6-a175-4a38cdfdbaeb",
+    "sessionId": "session-default",
+    "mode": "session",
+    "title": "Session Coach",
+    "status": "active",
+    "messageCount": 0,
+    "createdAt": "2025-12-15T22:02:27.892Z",
+    "updatedAt": "2025-12-15T22:02:27.892Z"
+  },
+  {
+    "id": "thread_54238325-dcf2-49ea-ac37-bb80ab2fee33",
+    "sessionId": "session-75706c6f6164732f7e2f2e636f6465782f736573",
+    "mode": "general",
+    "title": "General",
+    "status": "archived",
+    "messageCount": 2,
+    "createdAt": "2025-12-15T23:41:49.340Z",
+    "updatedAt": "2025-12-16T00:06:43.026Z",
+    "lastMessagePreview": "Hello! How can I help you today? Is there something you'd like to learn more about or discuss?",
+    "lastMessageAt": "2025-12-15T23:47:50.066Z"
+  }
+]

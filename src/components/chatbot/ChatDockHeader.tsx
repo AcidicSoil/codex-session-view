@@ -62,7 +62,7 @@ export function ChatDockHeader({
           <p className="text-xs text-muted-foreground">
             {mode === 'session'
               ? contextDescription
-              : 'Exploratory mode that bypasses AGENTS remediation context.'}
+              : `Exploratory mode • ${contextDescription}`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

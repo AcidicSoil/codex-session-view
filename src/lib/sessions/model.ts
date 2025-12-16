@@ -54,6 +54,7 @@ export interface ChatMessageRecord {
   id: string
   sessionId: SessionId
   mode: ChatMode
+  threadId?: string
   role: ChatRole
   content: string
   clientMessageId?: string
@@ -86,6 +87,7 @@ export function canTransitionMisalignmentStatus(current: MisalignmentStatus, nex
 export function createChatMessageRecord(input: {
   sessionId: SessionId
   mode: ChatMode
+  threadId?: string
   role: ChatRole
   content: string
   clientMessageId?: string
@@ -99,6 +101,7 @@ export function createChatMessageRecord(input: {
     id: input.id ?? generateId('chat'),
     sessionId: input.sessionId,
     mode: input.mode,
+    threadId: input.threadId,
     role: input.role,
     content: input.content,
     clientMessageId: input.clientMessageId,

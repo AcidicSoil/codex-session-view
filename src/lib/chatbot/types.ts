@@ -1,4 +1,5 @@
 import type { MisalignmentSeverity } from '~/lib/sessions/model';
+import type { ChatMode } from '~/lib/sessions/model';
 
 export interface ChatRemediationMetadata {
   misalignmentId?: string;
@@ -10,4 +11,14 @@ export interface ChatRemediationMetadata {
 export interface CoachPrefillPayload {
   prompt: string;
   metadata?: ChatRemediationMetadata;
+}
+
+export interface ChatThreadSummary {
+  id: string;
+  title: string;
+  status: 'active' | 'archived';
+  messageCount: number;
+  lastMessagePreview?: string;
+  lastMessageAt?: string;
+  mode: ChatMode;
 }
