@@ -5,9 +5,11 @@
     "mode": "session",
     "title": "Session Coach #2",
     "status": "active",
-    "messageCount": 0,
+    "messageCount": 2,
     "createdAt": "2025-12-16T01:44:04.122Z",
-    "updatedAt": "2025-12-16T02:33:19.946Z"
+    "updatedAt": "2025-12-16T15:27:16.242Z",
+    "lastMessagePreview": "\n\n### **AGENT Alignment Violations & Remediation**  \nThe session highlights a violation of **Rule 1 (don't fetch/derive app state in `useEffect`)** and **Rule 5 (reserve effects for real external effects only)**. The `ChatDock.tsx` component uses `useEffect` to fetch data after h",
+    "lastMessageAt": "2025-12-16T15:27:15.870Z"
   },
   {
     "id": "thread_3983efad-ab5b-40b6-a175-4a38cdfdbaeb",
@@ -28,5 +30,15 @@
     "messageCount": 0,
     "createdAt": "2025-12-16T00:31:33.451Z",
     "updatedAt": "2025-12-16T02:21:04.244Z"
+  },
+  {
+    "id": "thread_ff8b0ab6-616e-41b9-9c1d-f872530620f6",
+    "sessionId": "session-default",
+    "mode": "general",
+    "title": "General",
+    "status": "active",
+    "messageCount": 0,
+    "createdAt": "2025-12-16T03:02:47.185Z",
+    "updatedAt": "2025-12-16T03:02:47.185Z"
   }
 ]
