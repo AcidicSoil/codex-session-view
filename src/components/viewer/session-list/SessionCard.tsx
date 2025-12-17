@@ -109,9 +109,9 @@ export function SessionCard({
               matchers={searchMatchers}
             />
           </div>
-        <div className="text-right text-xs text-muted-foreground">
-          <SessionOriginBadge origin={session.origin} size="sm" className="ml-auto mb-2" />
-          <p>{formatBytes(session.size)}</p>
+          <div className="flex flex-col items-end gap-1 text-right text-xs text-muted-foreground">
+            <SessionOriginBadge origin={session.origin} size="sm" />
+            <p>{formatBytes(session.size)}</p>
             {session.lastModifiedIso ? (
               <p className="font-mono text-[10px] uppercase tracking-tight text-muted-foreground" aria-label="Last modified timestamp">
                 {session.lastModifiedIso}

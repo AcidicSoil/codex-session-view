@@ -187,6 +187,7 @@ async function synchronizeBundledSessions(
         repoMeta: repoDetails.repoMeta,
         sessionTimestampMs: repoDetails.sessionTimestampMs,
         source: 'bundled',
+        origin: 'codex',
       });
     })
   );
@@ -202,8 +203,8 @@ async function synchronizeExternalSessions(
   const { default: fg } = await import('fast-glob');
   let count = 0;
   for (const dirInfo of directories) {
-    const globPattern = deriveGlobForDirectory(dirInfo)
-    const matches = fg.sync(globPattern, {
+    const globPatterns = deriveGlobPatternsForDirectory(dirInfo)
+    const matches = fg.sync(globPatterns, {
       cwd: dirInfo.absolute,
       onlyFiles: true,
       dot: true,
@@ -229,11 +230,17 @@ async function synchronizeExternalSessions(
   return count;
 }
 
-function deriveGlobForDirectory(dirInfo: SessionDirectoryInfo) {
+function deriveGlobPatternsForDirectory(dirInfo: SessionDirectoryInfo) {
   if (dirInfo.origin === 'gemini-cli' || dirInfo.displayPrefix?.toLowerCase().includes('gemini')) {
-    return '**/{chats,checkpoints}/**/*.{jsonl,ndjson,json}'
+    return [
+      '**/chats/**/*.{json,jsonl,ndjson}',
+      '**/checkpoints/**/*.{json,jsonl,ndjson}',
+      '**/session-*.json',
+      '**/checkpoint-*.json',
+      '**/*.jsonl',
+    ]
   }
-  return '**/*.{jsonl,ndjson,json}'
+  return ['**/*.{jsonl,ndjson,json}']
 }
 
 function getExternalSessionDirectories(deps: NodeDeps | null): SessionDirectoryInfo[] {

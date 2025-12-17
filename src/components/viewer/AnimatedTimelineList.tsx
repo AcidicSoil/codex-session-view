@@ -24,6 +24,7 @@ import { cn } from '~/lib/utils';
 import { SearchSnippetView } from '~/components/viewer/SearchSnippetView';
 import { buildEventBadges, extractCommandMetadata } from '~/lib/session-events/toolMetadata';
 import { SessionOriginBadge } from '~/components/viewer/SessionOriginBadge';
+import type { SessionOrigin } from '~/lib/session-origin';
 
 export type TimelineEvent = ResponseItem | ResponseItemParsed;
 
@@ -247,6 +248,7 @@ function renderTimelineItem(
     mouseEvent.stopPropagation();
     onAddEventToChat?.(event, index);
   };
+  const origin = (event as { origin?: SessionOrigin }).origin
   const timestampNode = event.at ? (
     <LocalTimestamp
       value={event.at}
@@ -336,7 +338,6 @@ function renderTimelineItem(
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
-              <SessionOriginBadge origin={event.origin} size="sm" />
               {timestampNode}
               <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {event.type}
@@ -387,8 +388,9 @@ function renderTimelineItem(
             </Button>
           </div>
         </div>
-        {eventBadges.length ? (
+        {origin || eventBadges.length ? (
           <div className="flex flex-wrap items-center gap-2">
+            {origin ? <SessionOriginBadge origin={origin} size="sm" /> : null}
             {eventBadges.map((badge, badgeIndex) => (
               <Badge
                 key={`${badge.type}-${badge.id ?? badge.label}-${badgeIndex}`}

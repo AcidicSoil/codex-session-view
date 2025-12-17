@@ -171,8 +171,8 @@ This script rebuilds with `DEPLOY_TARGET=vercel` and launches `vercel dev` via `
 
 ## 📚 Gemini CLI session compatibility
 
-- Upload `.json`/`.jsonl`/`.ndjson` exports from Gemini CLI directly; tool events (`tool_use/tool_result`) map onto the same timeline cards as Codex sessions.
-- Opt-in discovery of local Gemini caches by setting `GEMINI_SESSION_DIR` to one or more `~/.gemini/tmp/<project_hash>` directories (colon-separated). The viewer scopes these directories to `chats/` + `checkpoints/` to avoid unrelated temp files.
+- Upload `.json`/`.jsonl`/`.ndjson` exports from Gemini CLI directly; tool events (`tool_use/tool_result`) map onto the same timeline cards as Codex sessions and share the same timeline filters/badges.
+- The viewer automatically scans `~/.gemini/tmp` (when present) alongside `~/.codex/sessions`. Set `GEMINI_SESSION_DIR` to add additional Gemini cache roots (colon-separated); these directories are scoped to `chats/` + `checkpoints/` patterns to avoid unrelated temp files.
 - See [`docs/gemini-cli-support.md`](docs/gemini-cli-support.md) for the full ingestion + export details.
 
 ## 📄 License
