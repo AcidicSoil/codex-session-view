@@ -121,11 +121,11 @@ temporarily) unless I explicitly ask for it. If something isn't fully wired yet,
 
 — Single source of truth: All business rules, validation, enums, flags, constants, and config live in the backend. UI is a pure view that reads them via API or shared types. Do not define duplicate rules or values in the frontend. When the UI needs new options or behavior, change the backend model/config first, then consume it from the UI. If you see frontend code copying backend data or logic, refactor to fetch it from the backend.
 
-## 7. Linting
+## Linting
 
 ESLint + estint-plugin—solid + Prettier. Lint errors = real bugs.
 
-## 8. Types
+## Types
 
 — Never inline union types used in 2+ places — define once, import everywhere.
 
@@ -133,7 +133,7 @@ ESLint + estint-plugin—solid + Prettier. Lint errors = real bugs.
 — Domain types (API shapes, entities) --> `src/lib/types.ts` or near related code.
 - Export both nullable (`Type | null`) and required (`Exclude<Type, null>`) variants when needed.
 
-## 9. Config-driven variants
+## Config-driven variants
 
 No scattered if-chains with hardcoded strings. Define variants + behavior in one place:
 
