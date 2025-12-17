@@ -6,6 +6,7 @@ import {
   type SafeResult,
 } from './validators';
 import type { ResponseItemParsed, SessionMetaParsed } from './schemas';
+import { detectSessionOriginFromContent, ensureEventOrigin, type SessionOrigin } from '../session-origin';
 
 export interface ParserError extends Record<string, unknown> {
   readonly line: number;
@@ -37,6 +38,8 @@ function pickVersion(meta: SessionMetaParsed | undefined) {
   return v;
 }
 
+const ORIGIN_PROBE_BYTES = 32_000;
+
 export async function* streamParseSession(
   blob: Blob,
   opts: ParserOptions = {}
@@ -49,6 +52,14 @@ export async function* streamParseSession(
 
   let meta: SessionMetaParsed | undefined;
   let version: string | number = 1;
+  let fileOrigin: SessionOrigin | undefined;
+
+  try {
+    const probe = await blob.slice(0, ORIGIN_PROBE_BYTES).text();
+    fileOrigin = detectSessionOriginFromContent(probe, { defaultOrigin: 'codex' });
+  } catch {
+    fileOrigin = 'codex';
+  }
 
   const pendingCalls = new Map<string, ResponseItemParsed>();
 
@@ -64,18 +75,25 @@ export async function* streamParseSession(
     if (!meta) {
       const mres = parseSessionMetaLine(line);
       if (mres.success) {
-        meta = mres.data;
+        meta = {
+          ...mres.data,
+          origin: mres.data.origin ?? fileOrigin,
+        };
         version = pickVersion(meta);
         yield { kind: 'meta', line: 1 as const, meta, version };
         continue;
       }
       const evTry = parseResponseItemLine(line);
       if (evTry.success) {
-        meta = { timestamp: new Date().toISOString() } as SessionMetaParsed;
+        meta = {
+          timestamp: new Date().toISOString(),
+          origin: fileOrigin,
+        } as SessionMetaParsed;
         version = pickVersion(meta);
         yield { kind: 'meta', line: 1 as const, meta, version };
         parsed++;
-        yield { kind: 'event', line: lineNo, event: evTry.data };
+        const enriched = ensureEventOrigin(evTry.data, meta.origin ?? fileOrigin);
+        yield { kind: 'event', line: lineNo, event: enriched };
         continue;
       }
       try {
@@ -125,7 +143,7 @@ export async function* streamParseSession(
       };
       if (failed >= maxErrors) break;
     } else {
-      const ev = res.data;
+      const ev = ensureEventOrigin(res.data, meta?.origin ?? fileOrigin);
       if (ev.type === 'FunctionCall') {
         const callId = (ev as any).call_id as string | undefined;
         if (callId) {

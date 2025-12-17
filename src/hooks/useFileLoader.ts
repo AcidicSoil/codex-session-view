@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { useLiveQuery } from '@tanstack/react-db';
 import { streamParseSession, type ParserError } from '~/lib/session-parser';
 import type { ResponseItemParsed, SessionMetaParsed } from '~/lib/session-parser';
+import { useGeminiJsonFallback } from './useGeminiJsonFallback'
 import {
   ACTIVE_SNAPSHOT_ID,
   clearSessionSnapshot,
@@ -92,6 +93,7 @@ export function useFileLoader() {
   const lastSnapshotVersionRef = useRef<number | null>(null);
   const { data: snapshotRows } = useLiveQuery(sessionSnapshotCollection);
   const persistedSnapshot = snapshotRows?.find((row) => row.id === ACTIVE_SNAPSHOT_ID);
+  const { parseBlob: parseGeminiFallback } = useGeminiJsonFallback()
 
   const start = useCallback(
     async (file: File) => {
@@ -107,18 +109,40 @@ export function useFileLoader() {
       try {
         let parsedEvents = 0;
         let encounteredErrors = 0;
-        for await (const item of streamParseSession(file)) {
-          if (item.kind === 'meta') {
-            const { instructions, ...cleanMetadata } = item.meta ?? {};
-            logDebug('file-loader', 'Parsed session metadata', cleanMetadata);
-            dispatch({ type: 'meta', meta: item.meta });
-          } else if (item.kind === 'event') {
-            parsedEvents += 1;
-            dispatch({ type: 'event', event: item.event });
-          } else if (item.kind === 'error') {
-            encounteredErrors += 1;
-            logError('file-loader', 'Parser emitted error', item.error);
-            dispatch({ type: 'fail', error: item.error });
+        let parsedAnything = false;
+        try {
+          for await (const item of streamParseSession(file)) {
+            if (item.kind === 'meta') {
+              const { instructions, ...cleanMetadata } = item.meta ?? {};
+              logDebug('file-loader', 'Parsed session metadata', cleanMetadata);
+              dispatch({ type: 'meta', meta: item.meta });
+              parsedAnything = true;
+            } else if (item.kind === 'event') {
+              parsedEvents += 1;
+              dispatch({ type: 'event', event: item.event });
+              parsedAnything = true;
+            } else if (item.kind === 'error') {
+              encounteredErrors += 1;
+              logError('file-loader', 'Parser emitted error', item.error);
+              dispatch({ type: 'fail', error: item.error });
+            }
+          }
+        } catch (streamError) {
+          logError('file-loader', 'Streaming parser crashed', streamError as Error);
+        }
+
+        if (!parsedAnything) {
+          const fallback = await parseGeminiFallback(file)
+          if (fallback) {
+            logInfo('file-loader', 'Fell back to Gemini JSON parser')
+            if (fallback.meta) {
+              dispatch({ type: 'meta', meta: fallback.meta })
+            }
+            for (const event of fallback.events) {
+              parsedEvents += 1
+              dispatch({ type: 'event', event })
+            }
+            parsedAnything = fallback.events.length > 0
           }
         }
         dispatch({ type: 'done' });
@@ -137,7 +161,7 @@ export function useFileLoader() {
         dispatch({ type: 'done' });
       }
     },
-    [dispatch, persist]
+    [dispatch, parseGeminiFallback, persist]
   );
 
   const reset = useCallback(() => {

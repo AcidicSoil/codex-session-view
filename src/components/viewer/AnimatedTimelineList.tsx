@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { cn } from '~/lib/utils';
 import { SearchSnippetView } from '~/components/viewer/SearchSnippetView';
 import { buildEventBadges, extractCommandMetadata } from '~/lib/session-events/toolMetadata';
+import { SessionOriginBadge } from '~/components/viewer/SessionOriginBadge';
 
 export type TimelineEvent = ResponseItem | ResponseItemParsed;
 
@@ -335,6 +336,7 @@ function renderTimelineItem(
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
+              <SessionOriginBadge origin={event.origin} size="sm" />
               {timestampNode}
               <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {event.type}

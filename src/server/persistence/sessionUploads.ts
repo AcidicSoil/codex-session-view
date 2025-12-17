@@ -2,6 +2,7 @@ import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import path from 'node:path'
 import type { SessionAssetSource } from '~/lib/viewerDiscovery'
 import { deriveRepoDetailsFromLine, deriveSessionTimestampMs, type RepoMetadata } from '~/lib/repo-metadata'
+import { detectSessionOriginFromContent, type SessionOrigin } from '~/lib/session-origin'
 
 type FsModule = typeof import('node:fs/promises')
 let fsModulePromise: Promise<FsModule> | null = null
@@ -26,6 +27,7 @@ interface SessionUploadRecord {
   lastModifiedMs?: number
   lastModifiedIso?: string
   workspaceRoot?: string
+  origin?: SessionOrigin
 }
 
 export interface SessionUploadRecordDetails {
@@ -37,6 +39,7 @@ export interface SessionUploadRecordDetails {
   repoLabel?: string
   repoMeta?: RepoMetadata
   workspaceRoot?: string
+  origin?: SessionOrigin
 }
 
 export interface SessionUploadSummary {
@@ -50,6 +53,7 @@ export interface SessionUploadSummary {
   source: SessionAssetSource
   lastModifiedMs?: number
   lastModifiedIso?: string
+  origin?: SessionOrigin
 }
 
 const sessionUploadsCollection = createCollection(
@@ -62,6 +66,7 @@ const sessionUploadsCollection = createCollection(
 export async function saveSessionUpload(originalName: string, content: string): Promise<SessionUploadSummary> {
   const repoDetails = deriveRepoDetailsFromContent(content)
   const lastModifiedMs = resolveLastModifiedMs(deriveSessionTimestampFromContent(content))
+  const origin = detectSessionOriginFromContent(content, { defaultOrigin: 'codex' })
   const record: SessionUploadRecord = {
     id: createUploadId(),
     originalName,
@@ -74,6 +79,7 @@ export async function saveSessionUpload(originalName: string, content: string): 
     lastModifiedMs,
     lastModifiedIso: new Date(lastModifiedMs).toISOString(),
     workspaceRoot: repoDetails.workspaceRoot,
+    origin,
   }
   await sessionUploadsCollection.insert(record)
   return toRecordView(record)
@@ -150,6 +156,9 @@ export async function refreshSessionUploadFromSource(id: string): Promise<Sessio
     if (derivedRepoDetails.workspaceRoot) {
       draft.workspaceRoot = derivedRepoDetails.workspaceRoot
     }
+    const updatedOrigin =
+      detectSessionOriginFromContent(content, { defaultOrigin: draft.origin ?? 'codex' }) ?? draft.origin
+    draft.origin = updatedOrigin
   })
 
   const refreshed = sessionUploadsCollection.get(id)
@@ -172,6 +181,7 @@ function toRecordView(record: SessionUploadRecord): SessionUploadSummary {
     source: record.source,
     lastModifiedMs,
     lastModifiedIso,
+    origin: record.origin,
   }
 }
 
@@ -185,6 +195,7 @@ function toRecordDetails(record: SessionUploadRecord): SessionUploadRecordDetail
     repoLabel: record.repoLabel,
     repoMeta: record.repoMeta,
     workspaceRoot: record.workspaceRoot,
+    origin: record.origin,
   }
 }
 
@@ -195,6 +206,7 @@ export async function ensureSessionUploadForFile(options: {
   repoMeta?: RepoMetadata
   source: Extract<SessionAssetSource, 'bundled' | 'external'>
   sessionTimestampMs?: number
+  origin?: SessionOrigin
 }): Promise<SessionUploadSummary> {
   const fs = await loadFsModule()
   const normalizedPath = normalizeAbsolutePath(options.absolutePath)
@@ -207,12 +219,14 @@ export async function ensureSessionUploadForFile(options: {
   const derivedRepoDetails = deriveRepoDetailsFromContent(content)
   const resolvedRepoLabel = options.repoLabel ?? derivedRepoDetails.repoLabel
   const resolvedRepoMeta = options.repoMeta ?? derivedRepoDetails.repoMeta
+  const fileOrigin = options.origin ?? detectSessionOriginFromContent(content, { defaultOrigin: 'codex' })
   if (existing && existing.sourceUpdatedAt === updatedAt) {
     const needsMetadataUpdate = (!!resolvedRepoLabel && !existing.repoLabel) || (!!resolvedRepoMeta && !existing.repoMeta)
     const needsTimestampUpdate =
       existing.lastModifiedMs !== canonicalLastModifiedMs || existing.lastModifiedIso !== canonicalLastModifiedIso
     const needsWorkspaceUpdate = !!derivedRepoDetails.workspaceRoot && !existing.workspaceRoot
-    if (needsMetadataUpdate || needsTimestampUpdate || needsWorkspaceUpdate) {
+    const needsOriginUpdate = !!fileOrigin && existing.origin !== fileOrigin
+    if (needsMetadataUpdate || needsTimestampUpdate || needsWorkspaceUpdate || needsOriginUpdate) {
       await sessionUploadsCollection.update(existing.id, (draft) => {
         draft.repoLabel = draft.repoLabel ?? resolvedRepoLabel
         draft.repoMeta = draft.repoMeta ?? resolvedRepoMeta
@@ -222,6 +236,9 @@ export async function ensureSessionUploadForFile(options: {
         if (needsTimestampUpdate) {
           draft.lastModifiedMs = canonicalLastModifiedMs
           draft.lastModifiedIso = canonicalLastModifiedIso
+        }
+        if (needsOriginUpdate && fileOrigin) {
+          draft.origin = fileOrigin
         }
       })
       const refreshed = sessionUploadsCollection.get(existing.id)
@@ -249,6 +266,9 @@ export async function ensureSessionUploadForFile(options: {
       if (derivedRepoDetails.workspaceRoot) {
         draft.workspaceRoot = derivedRepoDetails.workspaceRoot
       }
+      if (fileOrigin) {
+        draft.origin = fileOrigin
+      }
     })
     const refreshed = sessionUploadsCollection.get(existing.id)
     if (!refreshed) {
@@ -271,6 +291,7 @@ export async function ensureSessionUploadForFile(options: {
     lastModifiedMs: canonicalLastModifiedMs,
     lastModifiedIso: canonicalLastModifiedIso,
     workspaceRoot: derivedRepoDetails.workspaceRoot,
+    origin: fileOrigin,
   }
   await sessionUploadsCollection.insert(record)
   return toRecordView(record)

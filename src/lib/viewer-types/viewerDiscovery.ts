@@ -1,4 +1,5 @@
 import type { RepoMetadata } from '~/lib/repo-metadata';
+import type { SessionOrigin } from '~/lib/session-origin';
 import { fallbackRepositoryLabelFromPath } from '~/lib/repository';
 
 export type SessionAssetSource = 'bundled' | 'external' | 'upload';
@@ -13,6 +14,7 @@ export interface SessionAssetInput {
   repoMeta?: RepoMetadata;
   source: SessionAssetSource;
   lastModifiedIso?: string;
+  origin?: SessionOrigin;
 }
 
 export interface DiscoveredSessionAsset extends SessionAssetInput {
@@ -32,6 +34,7 @@ export interface DiscoveryStats {
 export interface SessionDirectoryInfo {
   absolute: string;
   displayPrefix: string;
+  origin?: SessionOrigin;
 }
 
 export interface DiscoveryInputs {
@@ -60,6 +63,7 @@ export interface SessionUploadView {
   source: SessionAssetSource;
   lastModifiedMs?: number;
   lastModifiedIso?: string;
+  origin?: SessionOrigin;
 }
 
 export function mergeSessionAssets(...lists: DiscoveredSessionAsset[][]) {
@@ -78,16 +82,21 @@ export function sortSessionAssets(assets: DiscoveredSessionAsset[]) {
 
 export function uploadRecordToAsset(record: SessionUploadView): DiscoveredSessionAsset {
   const normalizedSortKey = normalizeSortKey(record.lastModifiedMs, record.storedAt);
+  const baseTags = new Set<string>(['upload']);
+  if (record.origin) {
+    baseTags.add(`origin:${record.origin}`);
+  }
   return createDiscoveredSessionAsset({
     path: `uploads/${record.originalName}`,
     url: record.url,
     sortKey: normalizedSortKey,
     size: record.size,
-    tags: ['upload'],
+    tags: Array.from(baseTags),
     repoLabel: record.repoLabel,
     repoMeta: record.repoMeta,
     source: record.source,
     lastModifiedIso: record.lastModifiedIso ?? (typeof normalizedSortKey === 'number' ? new Date(normalizedSortKey).toISOString() : undefined),
+    origin: record.origin,
   });
 }
 

@@ -6,6 +6,10 @@ import {
   type ResponseItemParsed,
 } from './schemas'
 import type { MessagePart } from '~/lib/viewer-types/events'
+import {
+  normalizeGeminiEventShape,
+  normalizeGeminiMetaPayload,
+} from './gemini'
 
 export type ParseFailureReason = 'invalid_json' | 'invalid_schema'
 
@@ -57,6 +61,10 @@ export function parseSessionMetaLine(line: string): SafeResult<SessionMetaParsed
       if (inner && typeof inner === 'object') payload = inner
     }
   }
+  if (isRecord(payload)) {
+    const geminiMeta = normalizeGeminiMetaPayload(payload)
+    if (geminiMeta) return { success: true, data: geminiMeta }
+  }
   const res = SessionMetaSchema.safeParse(payload)
   if (!res.success) return { success: false, error: res.error, reason: 'invalid_schema' }
   return { success: true, data: res.data }
@@ -103,6 +111,15 @@ export function parseResponseItemLine(line: string): SafeResult<ResponseItemPars
     if (normalized) {
       const normRes = ResponseItemSchema.safeParse(normalized)
       if (normRes.success) return { success: true, data: normRes.data }
+    }
+
+    const camel = toCamel(payload)
+    const geminiNormalized = normalizeGeminiEventShape(payload, camel)
+    if (geminiNormalized) {
+      const geminiRes = ResponseItemSchema.safeParse(geminiNormalized)
+      if (geminiRes.success) {
+        return { success: true, data: annotateCodeLikeOutput(geminiRes.data) }
+      }
     }
   }
 

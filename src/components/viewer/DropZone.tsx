@@ -22,7 +22,7 @@ export function DropZone({
   onFile,
   onFilesSelected,
   className,
-  acceptExtensions = ['.jsonl', '.ndjson', '.txt'],
+  acceptExtensions = ['.json', '.jsonl', '.ndjson', '.txt'],
   isPending = false,
   statusLabel,
   meta,
@@ -84,7 +84,7 @@ export function DropZone({
       >
         <div>
           <p className={cn('font-semibold', variant === 'compact' ? 'text-sm' : 'text-base')}>Upload session log</p>
-          <p className="text-xs text-muted-foreground">Select or drop a .jsonl/.ndjson transcript.</p>
+          <p className="text-xs text-muted-foreground">Select or drop .json/.jsonl/.ndjson session exports.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <FileTrigger

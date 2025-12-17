@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { SESSION_ORIGINS } from '../session-origin';
+
+export const SessionOriginSchema = z.enum(SESSION_ORIGINS);
 export const GitInfoSchema = z
   .object({
     repo: z.string().optional(),
@@ -15,6 +18,7 @@ export const SessionMetaSchema = z
     instructions: z.string().optional(),
     git: GitInfoSchema.optional(),
     version: z.union([z.number(), z.string()]).optional(),
+    origin: SessionOriginSchema.optional(),
   })
   .loose();
 const BaseEvent = z
@@ -22,6 +26,7 @@ const BaseEvent = z
     id: z.string().optional(),
     at: z.string().optional(),
     index: z.number().int().optional(),
+    origin: SessionOriginSchema.optional(),
   })
   .loose();
 const MessagePartSchema = z

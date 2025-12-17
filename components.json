@@ -39,6 +39,7 @@
     "@taki": "https://taki-ui.com/r/{name}.json",
     "@algolia": "https://sitesearch.algolia.com/r/{name}.json",
     "@hextaui": "https://hextaui.com/r/{name}.json",
-    "@eldoraui": "https://eldoraui.site/r/{name}.json"
+    "@eldoraui": "https://eldoraui.site/r/{name}.json",
+    "@kibo-ui": "https://www.kibo-ui.com/r/{name}.json"
   }
 }

@@ -1,9 +1,12 @@
 export function filterAcceptedFiles(files: File[], acceptExts: string[]) {
   if (!files.length) return [];
   if (!acceptExts.length) return files;
-  const lowerExts = acceptExts.map((ext) => ext.toLowerCase());
-  return files.filter((file) => {
-    const name = file.name.toLowerCase();
-    return lowerExts.some((ext) => name.endsWith(ext));
-  });
+  return files.filter((file) => isExtensionAccepted(file.name, acceptExts));
+}
+
+export function isExtensionAccepted(fileName: string, acceptExts: string[]) {
+  if (!acceptExts.length) return true
+  const lowerExts = acceptExts.map((ext) => ext.toLowerCase().trim())
+  const name = fileName.toLowerCase()
+  return lowerExts.some((ext) => name.endsWith(ext))
 }
