@@ -32,6 +32,16 @@
     "updatedAt": "2025-12-16T02:21:04.244Z"
   },
   {
+    "id": "thread_608847b1-3c0b-4cce-b894-c328c80f2b48",
+    "sessionId": "session-75706c6f6164732f7e2f2e67656d696e692f746d",
+    "mode": "session",
+    "title": "Session Coach",
+    "status": "active",
+    "messageCount": 0,
+    "createdAt": "2025-12-17T00:15:38.966Z",
+    "updatedAt": "2025-12-17T00:15:38.966Z"
+  },
+  {
     "id": "thread_ff8b0ab6-616e-41b9-9c1d-f872530620f6",
     "sessionId": "session-default",
     "mode": "general",

@@ -24,6 +24,7 @@ import { ToolCommandFilter } from '~/components/viewer/ToolCommandFilter'
 import { applyViewerSearchUpdates } from '~/features/viewer/viewer.search'
 import type { ViewerSearchState } from '~/features/viewer/viewer.search'
 import { applyTimelineSearch } from '~/features/viewer/timeline/search'
+import { TimelineOriginFilters } from '~/components/viewer/TimelineOriginFilters'
 
 interface TimelineWithFiltersProps {
   /**
@@ -56,7 +57,8 @@ export function TimelineWithFilters({
   const updateTimelinePreferences = useUiSettingsStore((state) => state.updateTimelinePreferences)
   const setTimelineRange = useUiSettingsStore((state) => state.setTimelineRange)
   const setCommandFilter = useUiSettingsStore((state) => state.setCommandFilter)
-  const { filters, quickFilter, roleFilter, sortOrder, searchQuery } = timelinePreferences
+  const setOriginFilter = useUiSettingsStore((state) => state.setOriginFilter)
+  const { filters, quickFilter, roleFilter, sortOrder, searchQuery, originFilter } = timelinePreferences
   const commandFilter = timelinePreferences.commandFilter
   const setFilters = useCallback(
     (next: Filter<TimelineFilterValue>[]) => {
@@ -130,9 +132,34 @@ export function TimelineWithFilters({
     [rangedEvents, commandFilter],
   )
 
+  const originStats = useMemo(() => {
+    let codex = 0
+    let geminiCli = 0
+    let unknown = 0
+    for (const event of rangedEvents) {
+      const origin = (event as any).origin
+      if (origin === 'gemini-cli') geminiCli += 1
+      else if (origin === 'codex') codex += 1
+      else unknown += 1
+    }
+    return { codex, geminiCli, unknown }
+  }, [rangedEvents])
+
+  const originFilteredEvents = useMemo(
+    () =>
+      commandFilteredEvents.filter((event) => {
+        const origin = (event as any).origin
+        if (!origin) return true
+        if (origin === 'codex') return originFilter.codex
+        if (origin === 'gemini-cli') return originFilter.geminiCli
+        return true
+      }),
+    [commandFilteredEvents, originFilter],
+  )
+
   const searchMatches = useMemo(
-    () => applyTimelineSearch(commandFilteredEvents, searchMatchers),
-    [commandFilteredEvents, searchMatchers],
+    () => applyTimelineSearch(originFilteredEvents, searchMatchers),
+    [originFilteredEvents, searchMatchers],
   )
   const filteredEvents = useMemo(
     () => applyTimelineFilters(searchMatches, { filters, quickFilter, roleFilter }),
@@ -246,9 +273,18 @@ export function TimelineWithFilters({
                 onChange={handleRangeChange}
               />
             </div>
-            <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-              <p className="text-sm font-semibold">Command filters</p>
-              <ToolCommandFilter value={commandFilter} onChange={handleCommandFilterChange} />
+            <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-4">
+              <div>
+                <p className="text-sm font-semibold">Command filters</p>
+                <ToolCommandFilter value={commandFilter} onChange={handleCommandFilterChange} />
+              </div>
+              <div className="border-t border-white/5 pt-4">
+                <TimelineOriginFilters
+                  value={originFilter}
+                  onChange={(next) => setOriginFilter(() => next)}
+                  stats={originStats}
+                />
+              </div>
             </div>
           </div>
         </div>
