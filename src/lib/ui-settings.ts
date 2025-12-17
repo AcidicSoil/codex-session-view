@@ -20,6 +20,11 @@ export interface TimelineCommandFilterState {
   query: string
 }
 
+export interface TimelineOriginFilterState {
+  codex: boolean
+  geminiCli: boolean
+}
+
 export type BookmarkType = 'session' | 'event' | 'chat' | 'rule'
 
 export interface BookmarkRecord {
@@ -54,6 +59,7 @@ export interface TimelinePreferencesState {
   searchQuery: string
   eventRange: TimelineRangeState | null
   commandFilter: TimelineCommandFilterState
+  originFilter: TimelineOriginFilterState
 }
 
 export interface UiSettingsSnapshot {
@@ -91,6 +97,7 @@ export const DEFAULT_TIMELINE_PREFERENCES: TimelinePreferencesState = {
   searchQuery: '',
   eventRange: null,
   commandFilter: { families: [], query: '' },
+  originFilter: { codex: true, geminiCli: true },
 }
 
 export const DEFAULT_UI_SETTINGS_SNAPSHOT: UiSettingsSnapshot = {
@@ -131,6 +138,8 @@ export function cloneUiSettingsSnapshot(source?: UiSettingsSnapshot | null): UiS
       searchQuery: source.timelinePreferences?.searchQuery ?? DEFAULT_TIMELINE_PREFERENCES.searchQuery,
       eventRange: source.timelinePreferences?.eventRange ?? null,
       commandFilter: source.timelinePreferences?.commandFilter ?? { families: [], query: '' },
+      originFilter:
+        source.timelinePreferences?.originFilter ?? { ...DEFAULT_TIMELINE_PREFERENCES.originFilter },
     },
   }
 }

@@ -12,6 +12,7 @@ import {
   type ProjectDiscoverySnapshot,
   type SessionDirectoryInfo,
 } from './viewerDiscovery';
+import type { SessionOrigin } from '~/lib/session-origin';
 
 const isServerRuntime = typeof process !== 'undefined' && !!process.versions?.node;
 
@@ -201,7 +202,8 @@ async function synchronizeExternalSessions(
   const { default: fg } = await import('fast-glob');
   let count = 0;
   for (const dirInfo of directories) {
-    const matches = fg.sync('**/*.{jsonl,ndjson,json}', {
+    const globPattern = deriveGlobForDirectory(dirInfo)
+    const matches = fg.sync(globPattern, {
       cwd: dirInfo.absolute,
       onlyFiles: true,
       dot: true,
@@ -218,6 +220,7 @@ async function synchronizeExternalSessions(
           repoMeta: repoDetails.repoMeta,
           sessionTimestampMs: repoDetails.sessionTimestampMs,
           source: 'external',
+          origin: dirInfo.origin,
         });
       })
     );
@@ -226,31 +229,43 @@ async function synchronizeExternalSessions(
   return count;
 }
 
+function deriveGlobForDirectory(dirInfo: SessionDirectoryInfo) {
+  if (dirInfo.origin === 'gemini-cli' || dirInfo.displayPrefix?.toLowerCase().includes('gemini')) {
+    return '**/{chats,checkpoints}/**/*.{jsonl,ndjson,json}'
+  }
+  return '**/*.{jsonl,ndjson,json}'
+}
+
 function getExternalSessionDirectories(deps: NodeDeps | null): SessionDirectoryInfo[] {
   if (!deps) return [];
   const directories: SessionDirectoryInfo[] = [];
   const seen = new Set<string>();
-  const addDir = (dir: string | undefined, displayPrefix?: string) => {
+  const addDir = (dir: string | undefined, displayPrefix?: string, origin?: SessionOrigin) => {
     if (!dir) return;
     const absolute = deps.path.resolve(dir);
     if (!deps.fs.existsSync(absolute)) return;
     if (seen.has(absolute)) return;
     seen.add(absolute);
-    directories.push({ absolute, displayPrefix: displayPrefix ?? formatDisplayPrefix(absolute) });
+    directories.push({ absolute, displayPrefix: displayPrefix ?? formatDisplayPrefix(absolute), origin });
   };
 
   const homeDir = process.env.HOME ?? process.env.USERPROFILE;
   if (homeDir) {
-    addDir(deps.path.resolve(homeDir, '.codex/sessions'), '~/.codex/sessions');
+    addDir(deps.path.resolve(homeDir, '.codex/sessions'), '~/.codex/sessions', 'codex');
+    addDir(deps.path.resolve(homeDir, '.gemini/tmp'), '~/.gemini/tmp', 'gemini-cli');
   }
 
-  const envValue = process.env.CODEX_SESSION_DIR;
-  if (envValue) {
-    for (const raw of envValue.split(deps.path.delimiter)) {
-      if (!raw.trim()) continue;
-      addDir(raw.trim());
+  const appendEnvDirectories = (value: string | undefined, prefix?: string, origin?: SessionOrigin) => {
+    if (!value) return;
+    for (const raw of value.split(deps.path.delimiter)) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      addDir(trimmed, prefix, origin);
     }
-  }
+  };
+
+  appendEnvDirectories(process.env.CODEX_SESSION_DIR, undefined, 'codex');
+  appendEnvDirectories(process.env.GEMINI_SESSION_DIR, 'Gemini sessions', 'gemini-cli');
 
   return directories;
 }

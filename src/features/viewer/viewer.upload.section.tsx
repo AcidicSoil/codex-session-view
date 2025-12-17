@@ -143,7 +143,7 @@ interface UploadControlsCardProps {
 }
 
 export function UploadControlsCard({ controller, className }: UploadControlsCardProps) {
-  const acceptExtensions = useMemo(() => ['.jsonl', '.ndjson', '.txt'], [])
+  const acceptExtensions = useMemo(() => ['.json', '.jsonl', '.ndjson', '.txt'], [])
   const acceptedFileTypes = useMemo(() => Array.from(new Set([...acceptExtensions, 'application/x-ndjson'])), [acceptExtensions])
 
   const handleFilesSelected = useCallback(

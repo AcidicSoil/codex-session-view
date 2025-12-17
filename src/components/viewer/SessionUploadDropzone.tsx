@@ -93,7 +93,7 @@ export function SessionUploadDropzone({
       </div>
       <h3 className="mt-2 text-lg font-semibold text-foreground">Drop session exports</h3>
       <p className="text-sm text-muted-foreground">
-        Drag .jsonl/.ndjson files here or browse to ingest entire folders.
+        Drag .json/.jsonl/.ndjson session exports from Codex or Gemini CLI, or browse entire folders.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <FileTrigger

@@ -169,6 +169,12 @@ pnpm run dev:vercel
 
 This script rebuilds with `DEPLOY_TARGET=vercel` and launches `vercel dev` via `pnpm dlx`. Sign in with the Vercel CLI when prompted.
 
+## 📚 Gemini CLI session compatibility
+
+- Upload `.json`/`.jsonl`/`.ndjson` exports from Gemini CLI directly; tool events (`tool_use/tool_result`) map onto the same timeline cards as Codex sessions.
+- Opt-in discovery of local Gemini caches by setting `GEMINI_SESSION_DIR` to one or more `~/.gemini/tmp/<project_hash>` directories (colon-separated). The viewer scopes these directories to `chats/` + `checkpoints/` to avoid unrelated temp files.
+- See [`docs/gemini-cli-support.md`](docs/gemini-cli-support.md) for the full ingestion + export details.
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
