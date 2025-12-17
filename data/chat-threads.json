@@ -22,6 +22,16 @@
     "updatedAt": "2025-12-15T22:02:27.892Z"
   },
   {
+    "id": "thread_48b9ae32-f7fe-4d90-b10c-eec14e71f6ce",
+    "sessionId": "session-75706c6f6164732f7e2f2e67656d696e692f746d",
+    "mode": "general",
+    "title": "General",
+    "status": "active",
+    "messageCount": 0,
+    "createdAt": "2025-12-17T22:35:47.501Z",
+    "updatedAt": "2025-12-17T22:35:47.501Z"
+  },
+  {
     "id": "thread_51242ef1-29d1-48e6-8402-6e689fbe579b",
     "sessionId": "session-75706c6f6164732f7e2f2e636f6465782f736573",
     "mode": "general",
