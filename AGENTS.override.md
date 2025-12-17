@@ -298,3 +298,4 @@ Add/rename variant = update config once; TS catches stale refs.
 - If no suitable skill exists, use the prompts under `~/.codex/prompts/codex-skills/skill-creator/` to define a new skill for the task, save it into the appropriate subdirectory under `codex-skills`, then re-run the task using that newly created skill, still subject to the governing `AGENTS.md` rules.
 - Always reference `src/AGENTS.md` and follow section `MODULE AND FILE DESIGN` for all work/tasks performed under `src/`.
 - Always report files that exceed the 400 line threshold at the end of each turn, use `pnpm thres` to locate these files. Any file reported and located under `src/` shall be considered in your end-turn report.
+- Before ending turn, review work performed this run by referencing all sections under `file size and responsibility rules`. Report your findings if any work performed did not align with the rules.
