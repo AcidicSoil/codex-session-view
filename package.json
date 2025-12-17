@@ -22,7 +22,8 @@
     "code:agents": "codefetch --include-dir codefetch/agents/ --include-files '*.md' -o src-code_agents.md",
     "code:srca": "pnpm code && pnpm code:agents",
     "agents": "bash scripts/agents-v2.sh && pnpm code:srca",
-    "thres": "git ls-files --cached --others --exclude-standard -z | xargs -0 -n 1 wc -l | awk '$1 >= 400 { printf \"%s\\t%s\\n\", $2, $1 }'"
+    "thres": "git ls-files --cached --others --exclude-standard -z | xargs -0 -n 1 wc -l | awk '$1 >= 400 { printf \"%s\\t%s\\n\", $2, $1 }'",
+    "tasks": "codefetch --include-dir docs/tasks/ -o tasks.md"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.46",
