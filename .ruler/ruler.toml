@@ -22,11 +22,7 @@ nested = true
 # output_path_instructions = "AGENTS.md"
 # output_path_config = ".aider.conf.yml"
 
-[agents.claude]
-enabled = false
 
-[agents.gemini]
-enabled = false
 
 # --- MCP Servers ---
 # Define Model Context Protocol servers here. Two examples:
@@ -41,92 +37,3 @@ enabled = false
 # [mcp_servers.example_remote]
 # url = "https://api.example.com/mcp"
 # headers = { Authorization = "Bearer REPLACE_ME" }
-[mcp_servers]
-
-[mcp_servers.tanstack-ai-docs-mcp]
-command = "uvx"
-args = [ "--from","mcpdoc","mcpdoc", "--urls", "tanstack-ai:/mnt/c/Users/user/projects/WIP/llms-txt/Tanstack/ai/ai-llms.txt",
-"--urls", "tanstack-ai:/mnt/c/Users/user/projects/WIP/llms-txt/Tanstack/ai/ai-llms-full.txt", "--allowed-domains", "*", "--transport", "stdio" ]
-startup_timeout_sec = 60
-
-#[mcp_servers.ai-sdk-provider-codex-cli_Docs]
-#command = "npx"
-#args = [ "mcp-remote", "https://gitmcp.io/ben-vargas/ai-sdk-provider-codex-cli" ]
-#startup_timeout_sec = 60
-#
-[mcp_servers.codex-skills_Docs]
-command = "npx"
-args = [ "mcp-remote", "https://gitmcp.io/AcidicSoil/codex-skills" ]
-startup_timeout_sec = 60
-
-#[mcp_servers.claude-code_Docs]
-#command = "npx"
-#args = [ "mcp-remote", "https://gitmcp.io/anthropics/claude-code" ]
-#startup_timeout_sec = 60
-#
-#[mcp_servers.ai-sdk-provider-codex-cli-docs-mcp]
-#command = "uvx"
-#args = [ "--from", "mcpdoc", "mcpdoc", "--urls", "LocalDocs:/mnt/c/Users/user/projects/WIP/llms-txt/ai-sdk-provider-codex-cli/#ai-sdk-provider-codex-cli-llms-full.txt", "--urls", "LocalDocs:/mnt/c/Users/user/projects/WIP/llms-txt/ai-sdk-provider-codex-cli/#ai-sdk-provider-codex-cli-llms.txt", "--allowed-domains", "*", "--transport", "stdio" ]
-#startup_timeout_sec = 60
-#
-[mcp_servers.lm-studio_docs]
-command = "npx"
-args = [ "mcp-remote", "https://gitmcp.io/lmstudio-ai/docs" ]
-startup_timeout_sec = 60
-
-[mcp_servers.open-aware]
-command = "npx"
-args = [ "mcp-remote", "https://open-aware.qodo.ai/mcp" ]
-startup_timeout_sec = 60
-
-#[mcp_servers.task-master-ai]
-#command = "/home/user/.nvm/versions/node/v22.21.0/bin/task-master-ai"
-#args = []
-#
-[mcp_servers.shadcn]
-command = "npx"
-args = [ "shadcn@latest", "mcp" ]
-startup_timeout_sec = 60
-
-[mcp_servers.ai-elements]
-command = "npx"
-args = [ "-y", "mcp-remote", "https://registry.ai-sdk.dev/api/mcp" ]
-startup_timeout_sec = 60
-
-#[mcp_servers.vercel-docs-mcp]
-#command = "uvx"
-#args = [ "--from", "mcpdoc", "mcpdoc", "--urls", "LocalDocs:/mnt/c/Users/user/projects/WIP/llms-txt/vercel/vercel-llms-full.txt", #"--allowed-domains", "*", "--transport", "stdio" ]
-#
-#[mcp_servers.react-grab-local-docs-mcp]
-#command = "uvx"
-#args = [ "--from", "mcpdoc", "mcpdoc", "--urls", "LocalDocs:/mnt/c/Users/user/projects/WIP/llms-txt/react-grab/react-grab-llms-full.txt", #"--allowed-domains", "*", "--transport", "stdio" ]
-#
-[mcp_servers.deepwiki]
-command = "npx"
-args = [ "mcp-remote", "https://mcp.deepwiki.com/mcp" ]
-startup_timeout_sec = 60
-
-[mcp_servers.browser-echo]
-command = "npx"
-args = [ "@browser-echo/mcp" ]
-startup_timeout_sec = 60
-
-[mcp_servers.chrome-devtools]
-command = "npx"
-args = [ "-y", "chrome-devtools-mcp@latest" ]
-startup_timeout_sec = 60
-
-[mcp_servers.playwright]
-command = "npx"
-args = [ "@playwright/mcp@latest" ]
-startup_timeout_sec = 60
-
-[mcp_servers.gitmcp]
-command = "npx"
-args = [ "mcp-remote", "https://gitmcp.io/docs" ]
-startup_timeout_sec = 60
-
-[mcp_servers.modelcontextprotocol_Docs]
-command = "npx"
-args = [ "mcp-remote", "https://gitmcp.io/modelcontextprotocol/modelcontextprotocol" ]
-startup_timeout_sec = 60
