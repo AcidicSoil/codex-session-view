@@ -6,7 +6,6 @@ vitest.config.ts
 # Avoid low-signal / high-churn files in LLM snapshots
 **/*.test.*
 **/*.spec.*
-**/*.stories.*
 
 # Internal rule folders you already exclude in CLI
 **/.ruler/**
