@@ -98,6 +98,32 @@ export function useChatDockController({
   const [isResetting, setIsResetting] = useState(false);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const assistantMessageIdRef = useRef<string | null>(null);
+  const sessionAnchorRef = useRef(initialState.sessionId);
+
+  useEffect(() => {
+    const isSameSession = sessionAnchorRef.current === initialState.sessionId;
+    sessionAnchorRef.current = initialState.sessionId;
+    if (isSameSession) {
+      stateCacheRef.current.set(initialState.mode, initialState);
+      setActiveState(initialState);
+      setMessages(initialState.messages ?? []);
+      if (initialState.mode === 'session') {
+        setMisalignments(initialState.misalignments ?? []);
+      }
+      return;
+    }
+    stateCacheRef.current = new Map([[initialState.mode, initialState]]);
+    setActiveState(initialState);
+    setMessages(initialState.messages ?? []);
+    setMisalignments(initialState.misalignments ?? []);
+    setDraftState('');
+    setPendingMetadata(undefined);
+    setVanishText(null);
+    setStreamError(null);
+    setIsStreaming(false);
+    setActiveStreamId(null);
+    setSelectedModelId(null);
+  }, [initialState]);
 
   const availableModels = useMemo(
     () => activeState.modelOptions ?? [],

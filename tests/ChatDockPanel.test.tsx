@@ -86,11 +86,15 @@ function createStreamFromChunks(chunks: string[]): ReadableStream<Uint8Array> {
   } as unknown as ReadableStream<Uint8Array>
 }
 
-function renderChatDockPanel(state: ViewerChatState = baseState, props: Partial<React.ComponentProps<typeof ChatDockPanel>> = {}) {
+function renderChatDockPanel(
+  state: ViewerChatState = baseState,
+  props: Partial<React.ComponentProps<typeof ChatDockPanel>> = {},
+) {
   const queryClient = new QueryClient()
+  const sessionIdProp = props.sessionId ?? state.sessionId ?? 'session-default'
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChatDockPanel sessionId="session-default" state={state} {...props} />
+      <ChatDockPanel sessionId={sessionIdProp} state={state} {...props} />
     </QueryClientProvider>,
   )
 }
@@ -148,5 +152,55 @@ describe('ChatDockPanel interactions', () => {
     renderChatDockPanel(stateWithEvidence)
     expect(screen.getByText(/Evidence/i)).toBeInTheDocument()
     expect(screen.getByText(/AGENT-001/)).toBeInTheDocument()
+  })
+
+  it('clears prior session content when sessionId changes', async () => {
+    const sessionAlpha: ViewerChatState = {
+      ...baseState,
+      sessionId: 'session-alpha',
+      snapshot: { sessionId: 'session-alpha', meta: undefined, events: [] } as any,
+      messages: [
+        {
+          id: 'alpha-msg',
+          sessionId: 'session-alpha',
+          mode: 'session',
+          role: 'assistant',
+          content: 'Alpha summary',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    }
+    const sessionBeta: ViewerChatState = {
+      ...baseState,
+      sessionId: 'session-beta',
+      snapshot: { sessionId: 'session-beta', meta: undefined, events: [] } as any,
+      messages: [
+        {
+          id: 'beta-msg',
+          sessionId: 'session-beta',
+          mode: 'session',
+          role: 'assistant',
+          content: 'Beta recap',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+    }
+    const queryClient = new QueryClient()
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <ChatDockPanel sessionId="session-alpha" state={sessionAlpha} />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText(/Alpha summary/)).toBeInTheDocument()
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <ChatDockPanel sessionId="session-beta" state={sessionBeta} />
+      </QueryClientProvider>,
+    )
+    await waitFor(() => expect(screen.getByText(/Beta recap/)).toBeInTheDocument())
+    expect(screen.queryByText(/Alpha summary/)).not.toBeInTheDocument()
+    expect(fetchChatbotState).not.toHaveBeenCalled()
   })
 })

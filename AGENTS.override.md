@@ -126,9 +126,9 @@
 * Never create a local pnpm --store
 * Document public utilities in `docs/` when you change behavior.
 * Never use `git reset --hard HEAD`
-* Before ending your turn, follow `~/.codex/prompts/codex-skills/webapp-testing/SKILL.md`.
-  * Minimum requirement: run `pnpm test` for JavaScript/TypeScript changes.
-  * Do not end your turn with failing tests; fix them or clearly report why they cannot be resolved/run.
+* Before ending your turn:
+  * Follow instructions located [here](home/user/.codex/prompts/codex-skills/webapp-testing/SKILL.md) for creating tests.
+  * Run `pnpm lint`, resolve linting warnings and errors
 
 ## docs map
 
