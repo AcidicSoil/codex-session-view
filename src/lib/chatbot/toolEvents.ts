@@ -51,6 +51,7 @@ export function markChatToolEventResult(
     result?: unknown
     error?: string
     completedAt?: Date
+    contextEvents?: ChatEventReference[]
   },
 ): ChatToolEventRecord {
   const completedAt = (update.completedAt ?? new Date()).toISOString()
@@ -61,5 +62,6 @@ export function markChatToolEventResult(
     error: update.error,
     completedAt,
     latencyMs: new Date(completedAt).getTime() - new Date(record.startedAt).getTime(),
+    contextEvents: update.contextEvents ?? record.contextEvents,
   }
 }

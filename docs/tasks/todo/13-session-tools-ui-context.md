@@ -1,27 +1,28 @@
 Context
 - Chat Dock now resolves timeline references implicitly, but the assistant still can’t on-demand fetch more events or clarify context mid-conversation.
 - Analysts have no visual indication which event slices are already in scope, so “Add to chat” actions feel opaque.
-- We need first-class tools wired through TanStack AI plus UI affordances so Session Coach can invoke them and users can verify context.
+- We need first-class tools wired through TanStack AI plus UI affordances so Session Coach can invoke them and users can verify context across both fixture snapshots and future Postgres/Electric sessions.
 
 Success criteria
 - LLM can call typed tools (`getTimelineEvent`, `listEventRange`) via TanStack AI during a chat turn; logs show tool usage tied to session IDs.
 - Tool responses stream back into Chat Dock and appear as assistant messages referencing the retrieved events.
 - Chat Dock surfaces context-event chips/badges per message, showing which timeline IDs are in scope and highlighting when data goes stale.
-- E2E test proves user asks “show #15,” model triggers tool, and response cites that event without manual uploads.
+- Storage interface works for local fixture snapshots and DB-backed sessions with identical tool outputs.
+- E2E test proves user asks “show #15,” model triggers a tool, and the reply cites that event without manual uploads.
 
 Deliverables
-- TanStack AI tool definitions, server functions, and persistence wiring for session event retrieval and range queries.
+- TanStack AI tool definitions, server functions, and persistence wiring for session event retrieval and range queries (backed by a swappable storage adapter for JSON fixtures vs Postgres/Electric).
 - Client-side tool execution plumbing (ToolCallManager integration, approval UX if needed).
 - Chat Dock UI updates for context-event chips and transcript entries showing tool outputs.
-- Telemetry/docs updates (CHANGELOG, architecture notes) describing the new workflow plus test coverage.
+- Telemetry/docs updates (CHANGELOG, architecture notes) describing the new workflow plus test coverage, including a brief reference to TanStack AI’s tools guide for future developers.
 
 Approach
-1) Tool contracts & storage: design Zod schemas for `getTimelineEvent` + `listTimelineRange`, add server functions that call `loadSessionSnapshot`, sanitize events, and write audit rows to a new `chat_tool_events` store (metadata, args, outputs, status, latency). Export typed TanStack AI tool definitions referencing these handlers.
-2) Authorization & telemetry: gate tools behind session binding/feature flags, emit structured logs with `toolCallId`/session/thread IDs, and integrate with future Postgres/Electric persistence so fixture + DB-backed sessions share the same API path.
-3) Streaming + server runtime: swap `/api/chatbot/stream` over to AI SDK `streamText` with tool support (or manually parse `fullStream` chunks) so tool-call events trigger the new server functions. Ensure partial tool results stream to the client and that assistant replies fall back gracefully when tools fail.
-4) Client controller integration: extend `useChatDockController` to consume SSE chunks (text, tool-call start, tool-result) rather than raw text only, drive optimistic UI states (pending/approved/executing), and persist `contextEvents` references on both user prompts and tool summaries.
-5) Chat Dock UI: add tool-call cards/rows referencing assistant-ui’s Tool UI patterns (status badges, retry/approve controls), show per-message context chips linking timeline IDs back to Inspector, and surface audit/log affordances. Ensure “Add to chat” invokes the same pipeline so chips stay in sync.
-6) Docs + tests: unit tests for tool schemas/resolvers + audit store, integration tests covering streaming/tool flows, and Playwright e2e proving the assistant can resolve `#15` via tools. Update architecture docs/CHANGELOG and trace logging guides.
+1) Tool contracts & storage: finish the existing `timelineTools` definitions by expanding their Zod schemas, make `ChatToolEventRecord` capture `toolCallId` + latency, and introduce a repository interface the JSON file adapter implements today while keeping a path for Postgres/ElectricSQL. Add snapshot regression tests that confirm sanitized payloads match Inspector outputs.
+2) Authorization & telemetry: keep tools scoped to the active session/thread, enforce feature flags, and record every status transition (requested, executing, succeeded, failed) through the new storage interface so both fixture and DB-backed sessions emit identical audit rows.
+3) Streaming + server runtime: migrate `/api/chatbot/stream` to TanStack AI’s `chat({ tools, agentLoopStrategy })` API (per docs/guides/tools) and use `toStreamResponse` so `tool_call`/`tool_result` chunks, including partial outputs, propagate to the client while preserving today’s message completion behavior.
+4) Client controller integration: teach `useChatDockController` to handle the richer stream—track `ToolCallManager` state, keep optimistic “pending/approved/executing” flags, and persist `contextEvents` on both user prompts and tool result chunks; ensure fixture and DB sessions share the same client pipeline.
+5) Chat Dock UI: render tool-call cards with status badges, approval affordances, and links back to Inspector timeline IDs; surface per-message context chips so users know which events are in scope and when the data is stale. Reuse this pipeline for “Add to chat” so chips stay aligned.
+6) Docs + tests: add unit coverage for the tool repository + sanitizers, stream-level tests proving tool chunks update telemetry, and a Playwright e2e case (“show #15”) that exercises fixture snapshots. Update CHANGELOG plus architecture docs to cite TanStack AI’s tool-calling best practices and the new storage contract.
 
 Risks / unknowns
 - Model/tool token overhead may increase latency; need budgets + backoff strategy.

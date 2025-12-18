@@ -9,6 +9,23 @@ import {
 } from '~/lib/chatbot/toolEvents'
 import { logError } from '~/lib/logger'
 
+export interface ChatToolEventRepository {
+  listBySession(sessionId: string): Promise<ChatToolEventRecord[]>
+  insert(input: {
+    sessionId: string
+    threadId?: string | null
+    toolCallId?: string | null
+    toolName: string
+    arguments: unknown
+    contextEvents?: ChatToolEventRecord['contextEvents']
+  }): Promise<ChatToolEventRecord>
+  updateStatus(
+    id: string,
+    status: ChatToolEventStatus,
+    updates?: { result?: unknown; error?: string; contextEvents?: ChatToolEventRecord['contextEvents'] },
+  ): Promise<ChatToolEventRecord>
+}
+
 const toolEventsCollection = createCollection(
   localOnlyCollectionOptions<ChatToolEventRecord>({
     id: 'chat-tool-events',
@@ -74,11 +91,46 @@ function schedulePersist() {
   return writeChain
 }
 
+export const localChatToolEventRepository: ChatToolEventRepository = {
+  async listBySession(sessionId) {
+    await ensureHydrated()
+    return toolEventsCollection.toArray
+      .filter((record) => record.sessionId === sessionId)
+      .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+  },
+
+  async insert(input) {
+    await ensureHydrated()
+    const record = createChatToolEventRecord(input)
+    await toolEventsCollection.insert(record)
+    await schedulePersist()
+    return record
+  },
+
+  async updateStatus(id, status, updates = {}) {
+    await ensureHydrated()
+    const existing = toolEventsCollection.get(id)
+    if (!existing) {
+      throw new Error(`Tool event ${id} not found`)
+    }
+    const updated = markChatToolEventResult(existing, {
+      status,
+      result: updates.result,
+      error: updates.error,
+      contextEvents: updates.contextEvents,
+    })
+    await toolEventsCollection.update(id, () => updated)
+    await schedulePersist()
+    return updated
+  },
+}
+
+export function getChatToolEventRepository(): ChatToolEventRepository {
+  return localChatToolEventRepository
+}
+
 export async function listChatToolEvents(sessionId: string) {
-  await ensureHydrated()
-  return toolEventsCollection.toArray
-    .filter((record) => record.sessionId === sessionId)
-    .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+  return localChatToolEventRepository.listBySession(sessionId)
 }
 
 export async function insertChatToolEvent(input: {
@@ -89,21 +141,13 @@ export async function insertChatToolEvent(input: {
   arguments: unknown
   contextEvents?: ChatToolEventRecord['contextEvents']
 }) {
-  await ensureHydrated()
-  const record = createChatToolEventRecord(input)
-  await toolEventsCollection.insert(record)
-  await schedulePersist()
-  return record
+  return localChatToolEventRepository.insert(input)
 }
 
-export async function updateChatToolEventStatus(id: string, status: ChatToolEventStatus, updates: { result?: unknown; error?: string } = {}) {
-  await ensureHydrated()
-  const existing = toolEventsCollection.get(id)
-  if (!existing) {
-    throw new Error(`Tool event ${id} not found`)
-  }
-  const updated = markChatToolEventResult(existing, { status, result: updates.result, error: updates.error })
-  await toolEventsCollection.update(id, () => updated)
-  await schedulePersist()
-  return updated
+export async function updateChatToolEventStatus(
+  id: string,
+  status: ChatToolEventStatus,
+  updates: { result?: unknown; error?: string; contextEvents?: ChatToolEventRecord['contextEvents'] } = {},
+) {
+  return localChatToolEventRepository.updateStatus(id, status, updates)
 }
