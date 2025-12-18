@@ -16,10 +16,12 @@ Deliverables
 - Telemetry/docs updates (CHANGELOG, architecture notes) describing the new workflow plus test coverage.
 
 Approach
-1) Tool contract & API: define `getTimelineEvent`/`listTimelineRange` schemas (inputs: sessionId + event indexes; outputs: normalized payload). Implement server functions that authorize, load snapshots, and return sanitized event data. Wire them into TanStack AI tool definitions.
-2) Streaming/tool execution integration: extend chat runtime (server + `useChatDockController`) to manage ToolCallManager lifecycle, execute tools, inject tool result messages, and persist context references alongside chat messages.
-3) Chat Dock UI/UX: render context chips per message, show tool-call progress (pending/executing/completed), provide controls (approve/deny) if needed, and ensure “Add to chat” runs through the same tool pipeline. Document telemetry + logging.
-4) Testing & docs: write unit tests for tool schemas/resolvers, integration specs for tool-call flows, and e2e test proving the model can answer event-ID prompts via tools. Update README/architecture + CHANGELOG.
+1) Tool contracts & storage: design Zod schemas for `getTimelineEvent` + `listTimelineRange`, add server functions that call `loadSessionSnapshot`, sanitize events, and write audit rows to a new `chat_tool_events` store (metadata, args, outputs, status, latency). Export typed TanStack AI tool definitions referencing these handlers.
+2) Authorization & telemetry: gate tools behind session binding/feature flags, emit structured logs with `toolCallId`/session/thread IDs, and integrate with future Postgres/Electric persistence so fixture + DB-backed sessions share the same API path.
+3) Streaming + server runtime: swap `/api/chatbot/stream` over to AI SDK `streamText` with tool support (or manually parse `fullStream` chunks) so tool-call events trigger the new server functions. Ensure partial tool results stream to the client and that assistant replies fall back gracefully when tools fail.
+4) Client controller integration: extend `useChatDockController` to consume SSE chunks (text, tool-call start, tool-result) rather than raw text only, drive optimistic UI states (pending/approved/executing), and persist `contextEvents` references on both user prompts and tool summaries.
+5) Chat Dock UI: add tool-call cards/rows referencing assistant-ui’s Tool UI patterns (status badges, retry/approve controls), show per-message context chips linking timeline IDs back to Inspector, and surface audit/log affordances. Ensure “Add to chat” invokes the same pipeline so chips stay in sync.
+6) Docs + tests: unit tests for tool schemas/resolvers + audit store, integration tests covering streaming/tool flows, and Playwright e2e proving the assistant can resolve `#15` via tools. Update architecture docs/CHANGELOG and trace logging guides.
 
 Risks / unknowns
 - Model/tool token overhead may increase latency; need budgets + backoff strategy.
