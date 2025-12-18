@@ -29,6 +29,8 @@ import {
   type ChatStreamResult,
   ProviderUnavailableError,
 } from '~/server/lib/aiRuntime';
+import { createTimelineTools } from '~/server/lib/tools/timelineTools';
+import { createNdjsonStream } from '~/server/lib/chatStream/ndjsonStream';
 import { ensureLmStudioModelsRegistered } from '~/server/lib/lmStudioModels';
 import type { ChatRemediationMetadata } from '~/lib/chatbot/types';
 import { getSessionRepoBinding } from '~/server/persistence/sessionRepoBindings';
@@ -357,8 +359,8 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
   }
 }
 
-const TEXT_STREAM_HEADERS = {
-  'content-type': 'text/plain; charset=utf-8',
+const NDJSON_STREAM_HEADERS = {
+  'content-type': 'application/x-ndjson; charset=utf-8',
 };
 
 interface SessionStreamOptions {
@@ -431,15 +433,19 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
     extraSections: timelineContext.section ? [timelineContext.section] : undefined,
   });
 
+  const timelineTools = createTimelineTools({ sessionId: options.sessionId, threadId: options.threadId });
   const runtime = generateSessionCoachReply({
     history,
     contextPrompt: context.prompt,
     metadata: options.metadata,
     modelId: options.modelId,
+    tools: timelineTools,
+    toolContext: { sessionId: options.sessionId, threadId: options.threadId },
   });
 
   const evidence = buildAssistantEvidence(options.metadata, refreshedMisalignments);
-  const responseStream = streamResultToResponse(runtime, {
+  const responseStream = createNdjsonStream({
+    runtime,
     onComplete: async (assistantText) => {
       const assistantRecord = await appendChatMessage({
         sessionId: options.sessionId,
@@ -478,7 +484,7 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
     },
   });
 
-  return new Response(responseStream, { headers: TEXT_STREAM_HEADERS });
+  return new Response(responseStream, { headers: NDJSON_STREAM_HEADERS });
 }
 
 async function handleGeneralChatStream(options: GeneralStreamOptions) {
@@ -494,7 +500,8 @@ async function handleGeneralChatStream(options: GeneralStreamOptions) {
   history.push(userMessage);
 
   const runtime = runGeneralChatTurn({ history, modelId: options.modelId });
-  const responseStream = streamResultToResponse(runtime, {
+  const responseStream = createNdjsonStream({
+    runtime,
     onComplete: async (assistantText) => {
       const assistantRecord = await appendChatMessage({
         sessionId: options.sessionId,
@@ -525,35 +532,7 @@ async function handleGeneralChatStream(options: GeneralStreamOptions) {
       });
     },
   });
-  return new Response(responseStream, { headers: TEXT_STREAM_HEADERS });
-}
-
-function streamResultToResponse(
-  runtime: ChatStreamResult,
-  handlers: {
-    onComplete: (text: string) => Promise<void>;
-    onError?: (error: unknown) => Promise<void> | void;
-  }
-) {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    async start(controller) {
-      let buffer = '';
-      try {
-        for await (const chunk of runtime.textStream) {
-          buffer += chunk;
-          controller.enqueue(encoder.encode(chunk));
-        }
-        await handlers.onComplete(buffer);
-        controller.close();
-      } catch (error) {
-        controller.error(error);
-        if (handlers.onError) {
-          await handlers.onError(error);
-        }
-      }
-    },
-  });
+  return new Response(responseStream, { headers: NDJSON_STREAM_HEADERS });
 }
 
 export function buildAssistantEvidence(
