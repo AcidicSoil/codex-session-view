@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Wand2, FileCode2, Anchor } from 'lucide-react';
+import { Loader2, Wand2, FileCode2, Anchor, ArrowUpRight } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import {
   Dialog,
@@ -9,13 +9,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '~/components/ui/dialog';
-import { ScrollArea } from '~/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { toast } from 'sonner';
 import { CodeBlock } from '~/components/kibo-ui/code-block';
 import type { ChatMode } from '~/lib/sessions/model';
 import { requestChatAnalysis } from '~/features/chatbot/chatbot.runtime';
 import { FormattedContent } from '~/components/ui/formatted-content';
+import { CoachScrollRegion } from '~/components/chatbot/CoachScrollRegion';
 
 type AnalysisTab = 'summary' | 'commits' | 'hooks';
 type AnalysisResult = {
@@ -82,10 +82,13 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
           AI Analysis
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="p-6 pb-2">
-          <DialogTitle>Session Intelligence</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="max-w-5xl h-[85vh] flex flex-col gap-0 border border-white/10 bg-[#06080f] p-0">
+        <DialogHeader className="coach-sticky-header px-6 pb-2">
+          <DialogTitle className="flex items-center gap-2 text-white">
+            <Wand2 className="h-5 w-5 text-lime-300" />
+            Session Intelligence
+          </DialogTitle>
+          <DialogDescription className="text-white/70">
             Generate summaries, commit suggestions, and Hookify-ready insights for this session.
           </DialogDescription>
         </DialogHeader>
@@ -93,10 +96,10 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
         <Tabs
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as AnalysisTab)}
-          className="flex-1 flex flex-col overflow-hidden"
+          className="flex-1 flex flex-col"
         >
-          <div className="px-6 border-b">
-            <TabsList>
+          <div className="coach-sticky-header px-6 py-3 border-b border-white/10">
+            <TabsList className="bg-white/5">
               <TabsTrigger value="summary" className="gap-2">
                 <Wand2 className="h-4 w-4" /> Summary
               </TabsTrigger>
@@ -108,7 +111,7 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
               </TabsTrigger>
             </TabsList>
           </div>
-          <div className="flex-1 overflow-hidden p-6 pt-4 bg-muted/10">
+          <div className="flex-1 overflow-hidden p-6 pt-4 bg-gradient-to-b from-black/40 to-black/80">
             <TabsContent
               value="summary"
               className="h-full m-0 data-[state=active]:flex flex-col gap-4"
@@ -121,9 +124,18 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                   onClick={() => handleAnalyze('summary')}
                 />
               ) : (
-                <ScrollArea className="flex-1 rounded-md border bg-card p-6">
-                  <FormattedContent text={results.summary.content as string} />
-                </ScrollArea>
+                <CoachScrollRegion
+                  label="AI analysis summary"
+                  order={11}
+                  className="h-full"
+                  outerClassName="min-h-[18rem]"
+                  contentClassName="h-full"
+                  data-testid="coach-scroll-analysis-summary"
+                >
+                  <div className="rounded-2xl border border-white/15 bg-card/90 p-6 text-white">
+                    <FormattedContent text={results.summary.content as string} />
+                  </div>
+                </CoachScrollRegion>
               )}
             </TabsContent>
 
@@ -139,10 +151,29 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                   onClick={() => handleAnalyze('commits')}
                 />
               ) : (
-                <ScrollArea className="flex-1 rounded-md border bg-card p-4">
-                  <div className="space-y-3">
-                    <div className="text-sm text-muted-foreground">
-                      Copy these messages to your git client:
+                <CoachScrollRegion
+                  label="AI analysis commit suggestions"
+                  order={12}
+                  className="h-full"
+                  outerClassName="min-h-[16rem]"
+                  contentClassName="h-full"
+                  data-testid="coach-scroll-analysis-commits"
+                >
+                  <div className="space-y-3 rounded-2xl border border-white/15 bg-card/90 p-5 text-white">
+                    <div className="flex items-center justify-between text-sm text-white/70">
+                      <span>Copy these messages to your git client:</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const joined = (results.commits?.content as string[]).join('\n')
+                          if (navigator?.clipboard && joined) {
+                            void navigator.clipboard.writeText(joined)
+                          }
+                        }}
+                      >
+                        Copy all <ArrowUpRight className="ml-1 h-4 w-4" />
+                      </Button>
                     </div>
                     {(results.commits.content as string[]).map((message) => (
                       <div key={message} className="flex gap-2">
@@ -150,6 +181,7 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                         <Button
                           variant="ghost"
                           size="icon"
+                          title="Copy commit"
                           onClick={() => {
                             if (typeof navigator !== 'undefined' && navigator.clipboard) {
                               void navigator.clipboard.writeText(message);
@@ -162,7 +194,7 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                       </div>
                     ))}
                   </div>
-                </ScrollArea>
+                </CoachScrollRegion>
               )}
             </TabsContent>
 
@@ -197,9 +229,18 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                       <Wand2 className="mr-2 h-3 w-3" /> Re-run
                     </Button>
                   </div>
-                  <ScrollArea className="flex-1 rounded-md border bg-card p-6">
-                    <FormattedContent text={results.hooks.content as string} />
-                  </ScrollArea>
+                  <CoachScrollRegion
+                    label="Hook discovery results"
+                    order={13}
+                    className="h-full"
+                    outerClassName="min-h-[18rem]"
+                    contentClassName="h-full"
+                    data-testid="coach-scroll-analysis-hooks"
+                  >
+                    <div className="rounded-2xl border border-white/15 bg-card/90 p-6 text-white">
+                      <FormattedContent text={results.hooks.content as string} />
+                    </div>
+                  </CoachScrollRegion>
                 </div>
               )}
             </TabsContent>

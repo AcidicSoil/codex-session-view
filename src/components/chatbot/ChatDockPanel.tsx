@@ -210,15 +210,8 @@ function ChatDockContent({
   return (
     <CoachScrollProvider>
       <div className="grid h-full gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
-        <CoachScrollRegion
-          label="Chat Dock conversation"
-          order={1}
-          className="h-full"
-          outerClassName="min-h-[22rem] lg:min-h-[28rem]"
-          contentClassName="h-full"
-          data-testid="coach-scroll-chat"
-        >
-          <Card className="flex h-full min-h-[22rem] flex-col overflow-hidden">
+        <Card className="flex h-full min-h-[22rem] flex-col overflow-hidden border border-white/15 bg-background/80">
+          <div className="border-b border-white/10 p-4 pb-3">
             <ChatDockHeader
               mode={activeState.mode}
               onModeChange={handleModeSwitch}
@@ -236,29 +229,38 @@ function ChatDockContent({
               isHistoryOpen={isHistoryOpen}
               contextDescription={contextDescription}
             />
-            <CardContent className="flex flex-1 flex-col gap-4 p-4">
+          </div>
+          <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+            <CoachScrollRegion
+              label="Chat Dock conversation"
+              order={1}
+              className="h-full"
+              outerClassName="flex-1"
+              contentClassName="h-full p-0"
+              data-testid="coach-scroll-chat"
+            >
               <ChatDockMessages
                 messages={orderedMessages}
                 showEvidence={showMisalignments}
                 activeStreamId={activeStreamId}
               />
-              <ChatDockComposer
-                draft={draft}
-                onDraftChange={setDraft}
-                onSend={() => void handleSend()}
-                isStreaming={isStreaming}
-                placeholder={composerPlaceholder}
-                onTextareaKeyDown={handleTextareaKeyDown}
-                vanishText={vanishText}
-                onVanishComplete={handleVanishComplete}
-                placeholderPills={placeholderPills}
-              />
-              {showMisalignments ? (
-                <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
-              ) : null}
-            </CardContent>
-          </Card>
-        </CoachScrollRegion>
+            </CoachScrollRegion>
+            <ChatDockComposer
+              draft={draft}
+              onDraftChange={setDraft}
+              onSend={() => void handleSend()}
+              isStreaming={isStreaming}
+              placeholder={composerPlaceholder}
+              onTextareaKeyDown={handleTextareaKeyDown}
+              vanishText={vanishText}
+              onVanishComplete={handleVanishComplete}
+              placeholderPills={placeholderPills}
+            />
+            {showMisalignments ? (
+              <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
+            ) : null}
+          </CardContent>
+        </Card>
         <CoachScrollRegion
           label="Session controls and assets"
           order={2}
