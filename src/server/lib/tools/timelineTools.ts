@@ -35,12 +35,12 @@ export function createTimelineTools(context: TimelineToolContext) {
     get_timeline_event: tool({
       description: 'Retrieve the full details for a single timeline event number (e.g., #15).',
       inputSchema: SINGLE_EVENT_INPUT,
-      execute: async (input) => {
+      execute: async (input, meta) => {
         assertSameSession(context.sessionId, input.sessionId)
         const audit = await insertChatToolEvent({
           sessionId: context.sessionId,
           threadId: context.threadId,
-          toolCallId: null,
+          toolCallId: meta?.toolCallId ?? null,
           toolName: 'get_timeline_event',
           arguments: input,
         })
@@ -51,7 +51,10 @@ export function createTimelineTools(context: TimelineToolContext) {
             throw new Error(`Event #${input.eventNumber} does not exist in the loaded session.`)
           }
           const payload = buildToolEventPayload([resolved])
-          await updateChatToolEventStatus(audit.id, 'succeeded', { result: payload })
+          await updateChatToolEventStatus(audit.id, 'succeeded', {
+            result: payload,
+            contextEvents: payload.events.map((entry) => entry.context),
+          })
           return payload
         } catch (error) {
           await updateChatToolEventStatus(audit.id, 'failed', { error: error instanceof Error ? error.message : 'Unknown error' })
@@ -63,12 +66,12 @@ export function createTimelineTools(context: TimelineToolContext) {
       description:
         'Retrieve a contiguous range of timeline events (e.g., events #10-#15) so you can reference multiple steps at once.',
       inputSchema: RANGE_INPUT,
-      execute: async (input) => {
+      execute: async (input, meta) => {
         assertSameSession(context.sessionId, input.sessionId)
         const audit = await insertChatToolEvent({
           sessionId: context.sessionId,
           threadId: context.threadId,
-          toolCallId: null,
+          toolCallId: meta?.toolCallId ?? null,
           toolName: 'list_timeline_events',
           arguments: input,
         })
@@ -81,7 +84,10 @@ export function createTimelineTools(context: TimelineToolContext) {
             throw new Error('No timeline events found for the requested range.')
           }
           const payload = buildToolEventPayload(items)
-          await updateChatToolEventStatus(audit.id, 'succeeded', { result: payload })
+          await updateChatToolEventStatus(audit.id, 'succeeded', {
+            result: payload,
+            contextEvents: payload.events.map((entry) => entry.context),
+          })
           return payload
         } catch (error) {
           await updateChatToolEventStatus(audit.id, 'failed', { error: error instanceof Error ? error.message : 'Unknown error' })

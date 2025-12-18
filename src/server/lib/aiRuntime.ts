@@ -5,6 +5,8 @@ import {
   type FinishReason,
   type LanguageModel,
   type LanguageModelUsage,
+  type TextStreamPart,
+  type ToolSet,
 } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createGeminiProvider, type GeminiProviderOptions } from 'ai-sdk-provider-gemini-cli';
@@ -182,19 +184,22 @@ export class ProviderUnavailableError extends Error {
   }
 }
 
-export interface ChatStreamResult {
+export interface ChatStreamResult<TOOLS extends ToolSet = ToolSet> {
   definition: ChatModelDefinition;
   textStream: AsyncIterable<string>;
+  fullStream: AsyncIterable<TextStreamPart<TOOLS>>;
   usage: Promise<LanguageModelUsage>;
   totalUsage: Promise<LanguageModelUsage>;
   finishReason: Promise<FinishReason>;
 }
 
-export interface SessionCoachReplyOptions {
+export interface SessionCoachReplyOptions<TOOLS extends ToolSet = ToolSet> {
   history: ChatMessageRecord[];
   contextPrompt: string;
   metadata?: ChatRemediationMetadata;
   modelId?: string;
+  tools?: TOOLS;
+  toolContext?: unknown;
 }
 
 export interface GeneralChatOptions {
@@ -350,7 +355,9 @@ const providerFactories: Record<ProviderId, ProviderFactory> = {
 
 const providerCache = new Map<ProviderId, ReturnType<ProviderFactory>>();
 
-export function generateSessionCoachReply(options: SessionCoachReplyOptions): ChatStreamResult {
+export function generateSessionCoachReply<TOOLS extends ToolSet = ToolSet>(
+  options: SessionCoachReplyOptions<TOOLS>,
+): ChatStreamResult<TOOLS> {
   const modelId = resolveModelForMode('session', options.modelId);
   const definition = getChatModelDefinition(modelId);
   const provider = resolveProvider(definition.providerId);
@@ -360,10 +367,13 @@ export function generateSessionCoachReply(options: SessionCoachReplyOptions): Ch
     messages: toCoreMessages(options.history),
     temperature: definition.defaultTemperature,
     maxOutputTokens: definition.maxOutputTokens,
+    tools: options.tools,
+    experimental_context: options.toolContext,
   });
   return {
     definition,
     textStream: result.textStream,
+    fullStream: result.fullStream,
     usage: result.usage,
     totalUsage: result.totalUsage,
     finishReason: result.finishReason,
@@ -384,6 +394,7 @@ export function runGeneralChatTurn(options: GeneralChatOptions): ChatStreamResul
   return {
     definition,
     textStream: result.textStream,
+    fullStream: result.fullStream,
     usage: result.usage,
     totalUsage: result.totalUsage,
     finishReason: result.finishReason,
