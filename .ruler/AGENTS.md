@@ -119,11 +119,11 @@
 * Never update `.env`; update `.env.example` instead.
 * Never start the dev server with `pnpm run dev` or `npm run dev`.
 * Never create a local pnpm --store
-* Document public utilities in `docs/` when you change behavior.
 * Never use `git reset --hard HEAD`
 * Before ending your turn:
-  * Follow instructions located [here](home/user/.codex/prompts/codex-skills/webapp-testing/SKILL.md) for creating tests.
+  * Follow instructions located [here](/home/user/.codex/prompts/codex-skills/webapp-testing/SKILL.md) for creating tests.
   * Run `pnpm lint`, resolve linting warnings and errors
+  * Documentation synchronization - Revise externally facing documentation.
 
 ## docs map
 
