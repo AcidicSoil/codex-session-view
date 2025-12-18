@@ -97,24 +97,6 @@ pnpm test:e2e:prod   # pnpm build + Playwright against pnpm start -- --prod
 
 > The e2e commands inject `AI_SESSION_DEFAULT_MODEL=lmstudio:local-default` and `AI_GENERAL_DEFAULT_MODEL=lmstudio:local-default`. Make sure `AI_LMSTUDIO_BASE_URL` points to a running LM Studio/OpenAI-compatible server before running these suites.
 
-## 📁 Project Structure
-
-```
-src/
-├── routes/
-│   ├── __root.tsx              # Root shell rendered on every page
-│   └── (site)/viewer/index.tsx # Viewer route wired to TanStack Start loader/head/search
-├── features/
-│   └── viewer/                 # viewer.loader.ts, discovery/upload sections, route helpers
-├── components/
-│   └── viewer/                 # Session explorer, drop zone, chat dock, etc.
-├── hooks/                      # useFileLoader, storage helpers
-├── lib/                        # parser + repository utilities
-└── server/                     # server functions + persistence
-```
-
-For loader flow, discovery strategy, and virtualization invariants see [`docs/viewer-architecture.md`](docs/viewer-architecture.md).
-
 ## 🎯 Core Technologies
 
 | Technology | Purpose | Documentation |
@@ -126,10 +108,6 @@ For loader flow, discovery strategy, and virtualization invariants see [`docs/vi
 | **Browser Echo** | Client-side logging | [Docs](https://github.com/browser-echo/browser-echo) |
 | **Unplugin Icons** | Icon optimization | [Docs](https://github.com/antfu/unplugin-icons) |
 
-## 🔧 Configuration & Technical Notes
-
-Developer-focused details—including session metadata heuristics, shadcn/ui usage, Tailwind configuration, TypeScript aliases, and the timeline virtualization rules—live in [`docs/viewer-architecture.md`](docs/viewer-architecture.md) to keep this README concise.
-
 ## 🚀 Deployment
 
 ### Local production smoke test
@@ -138,36 +116,6 @@ Developer-focused details—including session metadata heuristics, shadcn/ui usa
 pnpm run build
 pnpm run preview   # or pnpm start to boot the Node server bundle
 ```
-
-### Vercel preview / prod deploys
-
-1. Install the [Vercel CLI](https://vercel.com/docs/cli) and log in.
-2. Build the Nitro server with the Vercel preset:
-
-   ```bash
-   DEPLOY_TARGET=vercel pnpm run build
-   # Windows (PowerShell): $Env:DEPLOY_TARGET="vercel"; pnpm run build
-   # Windows (cmd.exe): set DEPLOY_TARGET=vercel && pnpm run build
-   ```
-
-3. Deploy the prebuilt output:
-
-   ```bash
-   vercel deploy --prebuilt            # preview
-   vercel deploy --prebuilt --prod     # production
-   ```
-
-   Vercel automatically sets `VERCEL=1` in CI, so the preset switch also activates there.
-
-4. Follow the extended runbook in [`docs/ops/deployment-vercel.md`](docs/ops/deployment-vercel.md) for secrets, env vars, and rollback steps.
-
-Need a local dev server that mimics Vercel? Run:
-
-```bash
-pnpm run dev:vercel
-```
-
-This script rebuilds with `DEPLOY_TARGET=vercel` and launches `vercel dev` via `pnpm dlx`. Sign in with the Vercel CLI when prompted.
 
 ## 📚 Gemini CLI session compatibility
 

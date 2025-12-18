@@ -18,6 +18,7 @@ import { providerKeepAlive } from '~/server/function/providerKeepAlive';
 import { toast } from 'sonner';
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import type { SessionRepoBindingRecord } from '~/server/persistence/sessionRepoBindings';
+import { CoachScrollProvider, CoachScrollRegion } from '~/components/chatbot/CoachScrollRegion';
 
 interface ChatDockPanelProps {
   sessionId: string;
@@ -35,7 +36,7 @@ export function ChatDockPanel({
   assets,
   prefills,
   onPrefillConsumed,
-  onPrefillInject,
+  onPrefillInject: _onPrefillInject,
   onRepoContextChange,
 }: ChatDockPanelProps) {
   const [bootState, setBootState] = useState<ViewerChatState | null>(state ?? null);
@@ -207,49 +208,65 @@ function ChatDockContent({
   }, [handleThreadClear, closeHistoryDrawer]);
 
   return (
-    <>
-      <div className="grid h-full gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
-        <Card className="flex h-full flex-col overflow-hidden">
-          <ChatDockHeader
-            mode={activeState.mode}
-            onModeChange={handleModeSwitch}
-            isStreaming={isStreaming}
-            isResetting={isResetting}
-            sessionId={sessionId}
-            streamError={streamError}
-            availableModels={availableModels}
-            selectValue={selectValue}
-            onModelChange={handleModelChange}
-            selectedModel={selectedModel}
-            onReset={handleReset}
-            onClearChat={handleThreadClear}
-            onHistoryToggle={handleHistoryToggle}
-            isHistoryOpen={isHistoryOpen}
-            contextDescription={contextDescription}
-          />
-          <CardContent className="flex flex-1 flex-col gap-4 p-4 min-h-0 overflow-hidden">
-            <ChatDockMessages
-              messages={orderedMessages}
-              showEvidence={showMisalignments}
-              activeStreamId={activeStreamId}
-            />
-            <ChatDockComposer
-              draft={draft}
-              onDraftChange={setDraft}
-              onSend={() => void handleSend()}
+    <CoachScrollProvider>
+      <div className="grid h-full gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
+        <CoachScrollRegion
+          label="Chat Dock conversation"
+          order={1}
+          className="h-full"
+          outerClassName="min-h-[22rem] lg:min-h-[28rem]"
+          contentClassName="h-full"
+          data-testid="coach-scroll-chat"
+        >
+          <Card className="flex h-full min-h-[22rem] flex-col overflow-hidden">
+            <ChatDockHeader
+              mode={activeState.mode}
+              onModeChange={handleModeSwitch}
               isStreaming={isStreaming}
-              placeholder={composerPlaceholder}
-              onTextareaKeyDown={handleTextareaKeyDown}
-              vanishText={vanishText}
-              onVanishComplete={handleVanishComplete}
-              placeholderPills={placeholderPills}
+              isResetting={isResetting}
+              sessionId={sessionId}
+              streamError={streamError}
+              availableModels={availableModels}
+              selectValue={selectValue}
+              onModelChange={handleModelChange}
+              selectedModel={selectedModel}
+              onReset={handleReset}
+              onClearChat={handleThreadClear}
+              onHistoryToggle={handleHistoryToggle}
+              isHistoryOpen={isHistoryOpen}
+              contextDescription={contextDescription}
             />
-            {showMisalignments ? (
-              <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
-            ) : null}
-          </CardContent>
-        </Card>
-        <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-1">
+            <CardContent className="flex flex-1 flex-col gap-4 p-4">
+              <ChatDockMessages
+                messages={orderedMessages}
+                showEvidence={showMisalignments}
+                activeStreamId={activeStreamId}
+              />
+              <ChatDockComposer
+                draft={draft}
+                onDraftChange={setDraft}
+                onSend={() => void handleSend()}
+                isStreaming={isStreaming}
+                placeholder={composerPlaceholder}
+                onTextareaKeyDown={handleTextareaKeyDown}
+                vanishText={vanishText}
+                onVanishComplete={handleVanishComplete}
+                placeholderPills={placeholderPills}
+              />
+              {showMisalignments ? (
+                <MisalignmentList items={misalignments} onUpdate={handleMisalignmentUpdate} />
+              ) : null}
+            </CardContent>
+          </Card>
+        </CoachScrollRegion>
+        <CoachScrollRegion
+          label="Session controls and assets"
+          order={2}
+          className="h-full"
+          outerClassName="min-h-[18rem]"
+          contentClassName="h-full"
+          data-testid="coach-scroll-collateral"
+        >
           <ChatDockCollateral
             sessionId={sessionId}
             assets={assets ?? []}
@@ -262,7 +279,7 @@ function ChatDockContent({
             onKeepLoadedChange={handleKeepLoadedToggle}
             isBusy={isResetting || isStreaming}
           />
-        </div>
+        </CoachScrollRegion>
       </div>
       <MotionDrawer
         direction="right"
@@ -289,7 +306,7 @@ function ChatDockContent({
           isBusy={isResetting || isStreaming}
         />
       </MotionDrawer>
-    </>
+    </CoachScrollProvider>
   );
 }
 
