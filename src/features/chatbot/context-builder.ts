@@ -11,6 +11,7 @@ interface ContextBuilderOptions {
   agentRules?: AgentRule[]
   providerOverrides?: Partial<AIProviderConfig>
   maxEvents?: number
+  extraSections?: PromptSection[]
 }
 
 interface ContextSectionMeta {
@@ -62,6 +63,9 @@ function collectSections(options: ContextBuilderOptions): PromptSection[] {
   if (historySection) sections.push(historySection)
   const rulesSection = createAgentRulesSection(agentRules)
   if (rulesSection) sections.push(rulesSection)
+  if (options.extraSections?.length) {
+    sections.push(...options.extraSections)
+  }
   return sections
 }
 
@@ -98,6 +102,8 @@ function sectionPriority(id: string) {
     case 'misalignments':
       return 2
     case 'recent-events':
+      return 3
+    case 'resolved-events':
       return 3
     case 'chat-history':
       return 4

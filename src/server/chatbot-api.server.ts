@@ -21,6 +21,7 @@ import {
   loadSessionSnapshot,
   SessionSnapshotUnavailableError,
 } from '~/server/lib/chatbotData';
+import { resolveTimelineContext } from '~/server/lib/sessionEventResolver';
 import {
   generateSessionCoachReply,
   runGeneralChatTurn,
@@ -390,6 +391,11 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
   }
   const existingMisalignments = await listMisalignments(options.sessionId);
   const history = await listChatMessages(options.sessionId, 'session', options.threadId);
+  const timelineContext = resolveTimelineContext({
+    snapshot,
+    prompt: options.prompt,
+    metadata: options.metadata,
+  });
   const userMessage = await appendChatMessage({
     sessionId: options.sessionId,
     mode: 'session',
@@ -397,6 +403,7 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
     role: 'user',
     content: options.prompt,
     clientMessageId: options.clientMessageId,
+    contextEvents: timelineContext.references.length ? timelineContext.references : undefined,
   });
   history.push(userMessage);
 
@@ -421,6 +428,7 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
       maxContextTokens: modelDefinition.contextWindow,
       maxOutputTokens: modelDefinition.maxOutputTokens,
     },
+    extraSections: timelineContext.section ? [timelineContext.section] : undefined,
   });
 
   const runtime = generateSessionCoachReply({
@@ -454,6 +462,7 @@ async function handleSessionChatStream(options: SessionStreamOptions) {
         finishReason: await runtime.finishReason.catch(() => 'unknown'),
         usage: await runtime.totalUsage.catch(() => null),
         success: true,
+        resolvedEvents: timelineContext.references.map((ref) => ref.displayIndex),
       });
     },
     onError: async (error) => {

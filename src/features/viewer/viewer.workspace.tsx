@@ -393,11 +393,15 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
 
       const snippet = JSON.stringify(event, null, 2)
       const prompt = `Analyze this timeline event #${index + 1} (${event.type}):\n\n\`\`\`json\n${snippet}\n\`\`\`\n\nWhat are the implications of this event?`
+      const resolvedEventIndex = typeof event.index === 'number' ? event.index : index
+      const metadata: ChatRemediationMetadata = {
+        eventRange: { startIndex: resolvedEventIndex, endIndex: resolvedEventIndex },
+      }
 
       void runHookifyPrefill(prompt, 'timeline', {
         eventType: event.type,
         filePath: activeAssetPath ?? undefined,
-      })
+      }, metadata)
     },
     [activeAssetPath, runHookifyPrefill],
   )

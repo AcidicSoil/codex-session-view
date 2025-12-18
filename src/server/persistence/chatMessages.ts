@@ -113,6 +113,8 @@ export async function appendChatMessage(input: {
   misalignmentId?: string
   clientMessageId?: string
   evidence?: ChatMessageEvidence[]
+  contextEvents?: ChatMessageRecord['contextEvents']
+  threadId?: string
 }) {
   await ensureHydrated()
   const targetThreadId = await resolveThreadId(input.sessionId, input.mode, input.threadId)
