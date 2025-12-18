@@ -1,4 +1,3 @@
-import { ScrollArea } from '~/components/ui/scroll-area';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import ReactMarkdown from 'react-markdown';
@@ -17,7 +16,7 @@ interface ChatDockMessagesProps {
 
 export function ChatDockMessages({ messages, showEvidence, activeStreamId }: ChatDockMessagesProps) {
   return (
-    <ScrollArea className="flex-1 rounded-2xl border border-border/60 p-3">
+    <div className="flex-1 rounded-2xl border border-border/60 bg-background/40 p-3">
       <div className="space-y-3">
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground">Send a prompt to start the conversation.</p>
@@ -32,7 +31,7 @@ export function ChatDockMessages({ messages, showEvidence, activeStreamId }: Cha
           ))
         )}
       </div>
-    </ScrollArea>
+    </div>
   );
 }
 
