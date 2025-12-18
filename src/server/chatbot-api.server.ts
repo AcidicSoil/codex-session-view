@@ -16,7 +16,11 @@ import {
   generateSessionSummaryMarkdown,
   generateCommitMessages,
 } from '~/lib/ai/client';
-import { loadAgentRules, loadSessionSnapshot } from '~/server/lib/chatbotData';
+import {
+  loadAgentRules,
+  loadSessionSnapshot,
+  SessionSnapshotUnavailableError,
+} from '~/server/lib/chatbotData';
 import {
   generateSessionCoachReply,
   runGeneralChatTurn,
@@ -207,17 +211,27 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
 
   const startedAt = Date.now();
   try {
+    const repoBinding = getSessionRepoBinding(input.data.sessionId);
+    if (!repoBinding) {
+      logWarn('chatbot.analyze', 'Session lacks repo binding; cannot run Hook Discovery', {
+        sessionId: input.data.sessionId,
+        analysisType: input.data.analysisType,
+      });
+      return jsonResponse(
+        {
+          code: 'REPO_CONTEXT_REQUIRED',
+          message:
+            'Bind a session asset with repository metadata before running Session Intelligence analysis.',
+        },
+        422
+      );
+    }
+
     const resolvedModelId = resolveModelForMode(input.data.mode);
     const modelDefinition = getChatModelDefinition(resolvedModelId);
 
-    const snapshot = await loadSessionSnapshot(input.data.sessionId);
-    const repoBinding = getSessionRepoBinding(input.data.sessionId);
-    const rules = repoBinding ? await loadAgentRules(repoBinding.rootDir) : [];
-    if (!repoBinding) {
-      logWarn('chatbot.analyze', 'Missing repo root for session; continuing without AGENT rules', {
-        sessionId: input.data.sessionId,
-      });
-    }
+    const snapshot = await loadSessionSnapshot(input.data.sessionId, { requireAsset: true });
+    const rules = await loadAgentRules(repoBinding.rootDir);
     const misalignments = await listMisalignments(input.data.sessionId);
     const activeThread = await getActiveChatThread(input.data.sessionId, input.data.mode);
     const history = await listChatMessages(input.data.sessionId, input.data.mode, activeThread.id);
@@ -240,6 +254,8 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
         input.data.analysisType === 'hook-discovery'
           ? resolvedModelId
           : 'builtin:session-insights',
+      repoRoot: repoBinding.rootDir,
+      assetPath: repoBinding.assetPath,
     };
 
     const contextHeadings = context.sections.map((section) => section.heading);
@@ -292,6 +308,23 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
     });
     return jsonResponse({ summaryMarkdown: resultText });
   } catch (error) {
+    if (error instanceof SessionSnapshotUnavailableError) {
+      logWarn('chatbot.analyze', 'Session snapshot unavailable', {
+        sessionId: input.data.sessionId,
+        mode: input.data.mode,
+        analysisType: input.data.analysisType,
+        durationMs: Date.now() - startedAt,
+        error: error.message,
+        success: false,
+      });
+      return jsonResponse(
+        {
+          code: 'SESSION_CONTEXT_UNAVAILABLE',
+          message: error.message,
+        },
+        422
+      );
+    }
     if (isProviderUnavailableError(error) || isAiProviderError(error)) {
       const message = getProviderErrorMessage(error);
       logWarn('chatbot.analyze', 'Analyze provider unavailable', {
