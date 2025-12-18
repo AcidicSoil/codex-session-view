@@ -123,9 +123,10 @@
 * Before ending your turn:
   * Follow instructions located [here](/home/user/.codex/prompts/codex-skills/webapp-testing/SKILL.md) for creating tests.
   * Run `pnpm lint`, resolve linting warnings and errors
-  * Documentation synchronization:
+  * Documentation and test synchronization:
     * Revise/sync externally facing documentation.
     * Update CHANGELOG
+    * Revise/sync existing e2e tests 
 
 ## docs map
 
