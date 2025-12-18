@@ -36,7 +36,7 @@
    - Thread `sessionOrigin` through viewer contexts (`TimelineWithFilters`, `AnimatedTimelineList`, `SessionCard`) and introduce reusable badge/toggle components (e.g., `SessionOriginBadge`, `TimelineOriginFilters`).
    - Session Explorer shows a single badge per card; timeline prop cards show per-event badges and a filter toggle (Codex, Gemini, All). Unknown origin hides badges and can raise a non-blocking warning near filters.
 6. **Docs, badges, and tests**
-   - Add parser tests proving events/meta carry origin (stream + fallback) and extend any Gemini fixtures to assert `'gemini-cli'` tagging; add component tests (or Storybook screenshot updates) covering badge rendering.
+   - Add parser tests proving events/meta carry origin (stream + fallback) and extend any Gemini fixtures to assert `'gemini-cli'` tagging; add component tests covering badge rendering.
    - Document the behavior in `docs/gemini-cli-support.md`, README, and CHANGELOG (mention opt-in `GEMINI_SESSION_DIR` + new badges).
    - Run `pnpm test` (or targeted suites) and verify manual upload/discovery flows display the badges on both timeline events and session cards.
 
