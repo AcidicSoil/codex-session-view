@@ -24,6 +24,11 @@ export interface ChatToolEventRepository {
     status: ChatToolEventStatus,
     updates?: { result?: unknown; error?: string; contextEvents?: ChatToolEventRecord['contextEvents'] },
   ): Promise<ChatToolEventRecord>
+  updateStatusByToolCall?: (
+    toolCallId: string,
+    status: ChatToolEventStatus,
+    updates?: { result?: unknown; error?: string; contextEvents?: ChatToolEventRecord['contextEvents'] },
+  ) => Promise<ChatToolEventRecord | null>
 }
 
 const toolEventsCollection = createCollection(
@@ -122,6 +127,14 @@ export const localChatToolEventRepository: ChatToolEventRepository = {
     await toolEventsCollection.update(id, () => updated)
     await schedulePersist()
     return updated
+  },
+
+  async updateStatusByToolCall(toolCallId, status, updates = {}) {
+    if (!toolCallId) return null
+    await ensureHydrated()
+    const target = toolEventsCollection.toArray.find((record) => record.toolCallId === toolCallId)
+    if (!target) return null
+    return this.updateStatus(target.id, status, updates)
   },
 }
 

@@ -1,11 +1,11 @@
 import type { ChatEventReference } from '~/lib/sessions/model'
 
 export type ChatStreamChunk =
-  | { kind: 'start' }
-  | { kind: 'text-delta'; text: string }
-  | { kind: 'tool-call'; toolCallId: string; toolName: string; input: unknown; providerExecuted?: boolean; dynamic?: boolean }
+  | { type: 'start' }
+  | { type: 'text-delta'; value: string }
+  | { type: 'tool-call'; toolCallId: string; toolName: string; input: unknown; providerExecuted?: boolean; dynamic?: boolean }
   | {
-      kind: 'tool-result'
+      type: 'tool-result'
       toolCallId: string
       toolName: string
       output: unknown
@@ -13,6 +13,18 @@ export type ChatStreamChunk =
       dynamic?: boolean
       contextEvents?: ChatEventReference[]
     }
-  | { kind: 'tool-error'; toolCallId: string; toolName: string; error: string; providerExecuted?: boolean; dynamic?: boolean }
-  | { kind: 'done'; text: string }
-  | { kind: 'error'; message: string }
+  | { type: 'tool-error'; toolCallId: string; toolName: string; error: string; providerExecuted?: boolean; dynamic?: boolean }
+  | { type: 'done' }
+  | { type: 'error'; message: string }
+
+export interface StreamingToolCall {
+  toolCallId: string
+  toolName: string
+  input: unknown
+  providerExecuted?: boolean
+  dynamic?: boolean
+  status: 'pending' | 'executing' | 'succeeded' | 'failed'
+  output?: unknown
+  error?: string
+  contextEvents?: ChatEventReference[]
+}
