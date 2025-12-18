@@ -50,6 +50,16 @@ export interface ChatMessageEvidence {
   label?: string
 }
 
+export interface ChatEventReference {
+  /** Zero-based index within the session snapshot array */
+  eventIndex: number
+  /** One-based label shown to the user (e.g., timeline “#710”) */
+  displayIndex: number
+  eventId?: string
+  eventType: string
+  summary: string
+}
+
 export interface ChatMessageRecord {
   id: string
   sessionId: SessionId
@@ -60,6 +70,7 @@ export interface ChatMessageRecord {
   clientMessageId?: string
   misalignmentId?: string
   evidence?: ChatMessageEvidence[]
+  contextEvents?: ChatEventReference[]
   createdAt: string
   updatedAt: string
 }
@@ -93,6 +104,7 @@ export function createChatMessageRecord(input: {
   clientMessageId?: string
   misalignmentId?: string
   evidence?: ChatMessageEvidence[]
+  contextEvents?: ChatEventReference[]
   id?: string
   timestamp?: Date
 }): ChatMessageRecord {
@@ -107,6 +119,7 @@ export function createChatMessageRecord(input: {
     clientMessageId: input.clientMessageId,
     misalignmentId: input.misalignmentId,
     evidence: input.evidence,
+    contextEvents: input.contextEvents,
     createdAt,
     updatedAt: createdAt,
   }
