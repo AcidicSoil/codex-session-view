@@ -18,7 +18,12 @@ import { useUiSettingsStore } from '~/stores/uiSettingsStore'
 import type { EvidenceContext } from '~/components/chatbot/EvidenceCard'
 import type { ResponseItemParsed } from '~/lib/session-parser'
 import { useFileLoader } from '~/hooks/useFileLoader'
-import { parseViewerSearch, viewerSearchToCommandFilter, viewerSearchToRangeState } from './viewer.search'
+import {
+  applyViewerSearchUpdates,
+  parseViewerSearch,
+  viewerSearchToCommandFilter,
+  viewerSearchToRangeState,
+} from './viewer.search'
 import {
   buildEvidenceContext,
   buildFlaggedEventMap,
@@ -67,7 +72,7 @@ export interface ViewerWorkspaceContextValue {
   sessionEvents: ResponseItemParsed[]
   misalignments: MisalignmentRecord[]
   refreshSessionCoach: (sessionId: string) => Promise<void>
-  bindSessionToAsset: (sessionId: string, assetPath: string) => Promise<void>
+  bindSessionToAsset: (sessionId: string, assetPath: string, options?: { refresh?: boolean }) => Promise<void>
   activeAssetPath: string | null
   handleSessionEject: () => void
 }
@@ -105,6 +110,10 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
   const discovery = useViewerDiscovery({ loader })
   const router = useRouter()
   const locationState = useRouterState({ select: (state) => state.location })
+  const viewerSearch = useMemo(
+    () => parseViewerSearch((locationState?.search as Record<string, unknown>) ?? {}),
+    [locationState?.search],
+  )
   const hydrateUiSettings = useUiSettingsStore((state) => state.hydrateFromSnapshot)
   const settingsHydratedRef = useRef(false)
   const openRuleInspector = useUiSettingsStore((state) => state.openRuleInspector)
@@ -112,6 +121,7 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
   const setLastSessionPath = useUiSettingsStore((state) => state.setLastSessionPath)
   const setTimelineRange = useUiSettingsStore((state) => state.setTimelineRange)
   const setCommandFilter = useUiSettingsStore((state) => state.setCommandFilter)
+  const pendingSessionIdRef = useRef<string | null>(null)
 
   if (!settingsHydratedRef.current) {
     const snapshotSource = loaderData?.uiSettings ? 'server' : 'guest'
@@ -119,8 +129,7 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
     settingsHydratedRef.current = true
   }
 
-  const initialSessionId = loaderData?.sessionId ?? 'session-default'
-  const [activeSessionId, setActiveSessionId] = useState(initialSessionId)
+  const activeSessionId = viewerSearch.sessionId ?? loaderData?.sessionId ?? 'session-default'
   const [sessionCoachState, setSessionCoachState] = useState<ViewerChatState | null>(loaderData?.sessionCoach ?? null)
   const [ruleSheetEntries, setRuleSheetEntries] = useState(loaderData?.ruleSheet ?? [])
   const [chatPrefills, setChatPrefills] = useState<Record<ChatMode, CoachPrefillPayload | null>>({
@@ -138,10 +147,45 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
   const [hookGate, setHookGate] = useState<HookGateState | null>(null)
   const [focusEventIndex, setFocusEventIndex] = useState<number | null>(null)
 
-  const viewerSearch = useMemo(
-    () => parseViewerSearch((locationState?.search as Record<string, unknown>) ?? {}),
-    [locationState?.search],
+  const setActiveSessionId = useCallback(
+    (nextSessionId: string) => {
+      if (!nextSessionId || nextSessionId === activeSessionId) {
+        if (nextSessionId === activeSessionId) {
+          pendingSessionIdRef.current = null
+        }
+        return
+      }
+      pendingSessionIdRef.current = nextSessionId
+      setSessionCoachState(null)
+      setRuleSheetEntries([])
+      void router.navigate({
+        search: (prev) =>
+          applyViewerSearchUpdates((prev as Record<string, unknown>) ?? {}, (state) => ({
+            ...state,
+            sessionId: nextSessionId,
+          })),
+      })
+    },
+    [activeSessionId, router],
   )
+
+  useEffect(() => {
+    if (pendingSessionIdRef.current && pendingSessionIdRef.current === activeSessionId) {
+      pendingSessionIdRef.current = null
+    }
+  }, [activeSessionId])
+
+  useEffect(() => {
+    if (loaderData?.sessionCoach) {
+      setSessionCoachState(loaderData.sessionCoach)
+    } else {
+      setSessionCoachState(null)
+    }
+  }, [loaderData?.sessionCoach])
+
+  useEffect(() => {
+    setRuleSheetEntries(loaderData?.ruleSheet ?? [])
+  }, [loaderData?.ruleSheet])
 
   useEffect(() => {
     setTimelineRange(viewerSearchToRangeState(viewerSearch))
@@ -203,7 +247,7 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const bindSessionToAsset = useCallback(
-    async (sessionId: string, assetPath: string) => {
+    async (sessionId: string, assetPath: string, options?: { refresh?: boolean }) => {
       try {
         await sessionRepoContext({
           data: {
@@ -217,6 +261,9 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
           description: error instanceof Error ? error.message : 'Unknown error',
         })
       } finally {
+        if (options?.refresh === false) {
+          return
+        }
         await refreshSessionCoach(sessionId)
         await refreshRuleInventory()
       }
@@ -224,20 +271,59 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
     [refreshRuleInventory, refreshSessionCoach],
   )
 
+  const sessionIdToAssetPath = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const asset of discovery.sessionAssets) {
+      map.set(deriveSessionId(asset.path), asset.path)
+    }
+    return map
+  }, [discovery.sessionAssets])
+
   const selectedAsset = useMemo(() => {
     if (!discovery.selectedSessionPath) return null
     return discovery.sessionAssets.find((asset) => asset.path === discovery.selectedSessionPath) ?? null
   }, [discovery.sessionAssets, discovery.selectedSessionPath])
+
+  useEffect(() => {
+    if (pendingSessionIdRef.current && pendingSessionIdRef.current !== activeSessionId) {
+      return
+    }
+    const selectedId = discovery.selectedSessionPath ? deriveSessionId(discovery.selectedSessionPath) : null
+    if (selectedId === activeSessionId) {
+      return
+    }
+    const matchingPath = sessionIdToAssetPath.get(activeSessionId) ?? null
+    if (matchingPath && discovery.selectedSessionPath !== matchingPath) {
+      discovery.setSelectedSessionPath(matchingPath)
+      return
+    }
+    if (!matchingPath && discovery.selectedSessionPath) {
+      discovery.setSelectedSessionPath(null)
+    }
+  }, [activeSessionId, discovery.selectedSessionPath, discovery.setSelectedSessionPath, sessionIdToAssetPath])
 
   const activeAssetPath = selectedAsset?.path ?? sessionCoachState?.repoContext?.assetPath ?? null
 
   useEffect(() => {
     if (!selectedAsset) return
     const nextSessionId = deriveSessionId(selectedAsset.path)
-    if (nextSessionId === activeSessionId) return
-    setActiveSessionId(nextSessionId)
-    void bindSessionToAsset(nextSessionId, selectedAsset.path)
-  }, [selectedAsset, activeSessionId, bindSessionToAsset])
+    if (nextSessionId === activeSessionId || pendingSessionIdRef.current === nextSessionId) {
+      return
+    }
+    pendingSessionIdRef.current = nextSessionId
+    let cancelled = false
+    const run = async () => {
+      await bindSessionToAsset(nextSessionId, selectedAsset.path, { refresh: false })
+      if (cancelled) {
+        return
+      }
+      setActiveSessionId(nextSessionId)
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedAsset, activeSessionId, bindSessionToAsset, setActiveSessionId])
 
   const runHookifyPrefill = useCallback(
     async (
@@ -315,7 +401,7 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
         if (targetSessionId !== activeSessionId) {
           setActiveSessionId(targetSessionId)
           discovery.setSelectedSessionPath(asset.path)
-          bindingPromise = bindSessionToAsset(targetSessionId, asset.path)
+          bindingPromise = bindSessionToAsset(targetSessionId, asset.path, { refresh: false })
         }
 
         if (bindingPromise) {
@@ -386,11 +472,14 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
     discovery.stopLiveWatcher()
     discovery.setSelectedSessionPath(null)
     setLastSessionPath(null)
-    setActiveSessionId(initialSessionId)
+    setSessionCoachState(null)
+    setRuleSheetEntries([])
+    setActiveSessionId('session-default')
     setFocusEventIndex(null)
   }, [
     discovery,
-    initialSessionId,
+    setRuleSheetEntries,
+    setSessionCoachState,
     setActiveSessionId,
     setFocusEventIndex,
     setLastSessionPath,

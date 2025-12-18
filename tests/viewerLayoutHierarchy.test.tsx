@@ -1,8 +1,17 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ViewerPage } from '~/features/viewer/viewer.page'
+import { deriveSessionId } from '~/features/viewer/viewer.workspace.utils'
+import { createDiscoveredSessionAsset, type DiscoveredSessionAsset } from '~/lib/viewerDiscovery'
 
-const mockNavigate = vi.fn()
+let mockSearchState: Record<string, unknown> = {}
+const mockNavigate = vi.fn((options?: { search?: Record<string, unknown> | ((prev: Record<string, unknown>) => Record<string, unknown>) }) => {
+  if (options?.search) {
+    mockSearchState =
+      typeof options.search === 'function' ? options.search(mockSearchState) : options.search
+  }
+})
+let mockLoaderSessionId = 'test-session'
 
 vi.mock('@tanstack/react-router', () => ({
   ClientOnly: ({ children }: any) => <>{typeof children === 'function' ? children() : children}</>,
@@ -24,14 +33,14 @@ vi.mock('@tanstack/react-router', () => ({
       externalDirectories: [],
       uploadStores: [],
     },
-    sessionId: 'test-session',
+    sessionId: mockLoaderSessionId,
     sessionCoach: null,
     ruleSheet: [],
     uiSettings: null,
     uiSettingsProfileId: 'test-profile',
   }),
   useRouter: () => ({ navigate: mockNavigate }),
-  useRouterState: () => ({ location: { pathname: '/viewer' } }),
+  useRouterState: () => ({ location: { pathname: '/viewer', search: mockSearchState } }),
   useLoaderContext: () => ({}),
 }))
 
@@ -80,19 +89,45 @@ vi.mock('~/stores/uiSettingsStore', () => ({
   useUiSettingsStore: (selector: (state: typeof mockUiSettingsState) => any) => selector(mockUiSettingsState),
 }))
 
-vi.mock('~/features/viewer/viewer.discovery.section', () => ({
-  useViewerDiscovery: () => ({
-    snapshot: { generatedAt: Date.now(), sessionAssets: [], projectFiles: [], stats: {} },
-    projectFiles: [],
-    sessionAssets: [],
-    appendSessionAssets: vi.fn(),
-    onSessionOpen: vi.fn(),
-    loadingSessionPath: null,
-    selectedSessionPath: null,
-    setSelectedSessionPath: vi.fn(),
-  }),
-  DiscoverySection: () => <div data-testid="discovery-section">Discovery</div>,
-}))
+const discoveryState = {
+  sessionAssets: [] as DiscoveredSessionAsset[],
+  appendSessionAssets: vi.fn(),
+  onSessionOpen: vi.fn(),
+  stopLiveWatcher: vi.fn(),
+  loadingSessionPath: null as string | null,
+  selectedSessionPath: null as string | null,
+}
+const setSelectedSessionPathSpy = vi.fn((path: string | null) => {
+  discoveryState.selectedSessionPath = path
+})
+
+vi.mock('~/features/viewer/viewer.discovery.section', () => {
+  const React = require('react')
+  return {
+    useViewerDiscovery: () => {
+      const [selectedSessionPath, setSelectedSessionPathState] = React.useState<string | null>(
+        discoveryState.selectedSessionPath,
+      )
+      const setSelectedSessionPath = (path: string | null) => {
+        setSelectedSessionPathSpy(path)
+        setSelectedSessionPathState(path)
+        discoveryState.selectedSessionPath = path
+      }
+      return {
+        snapshot: { generatedAt: Date.now(), sessionAssets: discoveryState.sessionAssets, projectFiles: [], stats: {} },
+        projectFiles: [],
+        sessionAssets: discoveryState.sessionAssets,
+        appendSessionAssets: discoveryState.appendSessionAssets,
+        onSessionOpen: discoveryState.onSessionOpen,
+        loadingSessionPath: discoveryState.loadingSessionPath,
+        selectedSessionPath,
+        setSelectedSessionPath,
+        stopLiveWatcher: discoveryState.stopLiveWatcher,
+      }
+    },
+    DiscoverySection: () => <div data-testid="discovery-section">Discovery</div>,
+  }
+})
 
 vi.mock('~/features/viewer/viewer.upload.section', () => ({
   useUploadController: () => ({
@@ -129,6 +164,15 @@ vi.mock('~/server/function/hookifyAddToChat', () => ({
 }))
 
 describe('Viewer layout', () => {
+  beforeEach(() => {
+    mockSearchState = {}
+    mockLoaderSessionId = 'test-session'
+    mockNavigate.mockClear()
+    discoveryState.sessionAssets = []
+    discoveryState.selectedSessionPath = null
+    setSelectedSessionPathSpy.mockClear()
+  })
+
   it('renders navigation and outlet shell', () => {
     render(<ViewerPage />)
 
@@ -136,5 +180,25 @@ describe('Viewer layout', () => {
     expect(screen.getByText('Inspector')).toBeInTheDocument()
     expect(screen.getByText('Chat')).toBeInTheDocument()
     expect(screen.getByTestId('viewer-outlet')).toBeInTheDocument()
+  })
+
+  it('syncs route-selected session to explorer without redundant updates', () => {
+    const assetPath = 'sessions/demo/session-a.jsonl'
+    const sessionId = deriveSessionId(assetPath)
+    mockLoaderSessionId = sessionId
+    discoveryState.sessionAssets = [
+      createDiscoveredSessionAsset({
+        path: assetPath,
+        url: '/sessions/demo/session-a.jsonl',
+        source: 'bundled',
+        repoLabel: 'demo',
+      }),
+    ]
+    const { rerender } = render(<ViewerPage />)
+    expect(setSelectedSessionPathSpy).toHaveBeenCalledTimes(1)
+    expect(setSelectedSessionPathSpy).toHaveBeenCalledWith(assetPath)
+    setSelectedSessionPathSpy.mockClear()
+    rerender(<ViewerPage />)
+    expect(setSelectedSessionPathSpy).not.toHaveBeenCalled()
   })
 })

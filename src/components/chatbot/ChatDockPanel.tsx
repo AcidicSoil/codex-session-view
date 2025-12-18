@@ -64,10 +64,11 @@ export function ChatDockPanel({
       setBootError(null);
       return;
     }
-    if (!bootState) {
-      void hydrateState();
-    }
-  }, [state, hydrateState, bootState]);
+    setBootState(null);
+    setBootStatus('loading');
+    setBootError(null);
+    void hydrateState();
+  }, [state, hydrateState, sessionId]);
 
   if (!bootState) {
     return <ChatDockBootstrapCard status={bootStatus} error={bootError} onRetry={hydrateState} />;

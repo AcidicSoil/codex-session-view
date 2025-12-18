@@ -5,12 +5,14 @@ const RANGE_START_KEY = 'rangeStart'
 const RANGE_END_KEY = 'rangeEnd'
 const COMMAND_FAMILIES_KEY = 'cmd'
 const COMMAND_QUERY_KEY = 'cmdQ'
+const SESSION_ID_KEY = 'sessionId'
 
 export interface ViewerSearchState {
   startIndex?: number
   endIndex?: number
   commandFamilies: string[]
   commandQuery: string
+  sessionId?: string
 }
 
 function toNumber(value: unknown) {
@@ -42,11 +44,13 @@ export function parseViewerSearch(search: Record<string, unknown> | undefined): 
   const endIndex = toNumber(search?.[RANGE_END_KEY])
   const commandFamilies = parseFamilies(search?.[COMMAND_FAMILIES_KEY])
   const commandQuery = typeof search?.[COMMAND_QUERY_KEY] === 'string' ? search?.[COMMAND_QUERY_KEY] ?? '' : ''
+  const sessionId = typeof search?.[SESSION_ID_KEY] === 'string' ? (search?.[SESSION_ID_KEY] as string) : undefined
   return {
     startIndex,
     endIndex,
     commandFamilies,
     commandQuery,
+    sessionId,
   }
 }
 
@@ -81,6 +85,12 @@ export function applyViewerSearchUpdates(
     result[COMMAND_QUERY_KEY] = next.commandQuery.trim()
   } else {
     delete result[COMMAND_QUERY_KEY]
+  }
+
+  if (typeof next.sessionId === 'string' && next.sessionId.trim().length > 0) {
+    result[SESSION_ID_KEY] = next.sessionId.trim()
+  } else {
+    delete result[SESSION_ID_KEY]
   }
 
   return result
