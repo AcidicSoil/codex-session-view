@@ -65,8 +65,6 @@ scripts
 .codex
 
 # START Ruler Generated Files
-/.codex/config.json
-/.codex/config.json.bak
 /.codex/config.toml
 /.codex/config.toml.bak
 /AGENTS.md
