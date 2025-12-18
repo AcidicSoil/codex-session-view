@@ -31,7 +31,6 @@ const PROJECT_FILE_EXCLUDE_GLOBS = [
   '!/src/**/__mocks__/**',
   '!/src/**/*.test.{ts,tsx,js,jsx}',
   '!/src/**/*.spec.{ts,tsx,js,jsx}',
-  '!/src/**/*.stories.{ts,tsx,js,jsx}',
 ];
 
 const SESSION_ASSET_GLOBS = [
@@ -120,7 +119,6 @@ export async function discoverProjectAssets(): Promise<ProjectDiscoverySnapshot>
       '!/src/**/__mocks__/**',
       '!/src/**/*.test.{ts,tsx,js,jsx}',
       '!/src/**/*.spec.{ts,tsx,js,jsx}',
-      '!/src/**/*.stories.{ts,tsx,js,jsx}',
     ],
     {
       query: '?url',
