@@ -32,6 +32,26 @@
     "updatedAt": "2025-12-18T16:26:23.641Z"
   },
   {
+    "id": "chat_86cbdb65-dbf8-4895-afce-7f659e9f2d3d",
+    "sessionId": "session-default",
+    "mode": "session",
+    "threadId": "thread_3983efad-ab5b-40b6-a175-4a38cdfdbaeb",
+    "role": "user",
+    "content": "Summarize AGENT rules in one sentence.",
+    "createdAt": "2025-12-18T17:03:41.345Z",
+    "updatedAt": "2025-12-18T17:03:41.345Z"
+  },
+  {
+    "id": "chat_b79a544e-b6b3-43bb-978a-2fc2bdb9e811",
+    "sessionId": "session-default",
+    "mode": "session",
+    "threadId": "thread_3983efad-ab5b-40b6-a175-4a38cdfdbaeb",
+    "role": "assistant",
+    "content": "The AGENT framework enforces structured data fetching and state management by requiring server-side data retrieval via route loaders, server functions for mutations, and local-only state for ephemeral UI elements, while prohibiting client-side data fetching in useEffect hooks.",
+    "createdAt": "2025-12-18T17:03:27.247Z",
+    "updatedAt": "2025-12-18T17:03:27.247Z"
+  },
+  {
     "id": "chat_cb4bb20c-6dc8-4a83-afd5-011863f733b3",
     "sessionId": "session-75706c6f6164732f7e2f2e636f6465782f736573",
     "mode": "session",
@@ -41,6 +61,26 @@
     "clientMessageId": "918621f3-bc09-457b-9594-efc7bae7c41c",
     "createdAt": "2025-12-18T16:16:41.653Z",
     "updatedAt": "2025-12-18T16:16:41.653Z"
+  },
+  {
+    "id": "chat_cf5037ed-8992-4ed7-9823-eb7486e00588",
+    "sessionId": "session-default",
+    "mode": "session",
+    "threadId": "thread_3983efad-ab5b-40b6-a175-4a38cdfdbaeb",
+    "role": "assistant",
+    "content": "The AGENT framework enforces structured data fetching and state management by requiring server-side data retrieval via route loaders, server functions for mutations, and local-only state for ephemeral UI elements, while prohibiting client-side data fetching in useEffect hooks.",
+    "createdAt": "2025-12-18T17:03:45.685Z",
+    "updatedAt": "2025-12-18T17:03:45.685Z"
+  },
+  {
+    "id": "chat_cf53185d-06f3-4ebb-905c-6ac5ff442bcd",
+    "sessionId": "session-default",
+    "mode": "session",
+    "threadId": "thread_3983efad-ab5b-40b6-a175-4a38cdfdbaeb",
+    "role": "user",
+    "content": "Summarize AGENT rules in one sentence.",
+    "createdAt": "2025-12-18T17:03:18.082Z",
+    "updatedAt": "2025-12-18T17:03:18.082Z"
   },
   {
     "id": "chat_d31c9b23-878f-4ec7-9b09-d8739b0b74d1",
