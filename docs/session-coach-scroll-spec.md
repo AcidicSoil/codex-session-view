@@ -36,6 +36,11 @@ Assistive copy lives in the shared instructions paragraph (“Use Page Up or Pag
 
 Sticky headers for AI Analysis tabs (`.coach-sticky-header`) remain inside each region so keyboard traps and touch scroll keep them anchored visually as required by the plan.
 
+### Session Analysis Popout Parity
+
+- The `SessionAnalysisPopouts` dialog mirrors these viewport clamps. Its wrapper (`DialogContent`) is limited to 70–95vh, while each tab content (`summary`, `commits`, `Hook Discovery`) sets `flex-1 min-h-0` so `CoachScrollRegion` owns the scroll budget.
+- Hook Discovery / “Hookify Analysis Results” specifically wraps the scroll region with a flex container, ensuring the Summary footer never bleeds beneath the dialog edge and users can read the full markdown output without nested scroll clipping.
+
 ## Simultaneous Overflow Guidelines
 
 - Hover or focus determines the active scroll region; only that pane reacts to wheel/touch events.

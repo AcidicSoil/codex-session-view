@@ -137,6 +137,55 @@ test.describe('codex session viewer', () => {
           mode === 'general' ? 'General reply from mocked provider.' : 'Session coach reply from mocked provider.'
         await route.fulfill({ status: 200, body: reply, headers: { 'content-type': 'text/plain' } })
       })
+      await page.route('**/api/chatbot/analyze', async (route) => {
+        const body = route.request().postData() ?? '{}'
+        let analysisType: string | undefined
+        try {
+          analysisType = JSON.parse(body).analysisType
+        } catch {
+          analysisType = undefined
+        }
+        if (analysisType === 'commits') {
+          await route.fulfill({
+            status: 200,
+            body: JSON.stringify({ commitMessages: ['feat: add scrolling fix', 'chore: sync analysis tests'] }),
+            headers: { 'content-type': 'application/json' },
+          })
+          return
+        }
+        const summaryMarkdown =
+          analysisType === 'hook-discovery'
+            ? [
+                '## Hookify Analysis Results',
+                '',
+                '### Issue 1: Clipped panel height',
+                '**Severity**: Medium',
+                '**Tool**: UI layout',
+                '**Pattern**: `.coach-scroll-region` not bounded',
+                '',
+                '### Issue 2: Missing viewport fit',
+                '**Severity**: Medium',
+                '**Tool**: Dialog layout',
+                '**Pattern**: `h-[85vh]` without min-h-0 children',
+                '',
+                '### Issue 3: Scroll container focus',
+                '**Severity**: Low',
+                '**Tool**: Keyboard',
+                '**Pattern**: Regions fail to announce',
+                '',
+                '---',
+                '',
+                '## Summary',
+                'Found 3 behaviors worth preventing: 2 medium, 1 low.',
+                'Recommend creating rules to cap analysis panel heights.',
+              ].join('\n')
+            : ['## Session Intelligence Summary', '', '- Analysis placeholder content'].join('\n')
+        await route.fulfill({
+          status: 200,
+          body: JSON.stringify({ summaryMarkdown }),
+          headers: { 'content-type': 'application/json' },
+        })
+      })
     })
 
     test('session coach can send and reset chats', async ({ page }) => {
@@ -194,6 +243,49 @@ test.describe('codex session viewer', () => {
 
       const pageScroll = await page.evaluate(() => window.scrollY)
       expect(pageScroll).toBeLessThan(1)
+    })
+
+    test('hook discovery analysis panel fits within viewport', async ({ page }) => {
+      await page.setViewportSize({ width: 1400, height: 780 })
+      await page.waitForLoadState('networkidle')
+      await page.goto('/viewer/chat', { waitUntil: 'load' })
+      await page.waitForLoadState('networkidle')
+      await expect(page.getByPlaceholder(/Summarize this session/i)).toBeVisible({ timeout: 20_000 })
+      const analysisButton = page.getByRole('button', { name: /AI Analysis/i })
+      await expect(analysisButton).toBeVisible({ timeout: 20_000 })
+      await analysisButton.click()
+
+      const hookTab = page.getByRole('tab', { name: /Hook Discovery/i })
+      await hookTab.click()
+      await page.getByRole('button', { name: /Run Conversation Analyzer/i }).click()
+      await expect(page.getByText(/Hookify Analysis Results/)).toBeVisible()
+
+      const scrollMetrics = await page.evaluate(() => {
+        const viewport = document.querySelector(
+          '[data-testid="coach-scroll-analysis-hooks"] [data-slot="scroll-area-viewport"]',
+        ) as HTMLElement | null
+        if (!viewport) return null
+        const rect = viewport.getBoundingClientRect()
+        return {
+          bottom: rect.bottom,
+          height: rect.height,
+          viewportHeight: window.innerHeight,
+        }
+      })
+      expect(scrollMetrics).not.toBeNull()
+      expect(scrollMetrics!.bottom).toBeLessThan(scrollMetrics!.viewportHeight - 8)
+
+      const hooksViewport = page.locator(
+        '[data-testid="coach-scroll-analysis-hooks"] [data-slot="scroll-area-viewport"]',
+      )
+      await hooksViewport.evaluate((node) => {
+        node.scrollTop = node.scrollHeight
+      })
+      await expect(
+        page
+          .locator('[data-testid="coach-scroll-analysis-hooks"]')
+          .getByText(/Found 3 behaviors worth preventing:/),
+      ).toBeVisible()
     })
   })
 })

@@ -82,7 +82,7 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
           AI Analysis
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-5xl h-[85vh] flex flex-col gap-0 border border-white/10 bg-[#06080f] p-0">
+      <DialogContent className="flex h-[85vh] max-h-[95vh] min-h-[70vh] max-w-5xl flex-col gap-0 border border-white/10 bg-[#06080f] p-0">
         <DialogHeader className="coach-sticky-header px-6 pb-2">
           <DialogTitle className="flex items-center gap-2 text-white">
             <Wand2 className="h-5 w-5 text-lime-300" />
@@ -96,7 +96,7 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
         <Tabs
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as AnalysisTab)}
-          className="flex-1 flex flex-col"
+          className="flex flex-1 min-h-0 flex-col"
         >
           <div className="coach-sticky-header px-6 py-3 border-b border-white/10">
             <TabsList className="bg-white/5">
@@ -111,10 +111,10 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
               </TabsTrigger>
             </TabsList>
           </div>
-          <div className="flex-1 overflow-hidden p-6 pt-4 bg-gradient-to-b from-black/40 to-black/80">
+          <div className="flex flex-1 min-h-0 overflow-hidden bg-gradient-to-b from-black/40 to-black/80 p-6 pt-4">
             <TabsContent
               value="summary"
-              className="h-full m-0 data-[state=active]:flex flex-col gap-4"
+              className="m-0 flex flex-1 min-h-0 flex-col gap-4 data-[state=active]:flex"
             >
               {!results.summary ? (
                 <EmptyState
@@ -124,24 +124,26 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                   onClick={() => handleAnalyze('summary')}
                 />
               ) : (
-                <CoachScrollRegion
-                  label="AI analysis summary"
-                  order={11}
-                  className="h-full"
-                  outerClassName="min-h-[18rem]"
-                  contentClassName="h-full"
-                  data-testid="coach-scroll-analysis-summary"
-                >
-                  <div className="rounded-2xl border border-white/15 bg-card/90 p-6 text-white">
-                    <FormattedContent text={results.summary.content as string} />
-                  </div>
-                </CoachScrollRegion>
+                <div className="flex flex-1 min-h-0">
+                  <CoachScrollRegion
+                    label="AI analysis summary"
+                    order={11}
+                    className="h-full"
+                    outerClassName="flex-1 min-h-[18rem]"
+                    contentClassName="h-full"
+                    data-testid="coach-scroll-analysis-summary"
+                  >
+                    <div className="rounded-2xl border border-white/15 bg-card/90 p-6 text-white">
+                      <FormattedContent text={results.summary.content as string} />
+                    </div>
+                  </CoachScrollRegion>
+                </div>
               )}
             </TabsContent>
 
             <TabsContent
               value="commits"
-              className="h-full m-0 data-[state=active]:flex flex-col gap-4"
+              className="m-0 flex flex-1 min-h-0 flex-col gap-4 data-[state=active]:flex"
             >
               {!results.commits ? (
                 <EmptyState
@@ -151,59 +153,61 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                   onClick={() => handleAnalyze('commits')}
                 />
               ) : (
-                <CoachScrollRegion
-                  label="AI analysis commit suggestions"
-                  order={12}
-                  className="h-full"
-                  outerClassName="min-h-[16rem]"
-                  contentClassName="h-full"
-                  data-testid="coach-scroll-analysis-commits"
-                >
-                  <div className="space-y-3 rounded-2xl border border-white/15 bg-card/90 p-5 text-white">
-                    <div className="flex items-center justify-between text-sm text-white/70">
-                      <span>Copy these messages to your git client:</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const commitMessages = Array.isArray(results.commits?.content)
-                            ? (results.commits?.content as string[])
-                            : []
-                          const joined = commitMessages.join('\n')
-                          if (navigator?.clipboard && joined) {
-                            void navigator.clipboard.writeText(joined)
-                          }
-                        }}
-                      >
-                        Copy all <ArrowUpRight className="ml-1 h-4 w-4" />
-                      </Button>
-                    </div>
-                    {(results.commits.content as string[]).map((message) => (
-                      <div key={message} className="flex gap-2">
-                        <CodeBlock code={message} language="text" className="flex-1" />
+                <div className="flex flex-1 min-h-0">
+                  <CoachScrollRegion
+                    label="AI analysis commit suggestions"
+                    order={12}
+                    className="h-full"
+                    outerClassName="flex-1 min-h-[16rem]"
+                    contentClassName="h-full"
+                    data-testid="coach-scroll-analysis-commits"
+                  >
+                    <div className="space-y-3 rounded-2xl border border-white/15 bg-card/90 p-5 text-white">
+                      <div className="flex items-center justify-between text-sm text-white/70">
+                        <span>Copy these messages to your git client:</span>
                         <Button
                           variant="ghost"
-                          size="icon"
-                          title="Copy commit"
+                          size="sm"
                           onClick={() => {
-                            if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                              void navigator.clipboard.writeText(message);
+                            const commitMessages = Array.isArray(results.commits?.content)
+                              ? (results.commits?.content as string[])
+                              : []
+                            const joined = commitMessages.join('\n')
+                            if (navigator?.clipboard && joined) {
+                              void navigator.clipboard.writeText(joined)
                             }
                           }}
                         >
-                          <span className="sr-only">Copy commit</span>
-                          <FileCode2 className="h-4 w-4" />
+                          Copy all <ArrowUpRight className="ml-1 h-4 w-4" />
                         </Button>
                       </div>
-                    ))}
-                  </div>
-                </CoachScrollRegion>
+                      {(results.commits.content as string[]).map((message) => (
+                        <div key={message} className="flex gap-2">
+                          <CodeBlock code={message} language="text" className="flex-1" />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Copy commit"
+                            onClick={() => {
+                              if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                                void navigator.clipboard.writeText(message);
+                              }
+                            }}
+                          >
+                            <span className="sr-only">Copy commit</span>
+                            <FileCode2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CoachScrollRegion>
+                </div>
               )}
             </TabsContent>
 
             <TabsContent
               value="hooks"
-              className="h-full m-0 data-[state=active]:flex flex-col gap-4"
+              className="m-0 flex flex-1 min-h-0 flex-col gap-4 data-[state=active]:flex"
             >
               {!results.hooks ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-4">
@@ -220,7 +224,7 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                   </Button>
                 </div>
               ) : (
-                <div className="flex flex-col h-full gap-4">
+                <div className="flex flex-1 min-h-0 flex-col gap-4">
                   <div className="flex justify-between items-center">
                     <h3 className="text-sm font-medium">Suggested Hookify Rules</h3>
                     <Button
@@ -232,18 +236,20 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                       <Wand2 className="mr-2 h-3 w-3" /> Re-run
                     </Button>
                   </div>
-                  <CoachScrollRegion
-                    label="Hook discovery results"
-                    order={13}
-                    className="h-full"
-                    outerClassName="min-h-[18rem]"
-                    contentClassName="h-full"
-                    data-testid="coach-scroll-analysis-hooks"
-                  >
-                    <div className="rounded-2xl border border-white/15 bg-card/90 p-6 text-white">
-                      <FormattedContent text={results.hooks.content as string} />
-                    </div>
-                  </CoachScrollRegion>
+                  <div className="flex flex-1 min-h-0">
+                    <CoachScrollRegion
+                      label="Hook discovery results"
+                      order={13}
+                      className="h-full"
+                      outerClassName="flex-1 min-h-[18rem]"
+                      contentClassName="h-full"
+                      data-testid="coach-scroll-analysis-hooks"
+                    >
+                      <div className="rounded-2xl border border-white/15 bg-card/90 p-6 text-white">
+                        <FormattedContent text={results.hooks.content as string} />
+                      </div>
+                    </CoachScrollRegion>
+                  </div>
                 </div>
               )}
             </TabsContent>
