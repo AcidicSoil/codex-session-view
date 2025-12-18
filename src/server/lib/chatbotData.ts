@@ -1,7 +1,17 @@
 import { parseAgentRules, type AgentRule } from '~/lib/agents-rules/parser';
 import type { SessionSnapshot } from '~/lib/sessions/model';
+import { logWarn } from '~/lib/logger';
+import { parseSessionToArrays } from '~/lib/session-parser/streaming';
+import { getSessionRepoBinding } from '~/server/persistence/sessionRepoBindings';
 
-const cachedSnapshots = new Map<string, SessionSnapshot>();
+interface SnapshotCacheEntry {
+  snapshot: SessionSnapshot;
+  assetPath: string | null;
+  bindingUpdatedAt: number | null;
+  source: 'upload' | 'fixture';
+}
+
+const cachedSnapshots = new Map<string, SnapshotCacheEntry>();
 let baseSnapshot: Omit<SessionSnapshot, 'sessionId'> | null = null;
 const rulesCache = new Map<string, AgentRule[]>();
 const instructionHashIndexes = new Map<string, InstructionHashIndex>();
@@ -16,6 +26,16 @@ interface InstructionHashRecord {
 
 interface InstructionHashIndex {
   byHash: Map<string, InstructionHashRecord>;
+}
+
+export class SessionSnapshotUnavailableError extends Error {
+  code = 'SESSION_SNAPSHOT_UNAVAILABLE' as const;
+
+  constructor(message: string)
+  constructor(message: string, public cause?: unknown) {
+    super(message);
+    this.name = 'SessionSnapshotUnavailableError';
+  }
 }
 
 async function loadBaseSnapshot(): Promise<Omit<SessionSnapshot, 'sessionId'>> {
@@ -38,19 +58,110 @@ async function loadBaseSnapshot(): Promise<Omit<SessionSnapshot, 'sessionId'>> {
   return baseSnapshot;
 }
 
-export async function loadSessionSnapshot(sessionId: string): Promise<SessionSnapshot> {
-  const cached = cachedSnapshots.get(sessionId);
-  if (cached) {
-    return cached;
+interface LoadSnapshotOptions {
+  requireAsset?: boolean;
+}
+
+export async function loadSessionSnapshot(
+  sessionId: string,
+  options: LoadSnapshotOptions = {}
+): Promise<SessionSnapshot> {
+  const repoBinding = getSessionRepoBinding(sessionId);
+  const desiredAssetPath = repoBinding?.assetPath ?? null;
+  const desiredUpdatedAt = repoBinding?.updatedAt ?? null;
+  const cacheHit = cachedSnapshots.get(sessionId);
+  if (
+    cacheHit &&
+    cacheHit.assetPath === desiredAssetPath &&
+    cacheHit.bindingUpdatedAt === desiredUpdatedAt
+  ) {
+    return cacheHit.snapshot;
   }
+
+  if (desiredAssetPath) {
+    const snapshot = await loadSnapshotFromAssetPath(desiredAssetPath, sessionId);
+    if (snapshot) {
+      cachedSnapshots.set(sessionId, {
+        snapshot,
+        assetPath: desiredAssetPath,
+        bindingUpdatedAt: desiredUpdatedAt,
+        source: 'upload',
+      });
+      return snapshot;
+    }
+    if (options.requireAsset) {
+      throw new SessionSnapshotUnavailableError(
+        `Session ${sessionId} is bound to ${desiredAssetPath} but the upload content is unavailable.`
+      );
+    }
+    logWarn('chatbot.snapshot', 'Falling back to fixture snapshot after upload parse failure', {
+      sessionId,
+      assetPath: desiredAssetPath,
+    });
+  } else if (options.requireAsset) {
+    throw new SessionSnapshotUnavailableError(
+      `Session ${sessionId} is not bound to a repository asset.`
+    );
+  }
+
+  const fallback = await loadFixtureSnapshot(sessionId);
+  cachedSnapshots.set(sessionId, {
+    snapshot: fallback,
+    assetPath: desiredAssetPath,
+    bindingUpdatedAt: desiredUpdatedAt,
+    source: 'fixture',
+  });
+  return fallback;
+}
+
+export async function loadSnapshotFromAssetPath(
+  assetPath: string,
+  sessionId: string
+): Promise<SessionSnapshot | null> {
+  try {
+    const normalized = normalizeAssetName(assetPath);
+    const { getSessionUploadContentByOriginalName } = await import(
+      '~/server/persistence/sessionUploads'
+    );
+    const content = getSessionUploadContentByOriginalName(normalized);
+    if (!content) {
+      return null;
+    }
+    const blob = new Blob([content], { type: 'application/json' });
+    const result = await parseSessionToArrays(blob);
+    if (!result.meta || !Array.isArray(result.events)) {
+      return null;
+    }
+    return {
+      sessionId,
+      meta: result.meta,
+      events: result.events,
+    };
+  } catch (error) {
+    logWarn('chatbot.snapshot', 'Failed to load session snapshot from upload', {
+      sessionId,
+      assetPath,
+      error: error instanceof Error ? error.message : error,
+    });
+    return null;
+  }
+}
+
+export function clearSessionSnapshotCache(sessionId?: string) {
+  if (!sessionId) {
+    cachedSnapshots.clear();
+    return;
+  }
+  cachedSnapshots.delete(sessionId);
+}
+
+async function loadFixtureSnapshot(sessionId: string): Promise<SessionSnapshot> {
   const fixture = await loadBaseSnapshot();
-  const snapshot: SessionSnapshot = {
+  return {
     sessionId,
     meta: fixture.meta ? { ...fixture.meta } : undefined,
     events: fixture.events.map((event) => ({ ...event })),
   };
-  cachedSnapshots.set(sessionId, snapshot);
-  return snapshot;
 }
 
 export async function loadAgentRules(rootDir: string = process.cwd()) {

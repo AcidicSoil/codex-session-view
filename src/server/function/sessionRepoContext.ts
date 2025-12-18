@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { describeRepoRootFailure, resolveRepoRootForAssetPath, type RepoRootMissingReason } from '~/server/lib/sessionRepoRoots'
+import { clearAgentRulesCache, clearSessionSnapshotCache } from '~/server/lib/chatbotData'
 import { clearSessionRepoBinding, setSessionRepoBinding, type SessionRepoBindingRecord } from '~/server/persistence/sessionRepoBindings'
 
 const inputSchema = z.discriminatedUnion('action', [
@@ -25,10 +26,10 @@ export interface SessionRepoContextResponse {
 export const sessionRepoContext = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
-    const { clearAgentRulesCache } = await import('~/server/lib/chatbotData')
     if (data.action === 'clear') {
       await clearSessionRepoBinding(data.sessionId)
       clearAgentRulesCache()
+      clearSessionSnapshotCache(data.sessionId)
       return { status: 'cleared' } satisfies SessionRepoContextResponse
     }
 
@@ -47,6 +48,7 @@ export const sessionRepoContext = createServerFn({ method: 'POST' })
       rootDir: resolution.rootDir,
     })
     clearAgentRulesCache(resolution.rootDir)
+    clearSessionSnapshotCache(data.sessionId)
     return {
       status: 'ok',
       repoContext: record,

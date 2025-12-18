@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, Wand2, FileCode2, Anchor, ArrowUpRight } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import {
@@ -16,11 +16,17 @@ import type { ChatMode } from '~/lib/sessions/model';
 import { requestChatAnalysis } from '~/features/chatbot/chatbot.runtime';
 import { FormattedContent } from '~/components/ui/formatted-content';
 import { CoachScrollRegion } from '~/components/chatbot/CoachScrollRegion';
+import { useOptionalViewerWorkspace } from '~/features/viewer/viewer.workspace';
 
 type AnalysisTab = 'summary' | 'commits' | 'hooks';
 type AnalysisResult = {
   type: 'summary' | 'commits' | 'hook-discovery';
   content: string | string[];
+  repoContext?: {
+    sessionId: string;
+    repoLabel?: string | null;
+    assetPath?: string | null;
+  };
 };
 
 interface SessionAnalysisPopoutsProps {
@@ -29,10 +35,20 @@ interface SessionAnalysisPopoutsProps {
 }
 
 export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopoutsProps) {
+  const workspace = useOptionalViewerWorkspace();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AnalysisTab>('summary');
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<Partial<Record<AnalysisTab, AnalysisResult>>>({});
+  const sessionAnchorRef = useRef(sessionId);
+  const boundRepoLabel = workspace?.sessionCoachState?.repoContext?.rootDir ?? null;
+  const assetPath = workspace?.sessionCoachState?.repoContext?.assetPath ?? null;
+
+  useEffect(() => {
+    if (sessionAnchorRef.current === sessionId) return;
+    sessionAnchorRef.current = sessionId;
+    setResults({});
+  }, [sessionId]);
   if (mode !== 'session') {
     return null;
   }
@@ -62,6 +78,11 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
             type === 'commits'
               ? (response.commitMessages as string[])
               : (response.summaryMarkdown as string),
+          repoContext: {
+            sessionId,
+            repoLabel: boundRepoLabel,
+            assetPath,
+          },
         },
       }));
     } catch (error) {
@@ -124,9 +145,9 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                   onClick={() => handleAnalyze('summary')}
                 />
               ) : (
-                <div className="flex flex-1 min-h-0">
-                  <CoachScrollRegion
-                    label="AI analysis summary"
+                  <div className="flex flex-1 min-h-0">
+                    <CoachScrollRegion
+                      label="AI analysis summary"
                     order={11}
                     className="h-full"
                     outerClassName="flex-1 min-h-[18rem]"
@@ -227,6 +248,14 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                 <div className="flex flex-1 min-h-0 flex-col gap-4">
                   <div className="flex justify-between items-center">
                     <h3 className="text-sm font-medium">Suggested Hookify Rules</h3>
+                    {results.hooks?.repoContext?.repoLabel ? (
+                      <p className="text-xs text-muted-foreground">
+                        {results.hooks.repoContext.repoLabel}
+                        {results.hooks.repoContext.assetPath
+                          ? ` • ${results.hooks.repoContext.assetPath}`
+                          : ''}
+                      </p>
+                    ) : null}
                     <Button
                       variant="ghost"
                       size="sm"

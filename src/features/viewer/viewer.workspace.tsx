@@ -88,6 +88,10 @@ export function useViewerWorkspace() {
   return ctx
 }
 
+export function useOptionalViewerWorkspace() {
+  return useContext(ViewerWorkspaceContext)
+}
+
 interface ViewerWorkspaceBoundaryProps {
   children: ReactNode
   fallback?: ReactNode
