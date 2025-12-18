@@ -166,7 +166,10 @@ export function SessionAnalysisPopouts({ sessionId, mode }: SessionAnalysisPopou
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          const joined = (results.commits?.content as string[]).join('\n')
+                          const commitMessages = Array.isArray(results.commits?.content)
+                            ? (results.commits?.content as string[])
+                            : []
+                          const joined = commitMessages.join('\n')
                           if (navigator?.clipboard && joined) {
                             void navigator.clipboard.writeText(joined)
                           }

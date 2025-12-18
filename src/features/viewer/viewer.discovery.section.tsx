@@ -223,7 +223,6 @@ interface DiscoverySectionProps extends ViewerDiscoveryState {
 export function DiscoverySection(props: DiscoverySectionProps) {
   const {
     snapshot,
-    projectFiles,
     sessionAssets,
     onSessionOpen,
     loadingSessionPath,

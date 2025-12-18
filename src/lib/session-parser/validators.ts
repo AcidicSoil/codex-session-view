@@ -1,4 +1,4 @@
-import { z, type ZodError } from 'zod'
+import { type ZodError } from 'zod'
 import {
   SessionMetaSchema,
   ResponseItemSchema,

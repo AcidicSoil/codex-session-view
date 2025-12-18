@@ -24,6 +24,29 @@ export function deriveSessionId(assetPath: string) {
   return slug ? `session-${slug}` : 'session-unbound'
 }
 
+export function resolveSelectedSessionPath({
+  activeSessionId,
+  selectedSessionPath,
+  sessionIdToAssetPath,
+}: {
+  activeSessionId: string
+  selectedSessionPath: string | null
+  sessionIdToAssetPath: Map<string, string>
+}): string | null | undefined {
+  const selectedId = selectedSessionPath ? deriveSessionId(selectedSessionPath) : null
+  if (selectedId === activeSessionId) {
+    return undefined
+  }
+  const matchingPath = sessionIdToAssetPath.get(activeSessionId) ?? null
+  if (matchingPath && matchingPath !== selectedSessionPath) {
+    return matchingPath
+  }
+  if (!matchingPath && selectedSessionPath) {
+    return null
+  }
+  return undefined
+}
+
 export function buildFlaggedEventMap(misalignments: MisalignmentRecord[]): Map<number, TimelineFlagMarker> {
   const map = new Map<number, TimelineFlagMarker>()
   misalignments.forEach((record) => {

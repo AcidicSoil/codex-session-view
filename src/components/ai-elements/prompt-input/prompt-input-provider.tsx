@@ -1,9 +1,8 @@
 "use client";
 
-import type { ChatStatus, FileUIPart } from "ai";
+import type { FileUIPart } from "ai";
 import { nanoid } from "nanoid";
 import {
-  Children,
   type PropsWithChildren,
   createContext,
   type RefObject,

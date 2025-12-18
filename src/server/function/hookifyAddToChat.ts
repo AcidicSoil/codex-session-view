@@ -9,8 +9,6 @@ import { getSessionRepoBinding, setSessionRepoBinding } from '~/server/persisten
 import type { SessionSnapshot } from '~/lib/sessions/model'
 import { parseSessionToArrays } from '~/lib/session-parser/streaming'
 
-type HookSource = 'timeline' | 'session' | 'manual'
-
 const inputSchema = z.object({
   sessionId: z.string().min(1),
   source: z.union([z.literal('timeline'), z.literal('session'), z.literal('manual')]),

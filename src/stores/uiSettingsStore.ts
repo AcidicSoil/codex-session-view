@@ -7,7 +7,6 @@ import {
   type SessionExplorerPersistState,
   type TimelinePreferencesState,
   type UiSettingsSnapshot,
-  DEFAULT_RULE_INSPECTOR_STATE,
   DEFAULT_SESSION_EXPLORER_STATE,
   DEFAULT_TIMELINE_PREFERENCES,
   DEFAULT_UI_SETTINGS_SNAPSHOT,

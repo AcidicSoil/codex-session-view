@@ -32,6 +32,7 @@ export function EvidenceCard({
   const [flipped, setFlipped] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const hasContext = Boolean(context?.userMessages?.length || context?.assistantMessages?.length)
+  const bookmarkEntityId = `${ruleId}:${sessionId ?? 'session'}:${evidence.eventIndex ?? index}`
   const handleToggle = () => {
     setExpanded(true)
     setFlipped((prev) => !prev)
@@ -55,7 +56,7 @@ export function EvidenceCard({
         <div className="text-[0.65rem] uppercase tracking-[0.22em] text-amber-300/80">
           Evidence #{index + 1}
         </div>
-        <BookmarkToggle type="event" entityId={`${sessionId ?? 'session'}:${evidence.eventIndex ?? index}`} />
+        <BookmarkToggle type="event" entityId={bookmarkEntityId} />
       </div>
       <div className="text-xs text-amber-200/80">
         {evidence.eventIndex != null ? `Event #${evidence.eventIndex + 1}` : 'Session context'}

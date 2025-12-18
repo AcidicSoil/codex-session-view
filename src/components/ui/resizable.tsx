@@ -1,14 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import {
-  PanelGroup,
-  Panel,
-  PanelResizeHandle,
-  type PanelGroupProps,
-  type PanelProps,
-  type PanelResizeHandleProps,
-} from 'react-resizable-panels';
+import { PanelGroup, Panel, PanelResizeHandle, type PanelGroupProps, type PanelResizeHandleProps } from 'react-resizable-panels';
 import { cn } from '~/lib/utils';
 
 const ResizablePanelGroup = React.forwardRef<HTMLDivElement, PanelGroupProps>(({ className, ...props }, ref) => (

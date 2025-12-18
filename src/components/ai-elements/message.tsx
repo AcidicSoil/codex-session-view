@@ -229,7 +229,11 @@ export const MessageBranchSelector = ({
 
   return (
     <ButtonGroup
-      className="[&>*:not(:first-child)]:rounded-l-md [&>*:not(:last-child)]:rounded-r-md"
+      aria-label={`Message branch controls for ${from}`}
+      className={cn(
+        '[&>*:not(:first-child)]:rounded-l-md [&>*:not(:last-child)]:rounded-r-md',
+        className,
+      )}
       orientation="horizontal"
       {...props}
     />
@@ -276,6 +280,7 @@ export const MessageBranchNext = ({
       size="icon-sm"
       type="button"
       variant="ghost"
+      className={className}
       {...props}
     >
       {children ?? <ChevronRightIcon size={14} />}

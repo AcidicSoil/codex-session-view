@@ -134,32 +134,5 @@ const TextGif = React.memo(function TextGifComponent({
   )
 })
 
-// Export common GIF URLs
-const gifUrls = [
-  "https://media.giphy.com/media/3zvbrvbRe7wxBofOBI/giphy.gif",
-  "https://media.giphy.com/media/fnglNFjBGiyAFtm6ke/giphy.gif",
-  "https://media.giphy.com/media/9Pmfazv34l7aNIKK05/giphy.gif",
-  "https://media.giphy.com/media/4bhs1boql4XVJgmm4H/giphy.gif",
-]
-
-// Optional: Preloader component
-function PreloadGifs() {
-  return (
-    <div className="hidden">
-      {gifUrls.map((url) => (
-        <img
-          key={url}
-          src={url}
-          alt=""
-          width={1}
-          height={1}
-          loading="lazy"
-          decoding="async"
-        />
-      ))}
-    </div>
-  )
-}
-
 export { TextGif }
 export default TextGif

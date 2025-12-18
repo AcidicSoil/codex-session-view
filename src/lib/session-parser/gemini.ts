@@ -1,5 +1,4 @@
 import { ResponseItemSchema, SessionMetaSchema, type ResponseItemParsed, type SessionMetaParsed } from './schemas'
-import { ensureEventOrigin } from '../session-origin'
 
 type UnknownRecord = Record<string, unknown>
 

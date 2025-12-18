@@ -1,5 +1,6 @@
-import { cn } from '~/lib/utils'
 "use client"
+
+import { cn } from '~/lib/utils'
 
 import { useEffect, useState, type HTMLAttributes, type ReactNode } from 'react'
 import type { BundledLanguage, CodeOptionsMultipleThemes } from 'shiki'

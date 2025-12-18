@@ -39,6 +39,14 @@ export function SelectOptionsPopover<T = unknown>({
   const selectedOptions = field.options?.filter((opt) => effectiveValues.includes(opt.value)) || [];
   const unselectedOptions = field.options?.filter((opt) => !effectiveValues.includes(opt.value)) || [];
 
+  const emitChange = (nextValues: T[]) => {
+    if (field.onValueChange) {
+      field.onValueChange(nextValues);
+    } else {
+      onChange(nextValues);
+    }
+  };
+
   const handleClose = () => {
     setOpen(false);
     onClose?.();
@@ -67,13 +75,13 @@ export function SelectOptionsPopover<T = unknown>({
                     onSelect={() => {
                       if (isMultiSelect) {
                         const next = effectiveValues.filter((v) => v !== option.value) as T[];
-                        field.onValueChange ? field.onValueChange(next) : onChange(next);
+                        emitChange(next);
                       } else {
-                        field.onValueChange ? field.onValueChange([] as T[]) : onChange([] as T[]);
+                        emitChange([] as T[]);
                       }
                     }}
                   >
-                    {option.icon && option.icon}
+                    {option.icon}
                     <span className="text-accent-foreground truncate">{option.label}</span>
                     <Check className="text-primary ms-auto" />
                   </CommandItem>
@@ -95,14 +103,14 @@ export function SelectOptionsPopover<T = unknown>({
                           if (field.maxSelections && newValues.length > field.maxSelections) {
                             return;
                           }
-                          field.onValueChange ? field.onValueChange(newValues) : onChange(newValues);
+                          emitChange(newValues);
                         } else {
-                          field.onValueChange ? field.onValueChange([option.value] as T[]) : onChange([option.value] as T[]);
+                          emitChange([option.value] as T[]);
                           onClose?.();
                         }
                       }}
                     >
-                      {option.icon && option.icon}
+                      {option.icon}
                       <span className="text-accent-foreground truncate">{option.label}</span>
                       <Check className="text-primary ms-auto opacity-0" />
                     </CommandItem>
@@ -184,7 +192,7 @@ export function SelectOptionsPopover<T = unknown>({
                       }
                     }}
                   >
-                    {option.icon && option.icon}
+                    {option.icon}
                     <span className="text-accent-foreground truncate">{option.label}</span>
                     <Check className="text-primary ms-auto" />
                   </CommandItem>
@@ -214,7 +222,7 @@ export function SelectOptionsPopover<T = unknown>({
                         }
                       }}
                     >
-                      {option.icon && option.icon}
+                      {option.icon}
                       <span className="text-accent-foreground truncate">{option.label}</span>
                       <Check className="text-primary ms-auto opacity-0" />
                     </CommandItem>

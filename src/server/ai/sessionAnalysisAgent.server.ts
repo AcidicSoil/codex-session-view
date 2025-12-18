@@ -1,5 +1,4 @@
 import { Agent, Runner } from '@openai/agents'
-import { z } from 'zod'
 import type { ChatMessageRecord } from '~/lib/sessions/model'
 import type { ChatMode } from '~/lib/sessions/model'
 import { getAgentsModel } from '~/server/ai/agentsModels.server'

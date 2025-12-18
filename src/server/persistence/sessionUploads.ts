@@ -134,7 +134,7 @@ export async function refreshSessionUploadFromSource(id: string): Promise<Sessio
   let stat
   try {
     stat = await fs.stat(record.sourcePath)
-  } catch (error) {
+  } catch {
     throw new Error(`Session source file is missing at ${record.sourcePath}`)
   }
   const content = await fs.readFile(record.sourcePath, 'utf8')

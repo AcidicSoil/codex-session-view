@@ -146,7 +146,7 @@ export function safeStringify(value: unknown) {
   try {
     if (typeof value === 'string') return value
     return JSON.stringify(value, null, 2)
-  } catch (error) {
+  } catch {
     return String(value)
   }
 }

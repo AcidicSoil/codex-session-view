@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { ViewerWorkspaceBoundary } from './viewer.workspace'
 import { ViewerWorkspaceChrome, ViewerSkeleton } from './viewer.workspace.chrome'
 

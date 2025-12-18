@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChangeEvent, ChangeEventHandler, DragEvent, FormEvent, FormEventHandler, HTMLAttributes } from "react";
+import type { ChangeEventHandler, DragEvent, FormEvent, FormEventHandler, HTMLAttributes } from "react";
 import {
   useCallback,
   useEffect,

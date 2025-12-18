@@ -97,7 +97,7 @@ export function FallbackOptionsPopover<T = unknown>({ field, values, onChange }:
                       }
                     }}
                   >
-                    {option.icon && option.icon}
+                    {option.icon}
                     <span className="text-accent-foreground truncate">{option.label}</span>
                     <Check className="text-primary ms-auto" />
                   </CommandItem>
@@ -126,7 +126,7 @@ export function FallbackOptionsPopover<T = unknown>({ field, values, onChange }:
                         }
                       }}
                     >
-                      {option.icon && option.icon}
+                      {option.icon}
                       <span className="text-accent-foreground truncate">{option.label}</span>
                       <Check className="text-primary ms-auto opacity-0" />
                     </CommandItem>

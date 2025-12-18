@@ -70,17 +70,14 @@ export function TimelineView<T>({
 
   const { offsets, totalHeight } = useMemo(() => {
     const n = items.length;
-    const heights = new Array<number>(n);
-    for (let i = 0; i < n; i++) {
-      heights[i] = measured.get(i) ?? estimateItemHeight;
-    }
-    const off = new Array<number>(n);
+    const heights = Array.from({ length: n }, (_, index) => measured.get(index) ?? estimateItemHeight);
     let acc = 0;
-    for (let i = 0; i < n; i++) {
-      off[i] = acc;
-      acc += heights[i] ?? estimateItemHeight;
-    }
-    return { offsets: off, totalHeight: acc };
+    const offsets = heights.map((height) => {
+      const value = acc;
+      acc += height;
+      return value;
+    });
+    return { offsets, totalHeight: acc };
   }, [items.length, measured, estimateItemHeight]);
 
   const onScroll = useRafThrottle(() => {
