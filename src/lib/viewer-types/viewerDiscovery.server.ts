@@ -73,31 +73,7 @@ function normalizePaths(raw: string[]) {
     )
   ).sort();
 }
-function extractSortKeyFromPath(path: string) {
-  const dateMatch = path.match(/(20\d{2})[-_]?(\d{2})[-_]?(\d{2})/);
-  if (dateMatch) {
-    const year = Number(dateMatch[1]);
-    const month = Number(dateMatch[2]);
-    const day = Number(dateMatch[3]);
-    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return Date.UTC(year, month - 1, day);
-    }
-  }
-  const epochMatch = path.match(/(1\d{9}|2\d{9})/);
-  if (epochMatch) {
-    return Number(epochMatch[1]) * 1000;
-  }
-  return 0;
-}
-
-function getFileSizeFromAbsolutePath(path: string | undefined, deps: NodeDeps | null) {
-  if (!deps || !path) return undefined;
-  try {
-    return deps.fs.statSync(path).size;
-  } catch {
-    return undefined;
-  }
-}
+// Legacy helpers removed: use Date metadata from session files to order assets.
 /**
  * Build-time discovery of project files and session assets.
  * Runs inside route loaders (rule: fetch on navigation vs. useEffect).

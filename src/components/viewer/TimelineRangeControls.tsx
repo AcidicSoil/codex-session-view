@@ -30,7 +30,8 @@ export function TimelineRangeControls({ totalEvents, value, onChange }: Timeline
     const parsed = Number(trimmed)
     if (Number.isNaN(parsed)) return
     const bounded = Math.max(0, Math.min(maxIndex, parsed))
-    const next: EventRangeInput = { ...(value ?? {}), [field]: bounded }
+    const base = (value ?? {}) as EventRangeInput
+    const next: EventRangeInput = { ...base, [field]: bounded }
     if (typeof next.startIndex === 'number' && typeof next.endIndex === 'number') {
       if (next.startIndex > next.endIndex) {
         if (field === 'startIndex') {
@@ -47,7 +48,8 @@ export function TimelineRangeControls({ totalEvents, value, onChange }: Timeline
     const [rawStart, rawEnd] = nextValues
     const startIndex = Math.max(0, Math.min(maxIndex, Math.min(rawStart, rawEnd)))
     const endIndex = Math.max(0, Math.min(maxIndex, Math.max(rawStart, rawEnd)))
-    onChange({ ...(value ?? {}), startIndex, endIndex })
+    const base = (value ?? {}) as EventRangeInput
+    onChange({ ...base, startIndex, endIndex })
   }
 
   return (

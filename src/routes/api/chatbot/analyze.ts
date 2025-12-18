@@ -9,7 +9,7 @@ export const Route = createFileRoute('/api/chatbot/analyze')({
           let body: unknown = null;
           try {
             body = await request.json();
-          } catch (error) {
+          } catch {
             body = null;
           }
           return analyzeChatFromPayload(body);

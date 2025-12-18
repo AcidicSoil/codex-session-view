@@ -1,11 +1,7 @@
 "use client";
 
 import type { ComponentProps, HTMLAttributes } from "react";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupTextarea,
-} from "~/components/ui/input-group";
+import { InputGroupAddon } from "~/components/ui/input-group";
 import { cn } from "~/lib/utils";
 
 export type PromptInputBodyProps = HTMLAttributes<HTMLDivElement>;

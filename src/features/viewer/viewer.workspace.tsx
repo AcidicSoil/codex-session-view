@@ -29,6 +29,7 @@ import {
   buildFlaggedEventMap,
   buildRemediationPrefill,
   deriveSessionId,
+  resolveSelectedSessionPath,
 } from './viewer.workspace.utils'
 import { VIEWER_CHAT_ROUTE_PATH, VIEWER_INSPECTOR_ROUTE_PATH, VIEWER_ROUTE_ID } from './route-id'
 
@@ -108,6 +109,14 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
   const loaderData = useLoaderData({ from: VIEWER_ROUTE_ID }) as ViewerSnapshot | undefined
   const loader = useFileLoader()
   const discovery = useViewerDiscovery({ loader })
+  const {
+    sessionAssets,
+    appendSessionAssets,
+    onSessionOpen,
+    stopLiveWatcher,
+    selectedSessionPath,
+    setSelectedSessionPath,
+  } = discovery
   const router = useRouter()
   const locationState = useRouterState({ select: (state) => state.location })
   const viewerSearch = useMemo(
@@ -215,14 +224,14 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
   }, [focusEventIndex])
 
   useEffect(() => {
-    if (discovery.selectedSessionPath) {
-      setLastSessionPath(discovery.selectedSessionPath)
+    if (selectedSessionPath) {
+      setLastSessionPath(selectedSessionPath)
       return
     }
-    if (!discovery.selectedSessionPath && lastSessionPath) {
-      discovery.setSelectedSessionPath(lastSessionPath)
+    if (!selectedSessionPath && lastSessionPath) {
+      setSelectedSessionPath(lastSessionPath)
     }
-  }, [discovery, lastSessionPath, setLastSessionPath])
+  }, [selectedSessionPath, lastSessionPath, setLastSessionPath, setSelectedSessionPath])
 
   const refreshSessionCoach = useCallback(async (sessionId: string) => {
     try {
@@ -248,6 +257,7 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
 
   const bindSessionToAsset = useCallback(
     async (sessionId: string, assetPath: string, options?: { refresh?: boolean }) => {
+      const shouldRefresh = options?.refresh !== false
       try {
         await sessionRepoContext({
           data: {
@@ -261,11 +271,10 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
           description: error instanceof Error ? error.message : 'Unknown error',
         })
       } finally {
-        if (options?.refresh === false) {
-          return
+        if (shouldRefresh) {
+          await refreshSessionCoach(sessionId)
+          await refreshRuleInventory()
         }
-        await refreshSessionCoach(sessionId)
-        await refreshRuleInventory()
       }
     },
     [refreshRuleInventory, refreshSessionCoach],
@@ -273,34 +282,30 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
 
   const sessionIdToAssetPath = useMemo(() => {
     const map = new Map<string, string>()
-    for (const asset of discovery.sessionAssets) {
+    for (const asset of sessionAssets) {
       map.set(deriveSessionId(asset.path), asset.path)
     }
     return map
-  }, [discovery.sessionAssets])
+  }, [sessionAssets])
 
   const selectedAsset = useMemo(() => {
-    if (!discovery.selectedSessionPath) return null
-    return discovery.sessionAssets.find((asset) => asset.path === discovery.selectedSessionPath) ?? null
-  }, [discovery.sessionAssets, discovery.selectedSessionPath])
+    if (!selectedSessionPath) return null
+    return sessionAssets.find((asset) => asset.path === selectedSessionPath) ?? null
+  }, [sessionAssets, selectedSessionPath])
 
   useEffect(() => {
     if (pendingSessionIdRef.current && pendingSessionIdRef.current !== activeSessionId) {
       return
     }
-    const selectedId = discovery.selectedSessionPath ? deriveSessionId(discovery.selectedSessionPath) : null
-    if (selectedId === activeSessionId) {
-      return
+    const nextSelection = resolveSelectedSessionPath({
+      activeSessionId,
+      selectedSessionPath,
+      sessionIdToAssetPath,
+    })
+    if (nextSelection !== undefined) {
+      setSelectedSessionPath(nextSelection)
     }
-    const matchingPath = sessionIdToAssetPath.get(activeSessionId) ?? null
-    if (matchingPath && discovery.selectedSessionPath !== matchingPath) {
-      discovery.setSelectedSessionPath(matchingPath)
-      return
-    }
-    if (!matchingPath && discovery.selectedSessionPath) {
-      discovery.setSelectedSessionPath(null)
-    }
-  }, [activeSessionId, discovery.selectedSessionPath, discovery.setSelectedSessionPath, sessionIdToAssetPath])
+  }, [activeSessionId, selectedSessionPath, setSelectedSessionPath, sessionIdToAssetPath])
 
   const activeAssetPath = selectedAsset?.path ?? sessionCoachState?.repoContext?.assetPath ?? null
 
@@ -400,7 +405,7 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
         let bindingPromise: Promise<void> | null = null
         if (targetSessionId !== activeSessionId) {
           setActiveSessionId(targetSessionId)
-          discovery.setSelectedSessionPath(asset.path)
+          setSelectedSessionPath(asset.path)
           bindingPromise = bindSessionToAsset(targetSessionId, asset.path, { refresh: false })
         }
 
@@ -418,7 +423,7 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
         await runHookifyPrefill(prompt, 'session', { filePath: asset.path })
       })()
     },
-    [activeSessionId, bindSessionToAsset, discovery, runHookifyPrefill],
+    [activeSessionId, bindSessionToAsset, runHookifyPrefill, setSelectedSessionPath],
   )
 
   const handleRemediationPrefill = useCallback(
@@ -446,7 +451,7 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
     loader,
     onUploadsPersisted: useCallback(
       (assets: DiscoveredSessionAsset[]) => {
-        discovery.appendSessionAssets(assets, 'upload')
+        appendSessionAssets(assets, 'upload')
         if (!assets.length) {
           return
         }
@@ -458,50 +463,50 @@ export function ViewerWorkspaceProvider({ children }: { children: ReactNode }) {
         const newestBySortKey = sortedBySortKey.find((entry) => typeof entry.sortKey === 'number')
         const newest = newestBySortKey ?? assets[assets.length - 1]
         if (newest) {
-          discovery.setSelectedSessionPath(newest.path)
+          setSelectedSessionPath(newest.path)
           logInfo('viewer.explorer', 'Auto-selected newly persisted session', { path: newest.path })
         }
       },
-      [discovery],
+      [appendSessionAssets, setSelectedSessionPath],
     ),
   })
 
   const handleSessionEject = useCallback(() => {
     if (uploadController.isEjecting) return
     uploadController.ejectSession()
-    discovery.stopLiveWatcher()
-    discovery.setSelectedSessionPath(null)
+    stopLiveWatcher()
+    setSelectedSessionPath(null)
     setLastSessionPath(null)
     setSessionCoachState(null)
     setRuleSheetEntries([])
     setActiveSessionId('session-default')
     setFocusEventIndex(null)
   }, [
-    discovery,
     setRuleSheetEntries,
     setSessionCoachState,
     setActiveSessionId,
     setFocusEventIndex,
     setLastSessionPath,
+    stopLiveWatcher,
     uploadController,
   ])
 
   const ensureSessionAssetLoaded = useCallback(
     async (assetPath?: string | null) => {
       if (!assetPath) return
-      if (discovery.selectedSessionPath === assetPath && loader.state.events.length > 0) {
+      if (selectedSessionPath === assetPath && loader.state.events.length > 0) {
         return
       }
-      const asset = discovery.sessionAssets.find((entry) => entry.path === assetPath)
+      const asset = sessionAssets.find((entry) => entry.path === assetPath)
       if (!asset) {
         toast.error('Session asset unavailable', {
           description: 'The file referenced by this rule is not part of the current discovery snapshot.',
         })
         return
       }
-      await discovery.onSessionOpen(asset)
+      await onSessionOpen(asset)
     },
-    [discovery, loader.state.events.length],
+    [loader.state.events.length, onSessionOpen, selectedSessionPath, sessionAssets],
   )
 
   const handleHookGateJump = useCallback(

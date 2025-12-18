@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react'
-import { Camera, Folder, Loader2, Paperclip, Upload } from 'lucide-react'
+import { Loader2, Paperclip, Upload } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { cn } from '~/lib/utils'
 

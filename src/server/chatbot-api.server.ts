@@ -3,7 +3,7 @@ import { buildChatContext } from '~/features/chatbot/context-builder';
 import { detectMisalignments } from '~/features/chatbot/misalignment-detector';
 import { assertChatModeEnabled } from '~/features/chatbot/chatModeConfig';
 import { logError, logInfo, logWarn } from '~/lib/logger';
-import type { ChatMessageEvidence, SessionSnapshot } from '~/lib/sessions/model';
+import type { ChatMessageEvidence } from '~/lib/sessions/model';
 import { appendChatMessage, listChatMessages, activateChatThread } from '~/server/persistence/chatMessages';
 import {
   ingestMisalignmentCandidates,

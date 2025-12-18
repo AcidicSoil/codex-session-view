@@ -130,7 +130,7 @@ test.describe('codex session viewer', () => {
         let mode = 'session'
         try {
           mode = JSON.parse(body).mode ?? 'session'
-        } catch (error) {
+        } catch {
           // ignore parse errors
         }
         const reply =
@@ -157,5 +157,43 @@ test.describe('codex session viewer', () => {
       await page.getByRole('button', { name: /^Send$/ }).click()
       await expect(page.getByText(/General reply from mocked provider/)).toBeVisible()
     })
+
+    test('session coach scroll regions isolate wheel input', async ({ page }) => {
+      await page.setViewportSize({ width: 1500, height: 900 })
+      await page.goto('/viewer')
+      const chatRegion = page.getByTestId('coach-scroll-chat')
+      await expect(chatRegion).toBeVisible({ timeout: 20_000 })
+      const chatViewport = page.locator('[data-testid="coach-scroll-chat"] [data-slot="scroll-area-viewport"]')
+      await expect(chatViewport).toBeVisible()
+
+      await page.evaluate(() => {
+        const viewport = document.querySelector('[data-testid="coach-scroll-chat"] [data-slot="scroll-area-viewport"]') as HTMLElement | null
+        if (viewport) {
+          const filler = document.createElement('div')
+          filler.style.height = '2000px'
+          filler.setAttribute('data-testid', 'coach-scroll-test-filler')
+          viewport.appendChild(filler)
+        }
+        window.scrollTo({ top: 0 })
+      })
+
+      const composer = page.getByPlaceholder(/Summarize this session/i)
+      await expect(composer).toBeVisible()
+      const composerBoxBefore = await composer.boundingBox()
+      expect(composerBoxBefore).not.toBeNull()
+
+      await chatViewport.evaluate((node) => {
+        node.scrollTop = 0
+        node.scrollTop = 800
+      })
+      await page.waitForTimeout(100)
+
+      const composerBoxAfter = await composer.boundingBox()
+      expect(composerBoxAfter).not.toBeNull()
+      expect(Math.abs((composerBoxAfter!.y ?? 0) - (composerBoxBefore!.y ?? 0))).toBeLessThan(2)
+
+      const pageScroll = await page.evaluate(() => window.scrollY)
+      expect(pageScroll).toBeLessThan(1)
+    })
   })
-});
+})

@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createTodoAndSync,
   deleteTodoAndSync,
-  getTodosCollection,
   preloadTodosCollection,
   toggleTodoAndSync,
 } from '~/features/todos/collection'

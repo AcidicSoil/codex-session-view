@@ -13,7 +13,7 @@ import {
   type TimelineFilterValue,
 } from '~/components/viewer/TimelineFilters'
 import { dedupeTimelineEvents } from '~/components/viewer/AnimatedTimelineList'
-import { buildSearchMatchers, type SearchMatcher } from '~/utils/search'
+import { buildSearchMatchers } from '~/utils/search'
 import { TimelineSearchBar } from '~/components/viewer/TimelineSearchBar'
 import { useUiSettingsStore } from '~/stores/uiSettingsStore'
 import { useTimelineSearchNavigation } from '~/components/viewer/TimelineSearchNavigation.hooks'

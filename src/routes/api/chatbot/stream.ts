@@ -9,7 +9,7 @@ export const Route = createFileRoute('/api/chatbot/stream')({
           let body: unknown = null
           try {
             body = await request.json()
-          } catch (error) {
+          } catch {
             body = null
           }
           return streamChatFromPayload(body)

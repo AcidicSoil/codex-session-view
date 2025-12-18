@@ -17,8 +17,6 @@ import { buildLabel, buildMetaLine, formatMisalignmentTooltip, safeStringify } f
 import type { TimelineEvent, TimelineFlagMarker } from './types'
 import type { SearchMatcher } from '~/utils/search'
 import { HighlightedText } from '~/components/ui/highlighted-text'
-import { buildEventSignature } from './utils'
-import { SearchSnippetView } from '~/components/viewer/SearchSnippetView'
 
 interface TimelineItemProps {
   event: TimelineEvent
