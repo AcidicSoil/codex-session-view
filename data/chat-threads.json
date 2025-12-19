@@ -17,11 +17,9 @@
     "mode": "session",
     "title": "Session Coach",
     "status": "active",
-    "messageCount": 8,
+    "messageCount": 0,
     "createdAt": "2025-12-15T22:02:27.892Z",
-    "updatedAt": "2025-12-18T23:50:37.152Z",
-    "lastMessagePreview": "THOUGHT: I need to retrieve information about event ID #2591, so I'm using the get_timeline_event function with your provided session ID \"session-default\" and the event number 2591, ensuring both values are correctly formatted as a string and integer respectively before making th",
-    "lastMessageAt": "2025-12-18T23:50:36.936Z"
+    "updatedAt": "2025-12-19T00:17:28.435Z"
   },
   {
     "id": "thread_48b9ae32-f7fe-4d90-b10c-eec14e71f6ce",
