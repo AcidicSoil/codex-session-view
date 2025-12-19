@@ -19,7 +19,7 @@
     "status": "active",
     "messageCount": 0,
     "createdAt": "2025-12-15T22:02:27.892Z",
-    "updatedAt": "2025-12-19T00:17:28.435Z"
+    "updatedAt": "2025-12-19T00:29:02.599Z"
   },
   {
     "id": "thread_48b9ae32-f7fe-4d90-b10c-eec14e71f6ce",
@@ -57,10 +57,8 @@
     "mode": "general",
     "title": "General",
     "status": "active",
-    "messageCount": 2,
+    "messageCount": 0,
     "createdAt": "2025-12-16T03:02:47.185Z",
-    "updatedAt": "2025-12-18T23:50:01.983Z",
-    "lastMessagePreview": "Event ID 2591 is a Windows Event Log entry that typically indicates an issue with the Windows Firewall service. It usually appears in the System log and can be caused by various factors such as misconfiguration, malware, or corrupted system files.\n\nWhen this event occurs, it may ",
-    "lastMessageAt": "2025-12-18T23:50:01.861Z"
+    "updatedAt": "2025-12-19T00:29:26.623Z"
   }
 ]

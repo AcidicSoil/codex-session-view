@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { StreamingToolCall } from '~/lib/chatbot/chatStreamTypes'
 import { cn } from '~/lib/utils'
+import { TimelineToolCard, type TimelineToolPayload } from '~/components/chatbot/toolUi/TimelineToolCard'
 
 interface ToolCallStreamListProps {
   toolCalls: StreamingToolCall[]
@@ -27,8 +28,13 @@ export function ToolCallStreamList({ toolCalls }: ToolCallStreamListProps) {
   )
 }
 
+const TIMELINE_TOOLS = new Set(['get_timeline_event', 'list_timeline_events'])
+
 function ToolCallCard({ call }: { call: StreamingToolCall }) {
   const status = STATUS_STYLES[call.status]
+  if (call.status === 'succeeded' && TIMELINE_TOOLS.has(call.toolName) && isTimelinePayload(call.output)) {
+    return <TimelineToolCard call={{ ...call, output: call.output }} />
+  }
   return (
     <div className="rounded-2xl border border-border/60 bg-background/60 p-3 text-xs text-muted-foreground">
       <div className="flex items-center justify-between gap-2">
@@ -89,4 +95,15 @@ function safeJson(value: unknown) {
   } catch {
     return undefined
   }
+}
+
+function isTimelinePayload(value: unknown): value is TimelineToolPayload {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+  const payload = value as TimelineToolPayload
+  if (!Array.isArray(payload.events)) {
+    return false
+  }
+  return payload.events.every((event) => typeof event?.eventNumber === 'number' && typeof event?.heading === 'string')
 }
