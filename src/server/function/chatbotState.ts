@@ -30,7 +30,7 @@ export const fetchChatbotState = createServerFn({ method: 'POST' })
     }
     const activeThread = await getActiveChatThread(data.sessionId, data.mode)
     const snapshot = await loadSessionSnapshot(data.sessionId)
-    const repoBinding = data.mode === 'session' ? getSessionRepoBinding(data.sessionId) : null
+    const repoBinding = data.mode === 'session' ? await getSessionRepoBinding(data.sessionId) : null
     const agentRules = repoBinding ? await loadAgentRules(repoBinding.rootDir) : []
     if (data.mode === 'session' && !repoBinding) {
       logWarn('chatbot.state', 'No repo root bound to session; skipping AGENT rules', {

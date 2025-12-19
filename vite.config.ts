@@ -33,6 +33,15 @@ function wasmBinaryShim(): PluginOption {
 export default ({ mode }: ConfigEnv) => {
   const env = loadEnv(mode, process.cwd(), '');
   Object.assign(process.env, env);
+  const serverOnlyModules = [
+    'pg',
+    'pg-pool',
+    'pg-connection-string',
+    'pgpass',
+    'pg-protocol',
+    'pg-types',
+    '@electric-sql/client',
+  ];
 
   return defineConfig({
     resolve: {
@@ -44,6 +53,7 @@ export default ({ mode }: ConfigEnv) => {
         'unicorn-magic': path.resolve(process.cwd(), 'src/stubs/unicorn-magic.ts'),
         'unicorn-magic/default.js': path.resolve(process.cwd(), 'src/stubs/unicorn-magic.ts'),
         'unicorn-magic/default': path.resolve(process.cwd(), 'src/stubs/unicorn-magic.ts'),
+        'node:util': path.resolve(process.cwd(), 'src/stubs/node-util.ts'),
       },
     },
     build: {
@@ -52,6 +62,7 @@ export default ({ mode }: ConfigEnv) => {
           'ai-sdk-provider-gemini-cli',
           'ai-sdk-provider-codex-cli',
           '@google/gemini-cli-core',
+          ...serverOnlyModules,
         ],
       },
     },
@@ -63,6 +74,7 @@ export default ({ mode }: ConfigEnv) => {
         'open',
         'default-browser',
         'default-browser-id',
+        ...serverOnlyModules,
       ],
     },
     server: {
@@ -113,6 +125,7 @@ export default ({ mode }: ConfigEnv) => {
         'ai-sdk-provider-gemini-cli',
         'ai-sdk-provider-codex-cli',
         '@google/gemini-cli-core',
+        ...serverOnlyModules,
       ],
       esbuildOptions: {
         loader: {

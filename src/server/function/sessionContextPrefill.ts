@@ -17,7 +17,7 @@ export const generateSessionContextPrefill = createServerFn({ method: 'POST' })
     if (!snapshot) {
       throw new Error('Session context unavailable. Load a session before injecting context.')
     }
-    const repoBinding = getSessionRepoBinding(data.sessionId)
+    const repoBinding = await getSessionRepoBinding(data.sessionId)
     const agentRules = repoBinding ? await loadAgentRules(repoBinding.rootDir) : []
     const misalignments = await listMisalignments(data.sessionId)
     const context = buildChatContext({ snapshot, misalignments, agentRules })

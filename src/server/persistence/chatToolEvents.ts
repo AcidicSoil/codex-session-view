@@ -161,8 +161,5 @@ async function findEventByToolCall(toolCallId: string) {
 }
 
 function toJsonb(value: unknown | null | undefined) {
-  if (value === undefined || value === null) {
-    return null
-  }
-  return JSON.stringify(value)
+  return value ?? null
 }

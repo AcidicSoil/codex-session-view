@@ -66,7 +66,7 @@ export async function loadSessionSnapshot(
   sessionId: string,
   options: LoadSnapshotOptions = {}
 ): Promise<SessionSnapshot> {
-  const repoBinding = getSessionRepoBinding(sessionId);
+  const repoBinding = await getSessionRepoBinding(sessionId);
   const desiredAssetPath = repoBinding?.assetPath ?? null;
   const desiredUpdatedAt = repoBinding?.updatedAt ?? null;
   const cacheHit = cachedSnapshots.get(sessionId);
@@ -123,7 +123,7 @@ export async function loadSnapshotFromAssetPath(
     const { getSessionUploadContentByOriginalName } = await import(
       '~/server/persistence/sessionUploads'
     );
-    const content = getSessionUploadContentByOriginalName(normalized);
+    const content = await getSessionUploadContentByOriginalName(normalized);
     if (!content) {
       return null;
     }

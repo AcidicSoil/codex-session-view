@@ -22,7 +22,7 @@ export const Route = createFileRoute('/api/uploads/$uploadId/watch')({
             import('~/server/persistence/sessionUploads'),
           ])
 
-          const summary = getSessionUploadSummaryById(params.uploadId)
+          const summary = await getSessionUploadSummaryById(params.uploadId)
           if (!summary) {
             return new Response(JSON.stringify({ error: 'Upload not found' }), {
               status: 404,

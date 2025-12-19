@@ -21,7 +21,7 @@ Indexes focus on `(session_id, created_at)` ordering plus dedupe (`client_messag
 ### Migration Process
 
 1. Run `pnpm db:migrate` to apply SQL migrations defined under `db/migrations`.
-2. Implement importer script to read `data/chat-*.json` and insert via SQL using stable IDs.
+2. Run `pnpm db:import-legacy` (idempotent) to backfill `data/chat-threads.json`, `data/chat-messages.json`, and `data/chat-tool-events.json` into Postgres using their existing IDs.
 3. Switch server persistence modules to use the new database adapters (replace localOnly collections).
 4. Configure ElectricSQL shapes scoped by `session_id`, with gatekeeper issuing scoped tokens.
 5. Replace `localOnlyCollectionOptions` with `electricCollectionOptions` in client TanStack DB collections.

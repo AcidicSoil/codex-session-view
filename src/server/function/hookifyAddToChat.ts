@@ -31,7 +31,7 @@ export const hookifyAddToChat = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
     const { loadAgentRules } = await import('~/server/lib/chatbotData')
-    const repoBinding = getSessionRepoBinding(data.sessionId)
+    const repoBinding = await getSessionRepoBinding(data.sessionId)
     let repoRoot = repoBinding?.rootDir ?? null
     let boundAssetPath = repoBinding?.assetPath ?? null
     let resolution: RepoRootResolution | null = null
@@ -147,7 +147,7 @@ async function loadSnapshotFromUpload(assetPath: string, sessionId: string): Pro
   try {
     const normalized = assetPath.startsWith('uploads/') ? assetPath.slice('uploads/'.length) : assetPath
     const { getSessionUploadContentByOriginalName } = await import('~/server/persistence/sessionUploads')
-    const content = getSessionUploadContentByOriginalName(normalized)
+    const content = await getSessionUploadContentByOriginalName(normalized)
     if (!content) {
       return null
     }

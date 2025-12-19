@@ -213,7 +213,7 @@ export async function analyzeChatFromPayload(payload: unknown): Promise<Response
 
   const startedAt = Date.now();
   try {
-    const repoBinding = getSessionRepoBinding(input.data.sessionId);
+    const repoBinding = await getSessionRepoBinding(input.data.sessionId);
     if (!repoBinding) {
       logWarn('chatbot.analyze', 'Session lacks repo binding; cannot run Hook Discovery', {
         sessionId: input.data.sessionId,
@@ -383,7 +383,7 @@ interface GeneralStreamOptions {
 
 async function handleSessionChatStream(options: SessionStreamOptions) {
   const snapshot = await loadSessionSnapshot(options.sessionId);
-  const repoBinding = getSessionRepoBinding(options.sessionId);
+  const repoBinding = await getSessionRepoBinding(options.sessionId);
   const rules = repoBinding ? await loadAgentRules(repoBinding.rootDir) : [];
   if (!repoBinding) {
     logWarn('chatbot.stream', 'Missing repo root for session; continuing without AGENT rules', {

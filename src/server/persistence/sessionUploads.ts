@@ -336,8 +336,8 @@ export async function ensureSessionUploadForFile(options: {
 }
 
 function createUploadId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
+  if (typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID()
   }
   return `upload_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`
 }

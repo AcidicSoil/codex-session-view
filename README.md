@@ -78,13 +78,17 @@ pnpm dev
 
 ```bash
 # Development
-pnpm dev          # Start development server
-pnpm build        # Build for production
-pnpm start        # Start production server
+pnpm dev             # Start development server
+pnpm build           # Build for production
+pnpm start           # Start production server
+
+# Database & tooling
+pnpm db:migrate      # Apply Postgres migrations
+pnpm db:import-legacy # One-time importer for data/chat-*.json snapshots
 
 # Code Quality
-pnpm biome:check  # Check code formatting and linting
-pnpm biome:fix:unsafe # Fix code issues (unsafe)
+pnpm lint            # Oxlint (ESLint-compatible) checks
+pnpm lint:fix        # Autofix supported lint rules
 ```
 
 ### Testing
@@ -102,6 +106,17 @@ Playwright now boots a single production-equivalent server via `pnpm build && pn
 - `POST /api/uploads` to persist JSONL session fixtures for testing.
 - `POST /api/session/repo-context` to bind a session ID to an uploaded asset.
 - `POST /api/logs` to append deterministic Browser Echo log entries.
+
+### Database & ElectricSQL setup
+
+Codex Session Viewer now persists all chat/session data in Postgres and prepares realtime sync through ElectricSQL. To bootstrap a new environment:
+
+1. **Provision Postgres** (v14+ with logical replication enabled) and export the connection string as `DATABASE_URL`. Electric endpoints must also be configured via `ELECTRIC_HTTP_URL` (HTTP shapes) and `ELECTRIC_SYNC_URL` (WebSocket sync).
+2. **Run migrations** once using `pnpm db:migrate`. This seeds all tables (`sessions`, `chat_threads/messages`, tool events, uploads, misalignments, todos, repo bindings, etc.).
+3. **Import existing JSON snapshots** (optional) with `pnpm db:import-legacy`. The script reads `data/chat-threads.json`, `data/chat-messages.json`, and `data/chat-tool-events.json`, upserts them into Postgres, and keeps IDs stable.
+4. **Start the app** (`pnpm dev` / `pnpm start`). All persistence calls now go through the database layer; local `data/chat-*.json` snapshots are no longer used.
+
+Refer to [`docs/db/migration-plan.md`](docs/db/migration-plan.md) for schema details, importer behavior, and upcoming ElectricSQL deployment notes.
 
 ## 🎯 Core Technologies
 

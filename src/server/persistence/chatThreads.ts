@@ -1,4 +1,4 @@
-import type { PoolClient, QueryResult } from 'pg'
+import type { QueryResult } from 'pg'
 import type { ChatMode, SessionId } from '~/lib/sessions/model'
 import { generateId } from '~/utils/id-generator'
 import { dbQuery, getDatabasePool, runInTransaction } from '~/server/persistence/database'

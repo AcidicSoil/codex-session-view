@@ -4,7 +4,7 @@ import { listSessionRepoBindings, type SessionRepoBindingRecord } from '~/server
 import type { RuleInventoryEntry, RuleInventoryRule } from '~/lib/ruleInventoryTypes'
 
 export async function collectRuleInventory(): Promise<RuleInventoryEntry[]> {
-  const bindings = listSessionRepoBindings()
+  const bindings = await listSessionRepoBindings()
   const rulesByRoot = new Map<string, RuleInventoryRule[]>()
   const entries: RuleInventoryEntry[] = []
 
