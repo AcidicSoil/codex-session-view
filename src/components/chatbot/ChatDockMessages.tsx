@@ -2,19 +2,22 @@ import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { MisalignmentRecord, MisalignmentSeverity } from '~/lib/sessions/model';
+import type { MisalignmentRecord, MisalignmentSeverity, ChatEventReference } from '~/lib/sessions/model';
 import type { LocalMessage } from '~/components/chatbot/hooks/useChatDockController';
+import type { StreamingToolCall } from '~/lib/chatbot/chatStreamTypes';
 import { cn } from '~/lib/utils';
 import { getSeverityVisuals, rankSeverity } from '~/features/chatbot/severity';
 import { FormattedContent } from '~/components/ui/formatted-content';
+import { ToolCallStreamList } from '~/components/chatbot/ToolCallStreamList';
 
 interface ChatDockMessagesProps {
   messages: LocalMessage[];
   showEvidence: boolean;
   activeStreamId: string | null;
+  streamToolCalls: StreamingToolCall[];
 }
 
-export function ChatDockMessages({ messages, showEvidence, activeStreamId }: ChatDockMessagesProps) {
+export function ChatDockMessages({ messages, showEvidence, activeStreamId, streamToolCalls }: ChatDockMessagesProps) {
   return (
     <div className="flex-1 rounded-2xl border border-border/60 bg-background/40 p-3">
       <div className="space-y-3">
@@ -27,6 +30,7 @@ export function ChatDockMessages({ messages, showEvidence, activeStreamId }: Cha
               message={message}
               showEvidence={showEvidence}
               isActiveStream={activeStreamId === message.id}
+              streamToolCalls={activeStreamId === message.id ? streamToolCalls : []}
             />
           ))
         )}
@@ -39,9 +43,10 @@ interface MessageBubbleProps {
   message: LocalMessage;
   showEvidence: boolean;
   isActiveStream: boolean;
+  streamToolCalls: StreamingToolCall[];
 }
 
-function MessageBubble({ message, showEvidence, isActiveStream }: MessageBubbleProps) {
+function MessageBubble({ message, showEvidence, isActiveStream, streamToolCalls }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const text = message.content || (isActiveStream ? '…' : '');
   const primaryEvidence = selectPrimaryEvidence(message.evidence);
@@ -69,9 +74,32 @@ function MessageBubble({ message, showEvidence, isActiveStream }: MessageBubbleP
           </div>
         )}
       </div>
+      {isActiveStream && !isUser && streamToolCalls.length ? (
+        <ToolCallStreamList toolCalls={streamToolCalls} />
+      ) : null}
+      {message.contextEvents && message.contextEvents.length ? (
+        <ContextEventChips events={message.contextEvents} />
+      ) : null}
       {showEvidence && message.evidence && message.evidence.length > 0 ? (
         <EvidenceList evidence={message.evidence} />
       ) : null}
+    </div>
+  );
+}
+
+function ContextEventChips({ events }: { events: ChatEventReference[] }) {
+  return (
+    <div className="mt-2 flex w-full flex-wrap gap-2 text-[11px] text-muted-foreground">
+      {events.map((event) => (
+        <span
+          key={`${event.eventIndex}-${event.displayIndex}-${event.eventId ?? 'event'}`}
+          className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-background/70 px-2 py-0.5 text-[10px] uppercase tracking-wide"
+        >
+          <span className="font-semibold text-foreground">#{event.displayIndex}</span>
+          <span className="text-muted-foreground">{event.eventType}</span>
+          {event.summary ? <span className="text-muted-foreground/80">· {event.summary}</span> : null}
+        </span>
+      ))}
     </div>
   );
 }

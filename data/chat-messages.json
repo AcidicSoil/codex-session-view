@@ -1,16 +1,5 @@
 [
   {
-    "id": "chat_11a933db-f833-44fb-84e8-8ce27565573b",
-    "sessionId": "session-default",
-    "mode": "session",
-    "threadId": "thread_3983efad-ab5b-40b6-a175-4a38cdfdbaeb",
-    "role": "user",
-    "content": "Can you tell me about event id #2591?",
-    "clientMessageId": "cc3a4d47-0a4d-4658-8d60-25190dcab866",
-    "createdAt": "2025-12-18T23:48:44.855Z",
-    "updatedAt": "2025-12-18T23:48:44.855Z"
-  },
-  {
     "id": "chat_399fa7b9-d40c-46c9-afb5-16c94b6ed8dc",
     "sessionId": "session-75706c6f6164732f7e2f2e636f6465782f736573",
     "mode": "session",
@@ -90,17 +79,6 @@
     "content": "THOUGHT: I need to retrieve information about event ID #2591, so I'm using the get_timeline_event function with your provided session ID \"session-default\" and the event number 2591, ensuring both values are correctly formatted as a string and integer respectively before making the call.",
     "createdAt": "2025-12-18T23:48:50.136Z",
     "updatedAt": "2025-12-18T23:48:50.136Z"
-  },
-  {
-    "id": "chat_e0a07925-9303-42ef-9867-afa726d1b56f",
-    "sessionId": "session-default",
-    "mode": "session",
-    "threadId": "thread_3983efad-ab5b-40b6-a175-4a38cdfdbaeb",
-    "role": "user",
-    "content": "Can you tell me about event id #2591?",
-    "clientMessageId": "40a4e0cc-55d4-48a4-a9d5-8f1f05ecefd5",
-    "createdAt": "2025-12-18T23:50:34.753Z",
-    "updatedAt": "2025-12-18T23:50:34.753Z"
   },
   {
     "id": "chat_ef716b85-3a12-4f3f-94a5-74f280191d86",

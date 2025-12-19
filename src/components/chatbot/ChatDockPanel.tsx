@@ -133,6 +133,7 @@ function ChatDockContent({
     handleThreadArchive,
     handleThreadClear,
     handleNewChat,
+    streamToolCalls,
   } = useChatDockController({
     sessionId,
     initialState,
@@ -239,12 +240,13 @@ function ChatDockContent({
               contentClassName="h-full p-0"
               data-testid="coach-scroll-chat"
             >
-              <ChatDockMessages
-                messages={orderedMessages}
-                showEvidence={showMisalignments}
-                activeStreamId={activeStreamId}
-              />
-            </CoachScrollRegion>
+            <ChatDockMessages
+              messages={orderedMessages}
+              showEvidence={showMisalignments}
+              activeStreamId={activeStreamId}
+              streamToolCalls={streamToolCalls}
+            />
+          </CoachScrollRegion>
             <ChatDockComposer
               draft={draft}
               onDraftChange={setDraft}
