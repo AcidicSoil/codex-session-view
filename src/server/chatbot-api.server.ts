@@ -26,7 +26,6 @@ import {
   generateSessionCoachReply,
   runGeneralChatTurn,
   generateSessionAnalysis,
-  type ChatStreamResult,
   ProviderUnavailableError,
 } from '~/server/lib/aiRuntime';
 import { createTimelineTools } from '~/server/lib/tools/timelineTools';

@@ -1,0 +1,28 @@
+[
+  {
+    "id": "tool_12791f43-b937-4bfe-8c13-dba11faa4d38",
+    "sessionId": "session-default",
+    "threadId": "thread_3983efad-ab5b-40b6-a175-4a38cdfdbaeb",
+    "toolCallId": "207769766",
+    "toolName": "get_timeline_event",
+    "arguments": {
+      "sessionId": "session-default",
+      "eventNumber": 2591
+    },
+    "status": "executing",
+    "startedAt": "2025-12-18T23:50:36.922Z"
+  },
+  {
+    "id": "tool_df4c02b2-b423-4c06-8c97-7139bd18c6ec",
+    "sessionId": "session-default",
+    "threadId": "thread_3983efad-ab5b-40b6-a175-4a38cdfdbaeb",
+    "toolCallId": "521623447",
+    "toolName": "get_timeline_event",
+    "arguments": {
+      "sessionId": "session-default",
+      "eventNumber": 2591
+    },
+    "status": "executing",
+    "startedAt": "2025-12-18T23:48:50.124Z"
+  }
+]

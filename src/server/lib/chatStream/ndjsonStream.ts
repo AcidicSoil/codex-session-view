@@ -81,8 +81,8 @@ export function createNdjsonStream(options: NdjsonStreamOptions) {
                 await toolEventsRepository.updateStatusByToolCall?.(part.toolCallId, 'succeeded', {
                   result: part.output,
                 });
-              } catch (updateError) {
-                // ignore repository update failures for streaming continuity
+              } catch {
+                // repository updates are best-effort during streaming
               }
               break;
             case 'tool-error':
@@ -103,8 +103,8 @@ export function createNdjsonStream(options: NdjsonStreamOptions) {
                         ? part.error.message
                         : 'Tool execution failed',
                 });
-              } catch (updateError) {
-                // ignore repository update failures for streaming continuity
+              } catch {
+                // repository updates are best-effort during streaming
               }
               break;
             default:
