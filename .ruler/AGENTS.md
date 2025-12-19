@@ -121,12 +121,13 @@
 * Never create a local pnpm --store
 * Never use `git reset --hard HEAD`
 * Before ending your turn:
-  * Follow instructions located [here](/home/user/.codex/prompts/codex-skills/webapp-testing/SKILL.md) for creating tests.
+  * Create e2e tests for webapp-testing by following instructions in `~/.codex/prompts/codex-skills/webapp-testing/SKILL.md`
   * Run `pnpm lint`, resolve linting warnings and errors
+  * Run `pnpm build`, resolve build errors if any
   * Documentation and test synchronization:
     * Revise/sync externally facing documentation.
     * Update CHANGELOG
-    * Revise/sync existing e2e tests 
+    * Revise/sync old existing e2e tests until all e2e tests pass.
 
 ## docs map
 
