@@ -17,9 +17,11 @@
     "mode": "session",
     "title": "Session Coach",
     "status": "active",
-    "messageCount": 0,
+    "messageCount": 14,
     "createdAt": "2025-12-15T22:02:27.892Z",
-    "updatedAt": "2025-12-19T00:29:02.599Z"
+    "updatedAt": "2025-12-19T14:39:21.779Z",
+    "lastMessagePreview": "The AGENT framework mandates that data fetching must occur exclusively on the server, with client-side components receiving only pre-fetched, hydrated data to ensure optimal performance and SEO compliance.",
+    "lastMessageAt": "2025-12-19T14:39:21.778Z"
   },
   {
     "id": "thread_48b9ae32-f7fe-4d90-b10c-eec14e71f6ce",
