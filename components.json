@@ -40,6 +40,8 @@
     "@algolia": "https://sitesearch.algolia.com/r/{name}.json",
     "@hextaui": "https://hextaui.com/r/{name}.json",
     "@eldoraui": "https://eldoraui.site/r/{name}.json",
-    "@kibo-ui": "https://www.kibo-ui.com/r/{name}.json"
+    "@kibo-ui": "https://www.kibo-ui.com/r/{name}.json",
+    "@lucide-animated": "https://lucide-animated.com/r/{name}.json",
+    "@lytenyte": "https://www.1771technologies.com/r/{name}.json"
   }
 }
