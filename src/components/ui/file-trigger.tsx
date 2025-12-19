@@ -17,6 +17,7 @@ export interface FileTriggerProps {
   variant?: React.ComponentProps<typeof Button>['variant']
   size?: React.ComponentProps<typeof Button>['size']
   children?: React.ReactNode
+  inputTestId?: string
 }
 
 export function FileTrigger({
@@ -32,6 +33,7 @@ export function FileTrigger({
   variant = 'outline',
   size = 'default',
   children,
+  inputTestId,
 }: FileTriggerProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
 
@@ -81,6 +83,7 @@ export function FileTrigger({
         multiple={allowMultiple || acceptDirectory}
         onChange={handleChange}
         className="hidden"
+        data-testid={inputTestId}
         {...(acceptDirectory
           ? {
               webkitdirectory: '' as any,

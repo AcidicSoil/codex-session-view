@@ -1,9 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const isProdE2E = process.env.PLAYWRIGHT_USE_PROD === '1';
 const defaultSessionModel = process.env.PLAYWRIGHT_SESSION_MODEL ?? 'lmstudio:local-default';
 const defaultGeneralModel = process.env.PLAYWRIGHT_GENERAL_MODEL ?? 'lmstudio:local-default';
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? (isProdE2E ? 'http://127.0.0.1:3000/viewer' : 'http://localhost:3001/viewer');
+const baseOrigin = process.env.PLAYWRIGHT_BASE_ORIGIN ?? 'http://127.0.0.1:4173';
+const basePath = process.env.PLAYWRIGHT_BASE_PATH ?? '';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `${baseOrigin}${basePath}`;
+const webServerCommand =
+  process.env.PLAYWRIGHT_WEB_SERVER_COMMAND ??
+  'pnpm build && pnpm start -- --hostname 127.0.0.1 --port 4173';
 
 /**
  * Read environment variables from file.
@@ -65,25 +69,16 @@ export default defineConfig({
     // },
   ],
 
-  webServer: isProdE2E
-    ? {
-        command: 'pnpm start -- --prod',
-        url: 'http://127.0.0.1:4173/viewer',
-        reuseExistingServer: false,
-        env: {
-          ...process.env,
-          AI_SESSION_DEFAULT_MODEL: defaultSessionModel,
-          AI_GENERAL_DEFAULT_MODEL: defaultGeneralModel,
-        },
-      }
-    : {
-        command: 'pnpm dev',
-        url: 'http://localhost:3001/viewer',
-        reuseExistingServer: true,
-        env: {
-          ...process.env,
-          AI_SESSION_DEFAULT_MODEL: defaultSessionModel,
-          AI_GENERAL_DEFAULT_MODEL: defaultGeneralModel,
-        },
-      },
+  webServer: {
+    command: webServerCommand,
+    url: baseOrigin,
+    reuseExistingServer: !process.env.CI,
+    env: {
+      ...process.env,
+      HOST: '127.0.0.1',
+      PORT: '4173',
+      AI_SESSION_DEFAULT_MODEL: defaultSessionModel,
+      AI_GENERAL_DEFAULT_MODEL: defaultGeneralModel,
+    },
+  },
 });

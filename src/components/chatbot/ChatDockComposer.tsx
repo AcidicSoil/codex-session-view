@@ -2,6 +2,7 @@ import { Button } from '~/components/ui/button';
 import { Textarea } from '~/components/ui/textarea';
 import { PlaceholdersAndVanishInput } from '~/components/chatbot/PlaceholdersAndVanishInput';
 import type { KeyboardEvent } from 'react';
+import { DATA_TEST_IDS } from '~/lib/testIds';
 
 interface ChatDockComposerProps {
   draft: string;
@@ -41,6 +42,7 @@ export function ChatDockComposer({
           placeholder={placeholder}
           disabled={isStreaming}
           rows={3}
+          data-testid={DATA_TEST_IDS.chatTextarea}
         />
         <div className="flex items-center justify-between gap-3">
           <Button onClick={onSend} disabled={!draft.trim() || isStreaming}>

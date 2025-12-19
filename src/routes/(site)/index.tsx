@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '~/components/ui/button';
 import axios from 'redaxios';
 import { NeuralGlow } from '~/components/ui/neural-glow';
+import { DATA_TEST_IDS } from '~/lib/testIds';
 
 
 export const Route = createFileRoute('/(site)/')({
@@ -38,7 +39,10 @@ function RouteComponent() {
       <main className="container relative z-0 mx-auto flex flex-col items-center px-4 pt-20 text-center md:pt-32">
         <GradientOrb className="-translate-x-1/2 absolute top-0 left-1/2 z-[-1] transform" />
 
-        <h1 className="max-w-4xl font-medium text-4xl text-foreground md:text-6xl lg:text-7xl">
+        <h1
+          className="max-w-4xl font-medium text-4xl text-foreground md:text-6xl lg:text-7xl"
+          data-testid={DATA_TEST_IDS.viewerHeroTitle}
+        >
           Codex session viewer
         </h1>
 

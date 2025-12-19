@@ -97,6 +97,12 @@ pnpm test:e2e:prod   # pnpm build + Playwright against pnpm start -- --prod
 
 > The e2e commands inject `AI_SESSION_DEFAULT_MODEL=lmstudio:local-default` and `AI_GENERAL_DEFAULT_MODEL=lmstudio:local-default`. Make sure `AI_LMSTUDIO_BASE_URL` points to a running LM Studio/OpenAI-compatible server before running these suites.
 
+Playwright now boots a single production-equivalent server via `pnpm build && pnpm start` and seeds fixtures through the public APIs:
+
+- `POST /api/uploads` to persist JSONL session fixtures for testing.
+- `POST /api/session/repo-context` to bind a session ID to an uploaded asset.
+- `POST /api/logs` to append deterministic Browser Echo log entries.
+
 ## 🎯 Core Technologies
 
 | Technology | Purpose | Documentation |
