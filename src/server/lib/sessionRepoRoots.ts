@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { access } from 'node:fs/promises';
+import fs from 'node:fs/promises';
 import type { SessionAssetSource } from '~/lib/viewerDiscovery';
 import { findSessionUploadRecordByOriginalName } from '~/server/persistence/sessionUploads';
 
@@ -165,7 +165,7 @@ function normalizeRoot(rootDir: string) {
 
 async function pathExists(target: string) {
   try {
-    await access(target);
+    await fs.access(target);
     return true;
   } catch {
     return false;

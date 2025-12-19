@@ -13,6 +13,7 @@ import {
   VIEWER_ROUTE_PATH,
 } from './route-id'
 import { useViewerWorkspace } from './viewer.workspace'
+import { DATA_TEST_IDS } from '~/lib/testIds'
 
 export function ViewerWorkspaceChrome() {
   const routerState = useRouterState({ select: (state) => state.location })
@@ -68,6 +69,12 @@ export function ViewerWorkspaceChrome() {
   return (
     <NeuralGlow variant="background" className="overflow-x-hidden px-4 py-10">
       <main className="mx-auto flex w-full min-h-screen max-w-6xl flex-col gap-6">
+        <header className="space-y-1 text-white">
+          <p className="text-xs uppercase tracking-[0.35em] text-white/60">Session Workspace</p>
+          <h1 className="text-3xl font-semibold" data-testid={DATA_TEST_IDS.viewerTitle}>
+            Session Intelligence Viewer
+          </h1>
+        </header>
         <nav className="flex w-full flex-col gap-4 rounded-3xl border border-white/10 bg-black/40 p-4 shadow-lg backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
           <div className="w-full overflow-x-auto pb-1">
             <div className="grid min-w-full gap-2 sm:grid-cols-2 lg:grid-cols-3">

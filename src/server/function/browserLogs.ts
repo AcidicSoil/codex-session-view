@@ -44,7 +44,7 @@ export interface ClearBrowserLogsResult {
 
 type BrowserLogLevel = 'debug' | 'info' | 'error'
 
-const logEntrySchema = z.object({
+export const browserLogEntrySchema = z.object({
   level: z.enum(['debug', 'info', 'error']),
   scope: z.string(),
   message: z.string(),
@@ -132,7 +132,7 @@ export const clearBrowserLogs = createServerFn({ method: 'POST' }).handler(async
 })
 
 export const captureBrowserLog = createServerFn({ method: 'POST' })
-  .inputValidator((payload: unknown) => logEntrySchema.parse(payload))
+  .inputValidator((payload: unknown) => browserLogEntrySchema.parse(payload))
   .handler(async ({ data }) => {
     await recordBrowserLogEntry({
       level: data.level,

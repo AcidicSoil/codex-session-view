@@ -4,6 +4,7 @@ import { useCallback, useState, type DragEvent } from 'react'
 import { cn } from '~/lib/utils'
 import { filterAcceptedFiles } from '~/lib/fileFilters'
 import { FileTrigger } from '~/components/ui/file-trigger'
+import { DATA_TEST_IDS } from '~/lib/testIds'
 
 interface SessionUploadDropzoneProps {
   acceptExtensions: string[]
@@ -84,7 +85,7 @@ export function SessionUploadDropzone({
         isDragging ? 'border-primary bg-primary/5' : '',
         className,
       )}
-      data-testid="session-upload-dropzone"
+      data-testid={DATA_TEST_IDS.sessionUploadDropzone}
       aria-busy={isPending}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -105,6 +106,7 @@ export function SessionUploadDropzone({
           className="w-full justify-center"
           variant="default"
           size="sm"
+          inputTestId={DATA_TEST_IDS.sessionUploadInput}
         >
           {isPending ? 'Uploading…' : 'Upload files'}
         </FileTrigger>

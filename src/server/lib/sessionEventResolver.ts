@@ -80,6 +80,13 @@ function collectRequestedIndexes(prompt: string, metadata?: ChatRemediationMetad
   return [...indexes].sort((a, b) => a - b)
 }
 
+export function findTimelineEventByDisplayIndex(
+  snapshot: SessionSnapshot,
+  requestedDisplayIndex: number,
+): ResolvedTimelineEvent | null {
+  return lookupTimelineEvent(snapshot, requestedDisplayIndex)
+}
+
 function lookupTimelineEvent(snapshot: SessionSnapshot, requestedDisplayIndex: number): ResolvedTimelineEvent | null {
   if (!snapshot.events?.length) {
     return null
@@ -162,6 +169,14 @@ function formatEventSummary(event: ResponseItemParsed, fallbackIndex: number, di
     }
   }
   return lines.join('\n')
+}
+
+export function formatTimelineEventSummary(
+  event: ResponseItemParsed,
+  fallbackIndex: number,
+  displayOverride?: number,
+) {
+  return formatEventSummary(event, fallbackIndex, displayOverride)
 }
 
 function summarizeHeading(event: ResponseItemParsed, displayIndex: number) {

@@ -12,6 +12,7 @@ import { SessionAnalysisPopouts } from '~/components/chatbot/SessionAnalysisPopo
 import type { ChatMode } from '~/lib/sessions/model';
 import type { ViewerChatState } from '~/features/viewer/viewer.loader';
 import { History } from 'lucide-react';
+import { DATA_TEST_IDS } from '~/lib/testIds';
 
 interface ChatDockHeaderProps {
   mode: ChatMode;
@@ -56,9 +57,14 @@ export function ChatDockHeader({
               value={mode}
               onValueChange={(value) => value && onModeChange(value as ChatMode)}
               disabled={isStreaming || isResetting}
+              data-testid={DATA_TEST_IDS.chatModeToggle}
             >
-              <ToggleGroupItem value="session">Session</ToggleGroupItem>
-              <ToggleGroupItem value="general">General</ToggleGroupItem>
+              <ToggleGroupItem value="session" data-testid={DATA_TEST_IDS.chatModeSession}>
+                Session
+              </ToggleGroupItem>
+              <ToggleGroupItem value="general" data-testid={DATA_TEST_IDS.chatModeGeneral}>
+                General
+              </ToggleGroupItem>
             </ToggleGroup>
             <CardTitle className="text-base font-semibold">
               {mode === 'session' ? 'Session Coach' : 'General Chat'}
