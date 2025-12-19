@@ -7,4 +7,5 @@ export const env = createEnv({
     VITE_BASE_URL: z.url().default('http://localhost:3000'),
   },
   runtimeEnv: import.meta.env,
+  emptyStringAsUndefined: true,
 });

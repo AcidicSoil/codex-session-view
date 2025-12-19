@@ -10,6 +10,9 @@ export const env = createEnv({
     AI_SESSION_DEFAULT_MODEL: z.string().optional(),
     AI_GENERAL_DEFAULT_MODEL: z.string().optional(),
     GEMINI_API_KEY: z.string().optional(),
+    DATABASE_URL: z.string().url(),
+    ELECTRIC_HTTP_URL: z.string().url(),
+    ELECTRIC_SYNC_URL: z.string().url(),
   },
   runtimeEnv: process.env,
 });

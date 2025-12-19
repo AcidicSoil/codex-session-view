@@ -1,6 +1,4 @@
-import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
-import fs from 'node:fs/promises'
-import path from 'node:path'
+import type { QueryResult } from 'pg'
 import {
   createChatMessageRecord,
   type ChatMessageEvidence,
@@ -8,101 +6,51 @@ import {
   type ChatMode,
   type SessionId,
 } from '~/lib/sessions/model'
-import { logError } from '~/lib/logger'
-import { getActiveChatThread, touchChatThread, startNewChatThread, setActiveChatThread } from '~/server/persistence/chatThreads'
+import { dbQuery } from '~/server/persistence/database'
+import {
+  getActiveChatThread,
+  setActiveChatThread,
+  startNewChatThread,
+  touchChatThread,
+  type ChatThreadRecord,
+} from '~/server/persistence/chatThreads'
 
-const chatMessagesCollection = createCollection(
-  localOnlyCollectionOptions<ChatMessageRecord>({
-    id: 'chat-messages-store',
-    getKey: (record) => record.id,
-  }),
-)
-
-const DATA_DIR = path.join(process.cwd(), 'data')
-const CHAT_MESSAGES_FILE = path.join(DATA_DIR, 'chat-messages.json')
-
-let hydrationPromise: Promise<void> | null = null
-let hydrated = false
-let writeChain = Promise.resolve()
-let isHydrating = false
-
-async function ensureHydrated() {
-  if (hydrated) {
-    return
-  }
-  if (!hydrationPromise) {
-    hydrationPromise = hydrateFromDisk()
-  }
-  await hydrationPromise
-}
-
-async function hydrateFromDisk() {
-  isHydrating = true
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true })
-    const raw = await fs.readFile(CHAT_MESSAGES_FILE, 'utf8').catch((error: NodeJS.ErrnoException) => {
-      if (error?.code === 'ENOENT') {
-        return '[]'
-      }
-      throw error
-    })
-    let parsed: unknown = []
-    try {
-      parsed = JSON.parse(raw)
-    } catch (error) {
-      logError('chatMessages.hydrate', 'Failed to parse chat history snapshot; starting fresh', error as Error)
-      parsed = []
-    }
-    if (!Array.isArray(parsed)) {
-      parsed = []
-    }
-    const threadCache = new Map<string, string>()
-    for (const record of parsed as ChatMessageRecord[]) {
-      if (!record?.id) continue
-      const recordWithThread = await ensureRecordHasThread(record, threadCache)
-      if (chatMessagesCollection.get(recordWithThread.id)) {
-        continue
-      }
-      await chatMessagesCollection.insert(recordWithThread)
-    }
-    hydrated = true
-  } catch (error) {
-    logError('chatMessages.hydrate', 'Unable to hydrate chat history store', error as Error)
-    hydrated = true
-  } finally {
-    isHydrating = false
-  }
-}
-
-function schedulePersist() {
-  if (isHydrating) {
-    return writeChain
-  }
-  writeChain = writeChain
-    .then(async () => {
-      const snapshot = [...chatMessagesCollection.toArray]
-      await fs.mkdir(DATA_DIR, { recursive: true })
-      await fs.writeFile(CHAT_MESSAGES_FILE, JSON.stringify(snapshot, null, 2), 'utf8')
-    })
-    .catch((error) => {
-      logError('chatMessages.persist', 'Failed to persist chat history snapshot', error as Error)
-    })
-  return writeChain
-}
+const MESSAGE_COLUMNS = `
+  id,
+  session_id AS "sessionId",
+  thread_id AS "threadId",
+  mode,
+  role,
+  content,
+  client_message_id AS "clientMessageId",
+  misalignment_id AS "misalignmentId",
+  evidence,
+  context_events AS "contextEvents",
+  created_at AS "createdAt",
+  updated_at AS "updatedAt"
+`
 
 export async function listChatMessages(sessionId: SessionId, mode: ChatMode, threadId?: string): Promise<ChatMessageRecord[]> {
-  await ensureHydrated()
   const targetThreadId = await resolveThreadId(sessionId, mode, threadId)
-  return chatMessagesCollection.toArray
-    .filter((record) => record.sessionId === sessionId && record.mode === mode && record.threadId === targetThreadId)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  const result = await dbQuery<ChatMessageRecord>(
+    `SELECT ${MESSAGE_COLUMNS}
+       FROM chat_messages
+      WHERE session_id = $1 AND mode = $2 AND thread_id = $3
+      ORDER BY created_at ASC`,
+    [sessionId, mode, targetThreadId],
+  )
+  return result.rows
 }
 
-export async function listChatMessagesByThread(threadId: string) {
-  await ensureHydrated()
-  return chatMessagesCollection.toArray
-    .filter((record) => record.threadId === threadId)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+export async function listChatMessagesByThread(threadId: string): Promise<ChatMessageRecord[]> {
+  const result = await dbQuery<ChatMessageRecord>(
+    `SELECT ${MESSAGE_COLUMNS}
+       FROM chat_messages
+      WHERE thread_id = $1
+      ORDER BY created_at ASC`,
+    [threadId],
+  )
+  return result.rows
 }
 
 export async function appendChatMessage(input: {
@@ -116,102 +64,157 @@ export async function appendChatMessage(input: {
   contextEvents?: ChatMessageRecord['contextEvents']
   threadId?: string
 }) {
-  await ensureHydrated()
   const targetThreadId = await resolveThreadId(input.sessionId, input.mode, input.threadId)
-  const dedupeKey = input.clientMessageId
-  if (dedupeKey) {
-    const existing = chatMessagesCollection.toArray.find(
-      (record) =>
-        record.sessionId === input.sessionId &&
-        record.mode === input.mode &&
-        record.threadId === targetThreadId &&
-        record.clientMessageId === dedupeKey,
-    )
+  if (input.clientMessageId) {
+    const existing = await findMessageByClientId(input.sessionId, input.mode, targetThreadId, input.clientMessageId)
     if (existing) {
       return existing
     }
   }
   const record = createChatMessageRecord({ ...input, threadId: targetThreadId })
-  await chatMessagesCollection.insert(record)
-  await touchChatThread(targetThreadId, {
-    lastMessagePreview: record.content.slice(0, 280),
-    lastMessageAt: record.updatedAt,
-    incrementCount: 1,
-  })
-  await schedulePersist()
-  return record
+  try {
+    const inserted = await insertChatMessage(record)
+    await touchChatThread(targetThreadId, {
+      lastMessagePreview: record.content.slice(0, 280),
+      lastMessageAt: record.createdAt,
+      incrementCount: 1,
+    })
+    return inserted
+  } catch (error) {
+    if (isUniqueViolation(error) && input.clientMessageId) {
+      const fallback = await findMessageByClientId(input.sessionId, input.mode, targetThreadId, input.clientMessageId)
+      if (fallback) {
+        return fallback
+      }
+    }
+    throw error
+  }
 }
 
 export async function resetChatThread(sessionId: SessionId, mode: ChatMode) {
-  await ensureHydrated()
   await startNewChatThread(sessionId, mode)
 }
 
 export async function activateChatThread(sessionId: SessionId, mode: ChatMode, threadId: string) {
-  await ensureHydrated()
-  const thread = await setActiveChatThread(threadId)
-  if (thread.sessionId !== sessionId || thread.mode !== mode) {
+  const thread = await getThreadById(threadId)
+  if (!thread || thread.sessionId !== sessionId || thread.mode !== mode) {
     throw new Error('Thread does not match session/mode')
   }
+  await setActiveChatThread(threadId)
 }
 
 export async function updateChatMessage(id: string, apply: (draft: ChatMessageRecord) => void) {
-  await ensureHydrated()
-  const existing = chatMessagesCollection.get(id)
+  const existing = await getMessageById(id)
   if (!existing) {
     throw new Error(`Chat message ${id} not found`)
   }
-  await chatMessagesCollection.update(id, (draft) => {
-    apply(draft)
-    draft.updatedAt = new Date().toISOString()
-  })
-  const refreshed = chatMessagesCollection.get(id)
-  if (!refreshed) {
-    throw new Error(`Chat message ${id} not found after update`)
-  }
-  await schedulePersist()
-  return refreshed
-}
-
-export function getChatMessagesCollection() {
-  return chatMessagesCollection
+  const draft: ChatMessageRecord = { ...existing }
+  apply(draft)
+  draft.updatedAt = new Date().toISOString()
+  const result = await dbQuery<ChatMessageRecord>(
+    `UPDATE chat_messages
+        SET content = $2,
+            evidence = $3,
+            context_events = $4,
+            misalignment_id = $5,
+            updated_at = $6
+      WHERE id = $1
+      RETURNING ${MESSAGE_COLUMNS}`,
+    [
+      draft.id,
+      draft.content,
+      toJsonb(draft.evidence),
+      toJsonb(draft.contextEvents),
+      draft.misalignmentId ?? null,
+      draft.updatedAt,
+    ],
+  )
+  return result.rows[0]
 }
 
 export async function clearChatMessages() {
-  await ensureHydrated()
-  for (const record of chatMessagesCollection.toArray) {
-    await chatMessagesCollection.delete(record.id)
-  }
-  await schedulePersist()
+  await dbQuery(`DELETE FROM chat_messages`)
 }
 
 export async function deleteMessagesForThread(threadId: string) {
-  await ensureHydrated()
-  const matches = chatMessagesCollection.toArray.filter((record) => record.threadId === threadId)
-  for (const record of matches) {
-    await chatMessagesCollection.delete(record.id)
-  }
-  await schedulePersist()
-}
-
-async function ensureRecordHasThread(
-  record: ChatMessageRecord,
-  cache: Map<string, string>,
-): Promise<ChatMessageRecord> {
-  if (record.threadId) {
-    return record
-  }
-  const key = `${record.sessionId}:${record.mode}`
-  if (!cache.has(key)) {
-    const thread = await getActiveChatThread(record.sessionId, record.mode)
-    cache.set(key, thread.id)
-  }
-  const threadId = cache.get(key)!
-  return { ...record, threadId }
+  await dbQuery(`DELETE FROM chat_messages WHERE thread_id = $1`, [threadId])
 }
 
 async function resolveThreadId(sessionId: SessionId, mode: ChatMode, preferred?: string) {
   if (preferred) return preferred
   const thread = await getActiveChatThread(sessionId, mode)
   return thread.id
+}
+
+async function insertChatMessage(record: ChatMessageRecord) {
+  const result: QueryResult<ChatMessageRecord> = await dbQuery(
+    `INSERT INTO chat_messages (id, session_id, thread_id, mode, role, content, client_message_id, misalignment_id, evidence, context_events, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     RETURNING ${MESSAGE_COLUMNS}`,
+    [
+      record.id,
+      record.sessionId,
+      record.threadId,
+      record.mode,
+      record.role,
+      record.content,
+      record.clientMessageId ?? null,
+      record.misalignmentId ?? null,
+      toJsonb(record.evidence),
+      toJsonb(record.contextEvents),
+      record.createdAt,
+      record.updatedAt,
+    ],
+  )
+  return result.rows[0]
+}
+
+async function findMessageByClientId(sessionId: SessionId, mode: ChatMode, threadId: string, clientMessageId: string) {
+  const result = await dbQuery<ChatMessageRecord>(
+    `SELECT ${MESSAGE_COLUMNS}
+       FROM chat_messages
+      WHERE session_id = $1 AND mode = $2 AND thread_id = $3 AND client_message_id = $4`,
+    [sessionId, mode, threadId, clientMessageId],
+  )
+  return result.rows[0] ?? null
+}
+
+async function getMessageById(id: string) {
+  const result = await dbQuery<ChatMessageRecord>(
+    `SELECT ${MESSAGE_COLUMNS}
+       FROM chat_messages
+      WHERE id = $1`,
+    [id],
+  )
+  return result.rows[0] ?? null
+}
+
+async function getThreadById(id: string): Promise<ChatThreadRecord | null> {
+  const result = await dbQuery<ChatThreadRecord>(
+    `SELECT id,
+            session_id AS "sessionId",
+            mode,
+            title,
+            status,
+            message_count AS "messageCount",
+            last_message_preview AS "lastMessagePreview",
+            last_message_at AS "lastMessageAt",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+       FROM chat_threads
+      WHERE id = $1`,
+    [id],
+  )
+  return result.rows[0] ?? null
+}
+
+function toJsonb(value: unknown | null | undefined) {
+  if (value === undefined || value === null) {
+    return null
+  }
+  return JSON.stringify(value)
+}
+
+function isUniqueViolation(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === '23505'
 }

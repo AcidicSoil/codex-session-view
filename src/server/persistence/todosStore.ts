@@ -1,58 +1,52 @@
-import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
+import { randomUUID } from 'node:crypto'
+import { dbQuery } from '~/server/persistence/database'
 import type { Todo } from '~/features/todos/types'
 
-function createTodoId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `todo_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
-}
-
-const todosCollection = createCollection(
-  localOnlyCollectionOptions<Todo>({
-    id: 'todos-store',
-    getKey: (todo) => todo.id,
-  }),
-)
+const TODO_COLUMNS = `
+  id,
+  text,
+  completed,
+  created_at AS "createdAt",
+  updated_at AS "updatedAt",
+  session_id AS "sessionId"
+`
 
 export async function listTodos(): Promise<Todo[]> {
-  return todosCollection.toArray
+  const result = await dbQuery<Todo>(`SELECT ${TODO_COLUMNS} FROM todos ORDER BY created_at ASC`)
+  return result.rows
 }
 
 export async function addTodo(text: string): Promise<Todo> {
-  const record: Todo = {
-    id: createTodoId(),
-    text,
-    completed: false,
-    createdAt: new Date().toISOString(),
-  }
-  await todosCollection.insert(record)
-  return record
+  const now = new Date().toISOString()
+  const result = await dbQuery<Todo>(
+    `INSERT INTO todos (id, text, completed, created_at, updated_at)
+     VALUES ($1, $2, FALSE, $3, $3)
+     RETURNING ${TODO_COLUMNS}`,
+    [randomUUID(), text, now],
+  )
+  return result.rows[0]
 }
 
 export async function toggleTodoRecord(id: string): Promise<Todo> {
-  const existing = todosCollection.get(id)
-  if (!existing) {
+  const existing = await dbQuery<Todo>(`SELECT ${TODO_COLUMNS} FROM todos WHERE id = $1`, [id])
+  const todo = existing.rows[0]
+  if (!todo) {
     throw new Error('Todo not found')
   }
-  await todosCollection.update(id, (draft) => {
-    draft.completed = !draft.completed
-  })
-  const updated = todosCollection.get(id)
-  if (!updated) {
-    throw new Error('Todo not found')
-  }
-  return updated
+  const result = await dbQuery<Todo>(
+    `UPDATE todos
+        SET completed = NOT completed,
+            updated_at = NOW()
+      WHERE id = $1
+      RETURNING ${TODO_COLUMNS}`,
+    [id],
+  )
+  return result.rows[0]
 }
 
 export async function deleteTodoRecord(id: string) {
-  const existing = todosCollection.get(id)
-  if (!existing) {
+  const result = await dbQuery(`DELETE FROM todos WHERE id = $1`, [id])
+  if (result.rowCount === 0) {
     throw new Error('Todo not found')
   }
-  await todosCollection.delete(id)
-}
-
-export function getTodosCollection() {
-  return todosCollection
 }

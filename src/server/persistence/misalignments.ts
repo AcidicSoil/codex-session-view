@@ -1,4 +1,4 @@
-import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
+import { dbQuery } from '~/server/persistence/database'
 import {
   canTransitionMisalignmentStatus,
   createMisalignmentRecord,
@@ -8,36 +8,62 @@ import {
   type SessionId,
 } from '~/lib/sessions/model'
 
-const misalignmentsCollection = createCollection(
-  localOnlyCollectionOptions<MisalignmentRecord>({
-    id: 'misalignments-store',
-    getKey: (record) => record.id,
-  }),
-)
+const MISALIGNMENT_COLUMNS = `
+  id,
+  session_id AS "sessionId",
+  rule_id AS "ruleId",
+  title,
+  summary,
+  severity,
+  status,
+  event_range AS "eventRange",
+  evidence,
+  created_at AS "createdAt",
+  updated_at AS "updatedAt"
+`
 
 export async function listMisalignments(sessionId: SessionId): Promise<MisalignmentRecord[]> {
-  return misalignmentsCollection.toArray
-    .filter((item) => item.sessionId === sessionId)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  const result = await dbQuery<MisalignmentRecord>(
+    `SELECT ${MISALIGNMENT_COLUMNS}
+       FROM misalignments
+      WHERE session_id = $1
+      ORDER BY created_at ASC`,
+    [sessionId],
+  )
+  return result.rows
 }
 
 export async function upsertMisalignment(record: MisalignmentRecord) {
-  const existing = misalignmentsCollection.get(record.id)
-  if (existing) {
-    await misalignmentsCollection.update(record.id, (draft) => {
-      draft.ruleId = record.ruleId
-      draft.title = record.title
-      draft.summary = record.summary
-      draft.severity = record.severity
-      draft.status = record.status
-      draft.eventRange = record.eventRange
-      draft.evidence = record.evidence
-      draft.updatedAt = new Date().toISOString()
-    })
-    return misalignmentsCollection.get(record.id) ?? record
-  }
-  await misalignmentsCollection.insert(record)
-  return record
+  const createdAt = record.createdAt ?? new Date().toISOString()
+  const updatedAt = new Date().toISOString()
+  const result = await dbQuery<MisalignmentRecord>(
+    `INSERT INTO misalignments (id, session_id, rule_id, title, summary, severity, status, event_range, evidence, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     ON CONFLICT (id)
+     DO UPDATE SET rule_id = EXCLUDED.rule_id,
+                   title = EXCLUDED.title,
+                   summary = EXCLUDED.summary,
+                   severity = EXCLUDED.severity,
+                   status = EXCLUDED.status,
+                   event_range = EXCLUDED.event_range,
+                   evidence = EXCLUDED.evidence,
+                   updated_at = EXCLUDED.updated_at
+     RETURNING ${MISALIGNMENT_COLUMNS}`,
+    [
+      record.id,
+      record.sessionId,
+      record.ruleId,
+      record.title,
+      record.summary,
+      record.severity,
+      record.status,
+      record.eventRange ?? null,
+      record.evidence ?? [],
+      createdAt,
+      updatedAt,
+    ],
+  )
+  return result.rows[0]
 }
 
 export async function ingestMisalignmentCandidates(sessionId: SessionId, candidates: MisalignmentRecord[]) {
@@ -66,28 +92,29 @@ export async function updateMisalignmentStatus(sessionId: SessionId, id: string,
   if (!isValidMisalignmentStatus(nextStatus)) {
     throw new Error(`Invalid misalignment status: ${nextStatus}`)
   }
-  const existing = misalignmentsCollection.get(id)
+  const existing = await getMisalignmentById(id)
   if (!existing || existing.sessionId !== sessionId) {
     throw new Error('Misalignment not found')
   }
   if (!canTransitionMisalignmentStatus(existing.status, nextStatus)) {
     throw new Error(`Cannot transition misalignment from ${existing.status} to ${nextStatus}`)
   }
-  const previousStatus = existing.status
-  await misalignmentsCollection.update(id, (draft) => {
-    draft.status = nextStatus
-    draft.updatedAt = new Date().toISOString()
-  })
-  const record = misalignmentsCollection.get(id)
-  return { record: record ?? existing, previousStatus }
+  await dbQuery(
+    `UPDATE misalignments
+        SET status = $2,
+            updated_at = NOW()
+      WHERE id = $1`,
+    [id, nextStatus],
+  )
+  const record = await getMisalignmentById(id)
+  return { record: record ?? existing, previousStatus: existing.status }
 }
 
 export async function clearMisalignments() {
-  for (const record of misalignmentsCollection.toArray) {
-    await misalignmentsCollection.delete(record.id)
-  }
+  await dbQuery(`DELETE FROM misalignments`)
 }
 
-export function getMisalignmentsCollection() {
-  return misalignmentsCollection
+async function getMisalignmentById(id: string) {
+  const result = await dbQuery<MisalignmentRecord>(`SELECT ${MISALIGNMENT_COLUMNS} FROM misalignments WHERE id = $1`, [id])
+  return result.rows[0] ?? null
 }

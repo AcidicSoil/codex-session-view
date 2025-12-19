@@ -3,6 +3,50 @@ Context
 - Need to unify persistence for sessions, chat artifacts, tool events, uploads, misalignments, hookify decisions, todos, and session↔repo bindings on Postgres with ElectricSQL sync via TanStack DB electric collections.
 - LocalStorage must remain best-effort for UI-only preferences without impacting authoritative state; Electric shapes must enforce least-privilege replication per user/session.
 
+Reference answers (source: `15_task-todos.md`)
+
+Q1 — Migrating existing `data/chat-*.json` + `chat-tool-events.json`
+- Authoritative, restart-surviving server data today lives only in the JSON snapshots under `process.cwd()/data/` written by `src/server/persistence/chatMessages.ts`, `chatThreads.ts`, and `chatToolEvents.ts`.
+- These stores hydrate from disk at boot and rewrite the entire array on persist. The plan is a one-time, idempotent import of those three files into the new Postgres tables followed by removing all filesystem reads/writes for these entities (aligns with AGENTS “no compatibility shims”).
+- Other `localOnly` in-memory stores (`sessionUploads`, `sessionRepoBindings`, `uiSettingsStore`, `todosStore`, etc.) already lose data on restart, so there is nothing durable to migrate for them unless explicit export/import support is added first.
+Assumptions: legacy JSON snapshots contain data worth preserving; other localOnly state can be dropped.
+Decisions: importer for the three JSON stores, remove filesystem persistence afterwards.
+
+Q2 — Storage backend for session upload blobs + retention/compliance
+- Uploads are text payloads stored in-memory via `sessionUploadsCollection` and exposed by `/api/uploads/:uploadId`. Bundled/external sessions from `.codex/sessions` also land in the same in-memory store.
+- Implementation should move upload content into Postgres as `TEXT` (or compressed `BYTEA`) plus metadata, while avoiding replication of raw blob content via Electric shapes (sync normalized metadata/entities only).
+- There are no retention/compliance rules in the repo; default must be “no automatic deletion” until policy exists.
+Assumptions: upload content is text-based session logs, not binary artifacts.
+Decisions: store uploads in Postgres, do not sync raw blobs via Electric, leave retention unmanaged until requirements exist.
+
+Q3 — Authentication/authorization for ElectricSQL shapes + isolation
+- No tenant/user auth layer exists. `sessionId` is a querystring defaulting to `session-default`, and domain models have no `userId`/tenant columns.
+- Electric must sit behind an authorizing proxy/gatekeeper that validates callers and constrains shape access.
+- Isolation boundaries should hinge on `sessionId` (and optionally `mode`, `threadId`); shapes must scope data to the caller-authorized session and forbid arbitrary session selection.
+Assumptions: single-tenant behavior until explicit auth lands; sessionId is the enforceable boundary today.
+Decisions: introduce proxy-enforced Electric access and scope shapes by `session_id` filters.
+
+Q4 — Realtime sync latency + failure handling SLAs
+- Electric sync uses long-polling/SSE live mode with client retry/backoff. The repo sets no latency/offline guarantees.
+- Default posture is “near-realtime best effort,” optimizing schema/indexes for the dominant patterns (fetch by `sessionId`/`mode`/`threadId`, ordered by `createdAt` with append-heavy writes).
+- Write-path semantics (online vs optimistic) must be chosen explicitly per Electric guidance.
+Assumptions: best-effort realtime is acceptable absent SLAs.
+Decisions: tune schema/indexes for primary query paths, use Electric live mode defaults.
+
+Q5 — Zero-downtime rollout vs maintenance window
+- Current persistence is JSON snapshots + in-memory stores, lacking production-grade migrations/backends. AGENTS forbids long-lived compatibility shims, making dual-write windows undesirable.
+- Recommended rollout: maintenance cutover—migrate schema, run importer once, switch codepaths entirely to Postgres/Electric, and keep a pre-import export for rollback without keeping filesystem backend active.
+Assumptions: downtime window acceptable, JSON export kept for rollback.
+Decisions: maintenance cutover instead of dual persistence.
+
+Additional Q1 — Preparing auth later without redesigning Postgres/Electric
+- Electric must remain a private server dependency behind a proxy/gatekeeper; clients never hit Electric directly. Use shape-scoped tokens issued post-auth that embed permitted shape constraints.
+- Design schema now for identity: add `accounts/users`, `session_members`, and `account_id` (or owner) columns on replicated tables with supporting FKs/indexes.
+- Plan for Postgres Row Level Security—easy to enable later when ownership columns exist.
+- Treat current `sessionId` as unauthenticated placeholder; future session discovery + shape issuance becomes server-authorized. Manage app sessions/tokens per OWASP guidance (rotation, secure cookies, expiration, invalidation).
+Assumptions: future auth will yield verifiable principals (JWT or server session) for the proxy.
+Decisions: deploy Electric behind proxy immediately and bake identity columns/membership tables into v1 schema so later auth is policy/config change, not a migration.
+
 Success criteria
 - No production code reads or writes `data/chat-*.json` or any other filesystem/local-only stores for authoritative data.
 - All in-scope domain entities persist in Postgres with migrations, transactional guarantees, and survive restarts/multi-instance scaling.

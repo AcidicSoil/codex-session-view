@@ -72,14 +72,14 @@ class UploadWatcher {
       throw new Error('Session upload watcher requires a Node.js runtime.');
     }
 
-    const summary = getSessionUploadSummaryById(this.uploadId);
+    const summary = await getSessionUploadSummaryById(this.uploadId);
     if (!summary) {
       throw new Error('Session upload not found.');
     }
     this.latestAsset = uploadRecordToAsset(summary);
     this.broadcast({ type: 'ready', asset: this.latestAsset });
 
-    const record = findSessionUploadRecordById(this.uploadId);
+    const record = await findSessionUploadRecordById(this.uploadId);
     if (!record?.sourcePath) {
       throw new Error('Session upload is not backed by a workspace file; live updates are unavailable.');
     }

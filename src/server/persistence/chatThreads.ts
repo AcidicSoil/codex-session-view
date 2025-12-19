@@ -1,9 +1,7 @@
-import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
-import fs from 'node:fs/promises'
-import path from 'node:path'
+import type { PoolClient, QueryResult } from 'pg'
 import type { ChatMode, SessionId } from '~/lib/sessions/model'
-import { logError } from '~/lib/logger'
 import { generateId } from '~/utils/id-generator'
+import { dbQuery, getDatabasePool, runInTransaction } from '~/server/persistence/database'
 
 export type ChatThreadStatus = 'active' | 'archived'
 
@@ -14,110 +12,158 @@ export interface ChatThreadRecord {
   title: string
   status: ChatThreadStatus
   messageCount: number
-  lastMessagePreview?: string
-  lastMessageAt?: string
+  lastMessagePreview?: string | null
+  lastMessageAt?: string | null
   createdAt: string
   updatedAt: string
 }
 
-const chatThreadsCollection = createCollection(
-  localOnlyCollectionOptions<ChatThreadRecord>({
-    id: 'chat-threads-store',
-    getKey: (record) => record.id,
-  }),
-)
+const THREAD_COLUMNS = `
+  id,
+  session_id AS "sessionId",
+  mode,
+  title,
+  status,
+  message_count AS "messageCount",
+  last_message_preview AS "lastMessagePreview",
+  last_message_at AS "lastMessageAt",
+  created_at AS "createdAt",
+  updated_at AS "updatedAt"
+`
 
-const DATA_DIR = path.join(process.cwd(), 'data')
-const CHAT_THREADS_FILE = path.join(DATA_DIR, 'chat-threads.json')
-
-let hydrationPromise: Promise<void> | null = null
-let hydrated = false
-let writeChain = Promise.resolve()
-let isHydrating = false
-
-async function ensureHydrated() {
-  if (hydrated) return
-  if (!hydrationPromise) {
-    hydrationPromise = hydrateFromDisk()
-  }
-  await hydrationPromise
-}
-
-async function hydrateFromDisk() {
-  isHydrating = true
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true })
-    const raw = await fs.readFile(CHAT_THREADS_FILE, 'utf8').catch((error: NodeJS.ErrnoException) => {
-      if (error?.code === 'ENOENT') {
-        return '[]'
-      }
-      throw error
-    })
-    let parsed: unknown = []
-    try {
-      parsed = JSON.parse(raw)
-    } catch (error) {
-      logError('chatThreads.hydrate', 'Failed to parse chat thread snapshot; starting fresh', error as Error)
-      parsed = []
-    }
-    if (!Array.isArray(parsed)) {
-      parsed = []
-    }
-    for (const record of parsed as ChatThreadRecord[]) {
-      if (!record?.id) continue
-      if (chatThreadsCollection.get(record.id)) continue
-      await chatThreadsCollection.insert(record)
-    }
-    hydrated = true
-  } catch (error) {
-    logError('chatThreads.hydrate', 'Unable to hydrate chat thread store', error as Error)
-    hydrated = true
-  } finally {
-    isHydrating = false
-  }
-}
-
-function schedulePersist() {
-  if (isHydrating) {
-    return writeChain
-  }
-  writeChain = writeChain
-    .then(async () => {
-      const snapshot = [...chatThreadsCollection.toArray]
-      await fs.mkdir(DATA_DIR, { recursive: true })
-      await fs.writeFile(CHAT_THREADS_FILE, JSON.stringify(snapshot, null, 2), 'utf8')
-    })
-    .catch((error) => {
-      logError('chatThreads.persist', 'Failed to persist chat thread snapshot', error as Error)
-    })
-  return writeChain
+type QueryExecutor = {
+  query: (text: string, params?: unknown[]) => Promise<QueryResult<any>>
 }
 
 export async function listChatThreads(sessionId: SessionId, mode?: ChatMode) {
-  await ensureHydrated()
-  return chatThreadsCollection.toArray
-    .filter((thread) => thread.sessionId === sessionId && (!mode || thread.mode === mode))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const result = await dbQuery<ChatThreadRecord>(
+    `SELECT ${THREAD_COLUMNS}
+       FROM chat_threads
+      WHERE session_id = $1 AND ($2::text IS NULL OR mode = $2)
+      ORDER BY updated_at DESC`,
+    [sessionId, mode ?? null],
+  )
+  return result.rows
 }
 
 export async function getChatThreadById(id: string) {
-  await ensureHydrated()
-  return chatThreadsCollection.get(id) ?? null
+  const result = await dbQuery<ChatThreadRecord>(
+    `SELECT ${THREAD_COLUMNS}
+       FROM chat_threads
+      WHERE id = $1`,
+    [id],
+  )
+  return result.rows[0] ?? null
 }
 
 export async function getActiveChatThread(sessionId: SessionId, mode: ChatMode) {
-  await ensureHydrated()
-  const existing = chatThreadsCollection.toArray.find(
-    (thread) => thread.sessionId === sessionId && thread.mode === mode && thread.status === 'active',
+  const result = await dbQuery<ChatThreadRecord>(
+    `SELECT ${THREAD_COLUMNS}
+       FROM chat_threads
+      WHERE session_id = $1 AND mode = $2 AND status = 'active'
+      ORDER BY updated_at DESC
+      LIMIT 1`,
+    [sessionId, mode],
   )
-  if (existing) {
-    return existing
+  if (result.rowCount > 0) {
+    return result.rows[0]
   }
-  return await createChatThread({
-    sessionId,
-    mode,
-    title: deriveDefaultTitle(mode, chatThreadsCollection.toArray.filter((thread) => thread.sessionId === sessionId && thread.mode === mode).length + 1),
+  return await createChatThread({ sessionId, mode })
+}
+
+export async function startNewChatThread(sessionId: SessionId, mode: ChatMode) {
+  return await runInTransaction(async (client) => {
+    const active = await client.query<{ id: string }>(
+      `SELECT id FROM chat_threads WHERE session_id = $1 AND mode = $2 AND status = 'active' FOR UPDATE`,
+      [sessionId, mode],
+    )
+    if (active.rowCount > 0) {
+      await client.query(`UPDATE chat_threads SET status = 'archived', updated_at = NOW() WHERE id = $1`, [active.rows[0].id])
+    }
+    return await createChatThread({ sessionId, mode, status: 'active' }, client)
   })
+}
+
+export async function setActiveChatThread(threadId: string) {
+  return await runInTransaction(async (client) => {
+    const target = await fetchThreadById(threadId, client)
+    if (!target) {
+      throw new Error(`Chat thread ${threadId} not found`)
+    }
+    await client.query(
+      `UPDATE chat_threads
+          SET status = CASE WHEN id = $1 THEN 'active' ELSE 'archived' END,
+              updated_at = NOW()
+        WHERE session_id = $2 AND mode = $3`,
+      [threadId, target.sessionId, target.mode],
+    )
+    const refreshed = await fetchThreadById(threadId, client)
+    if (!refreshed) {
+      throw new Error(`Chat thread ${threadId} not found after activation`)
+    }
+    return refreshed
+  })
+}
+
+export async function renameChatThread(threadId: string, title: string) {
+  const trimmed = title.trim()
+  if (!trimmed) {
+    return await getChatThreadById(threadId)
+  }
+  await dbQuery(
+    `UPDATE chat_threads
+        SET title = $2,
+            updated_at = NOW()
+      WHERE id = $1`,
+    [threadId, trimmed],
+  )
+  return await getChatThreadById(threadId)
+}
+
+export async function archiveChatThread(threadId: string) {
+  await dbQuery(`UPDATE chat_threads SET status = 'archived', updated_at = NOW() WHERE id = $1`, [threadId])
+  return await getChatThreadById(threadId)
+}
+
+export async function removeChatThreadRecord(threadId: string) {
+  const existing = await getChatThreadById(threadId)
+  if (!existing) {
+    return null
+  }
+  await dbQuery(`DELETE FROM chat_threads WHERE id = $1`, [threadId])
+  return existing
+}
+
+export async function touchChatThread(
+  threadId: string,
+  updates: { lastMessagePreview?: string; lastMessageAt?: string; incrementCount?: number },
+) {
+  await dbQuery(
+    `UPDATE chat_threads
+        SET updated_at = NOW(),
+            last_message_preview = COALESCE($2, last_message_preview),
+            last_message_at = COALESCE($3, last_message_at),
+            message_count = message_count + COALESCE($4, 0)
+      WHERE id = $1`,
+    [threadId, updates.lastMessagePreview ?? null, updates.lastMessageAt ?? null, updates.incrementCount ?? 0],
+  )
+}
+
+export async function resetChatThreadMessages(threadId: string) {
+  await dbQuery(
+    `UPDATE chat_threads
+        SET message_count = 0,
+            last_message_preview = NULL,
+            last_message_at = NULL,
+            updated_at = NOW()
+      WHERE id = $1`,
+    [threadId],
+  )
+  return await getChatThreadById(threadId)
+}
+
+export async function clearThreadsForSession(sessionId: SessionId) {
+  await dbQuery(`DELETE FROM chat_threads WHERE session_id = $1`, [sessionId])
 }
 
 interface CreateChatThreadInput {
@@ -127,146 +173,39 @@ interface CreateChatThreadInput {
   status?: ChatThreadStatus
 }
 
-async function createChatThread(input: CreateChatThreadInput) {
+async function createChatThread(input: CreateChatThreadInput, executor?: QueryExecutor) {
+  const db = executor ?? getDatabasePool()
+  const count = await getThreadCount(input.sessionId, input.mode, db)
   const now = new Date().toISOString()
-  const record: ChatThreadRecord = {
-    id: generateId('thread'),
-    sessionId: input.sessionId,
-    mode: input.mode,
-    title: input.title ?? deriveDefaultTitle(input.mode),
-    status: input.status ?? 'active',
-    messageCount: 0,
-    createdAt: now,
-    updatedAt: now,
-  }
-  await chatThreadsCollection.insert(record)
-  await schedulePersist()
-  return record
+  const id = generateId('thread')
+  const title = input.title ?? deriveDefaultTitle(input.mode, count + 1)
+  const result: QueryResult<ChatThreadRecord> = await db.query(
+    `INSERT INTO chat_threads (id, session_id, mode, title, status, message_count, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,0,$6,$7)
+     RETURNING ${THREAD_COLUMNS}`,
+    [id, input.sessionId, input.mode, title, input.status ?? 'active', now, now],
+  )
+  return result.rows[0]
 }
 
-export async function startNewChatThread(sessionId: SessionId, mode: ChatMode) {
-  await ensureHydrated()
-  const active = await getActiveChatThread(sessionId, mode)
-  if (active.status === 'active') {
-    await chatThreadsCollection.update(active.id, (draft) => {
-      draft.status = 'archived'
-      draft.updatedAt = new Date().toISOString()
-    })
-  }
-  const count = chatThreadsCollection.toArray.filter(
-    (thread) => thread.sessionId === sessionId && thread.mode === mode,
-  ).length
-  const thread = await createChatThread({
+async function getThreadCount(sessionId: SessionId, mode: ChatMode, executor: QueryExecutor) {
+  const result = await executor.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM chat_threads WHERE session_id = $1 AND mode = $2`, [
     sessionId,
     mode,
-    title: deriveDefaultTitle(mode, count + 1),
-    status: 'active',
-  })
-  return thread
+  ])
+  const count = result.rows[0]?.count ?? '0'
+  return Number.parseInt(count, 10)
 }
 
-export async function setActiveChatThread(threadId: string) {
-  await ensureHydrated()
-  const target = chatThreadsCollection.get(threadId)
-  if (!target) {
-    throw new Error(`Chat thread ${threadId} not found`)
-  }
-  const peers = chatThreadsCollection.toArray.filter(
-    (thread) => thread.sessionId === target.sessionId && thread.mode === target.mode,
+async function fetchThreadById(id: string, executor: QueryExecutor) {
+  const result: QueryResult<ChatThreadRecord> = await executor.query(
+    `SELECT ${THREAD_COLUMNS}
+       FROM chat_threads
+      WHERE id = $1
+      FOR UPDATE`,
+    [id],
   )
-  for (const peer of peers) {
-    await chatThreadsCollection.update(peer.id, (draft) => {
-      draft.status = peer.id === threadId ? 'active' : 'archived'
-      draft.updatedAt = new Date().toISOString()
-    })
-  }
-  await schedulePersist()
-  return chatThreadsCollection.get(threadId)!
-}
-
-export async function renameChatThread(threadId: string, title: string) {
-  await ensureHydrated()
-  const existing = chatThreadsCollection.get(threadId)
-  if (!existing) {
-    throw new Error(`Chat thread ${threadId} not found`)
-  }
-  await chatThreadsCollection.update(threadId, (draft) => {
-    draft.title = title.trim() || draft.title
-    draft.updatedAt = new Date().toISOString()
-  })
-  await schedulePersist()
-  return chatThreadsCollection.get(threadId)!
-}
-
-export async function archiveChatThread(threadId: string) {
-  await ensureHydrated()
-  const existing = chatThreadsCollection.get(threadId)
-  if (!existing) {
-    return null
-  }
-  await chatThreadsCollection.update(threadId, (draft) => {
-    draft.status = 'archived'
-    draft.updatedAt = new Date().toISOString()
-  })
-  await schedulePersist()
-  return chatThreadsCollection.get(threadId)!
-}
-
-export async function removeChatThreadRecord(threadId: string) {
-  await ensureHydrated()
-  const existing = chatThreadsCollection.get(threadId)
-  if (!existing) {
-    return null
-  }
-  await chatThreadsCollection.delete(threadId)
-  await schedulePersist()
-  return existing
-}
-
-export async function touchChatThread(threadId: string, updates: { lastMessagePreview?: string; lastMessageAt?: string; incrementCount?: number }) {
-  await ensureHydrated()
-  const existing = chatThreadsCollection.get(threadId)
-  if (!existing) {
-    return
-  }
-  await chatThreadsCollection.update(threadId, (draft) => {
-    draft.updatedAt = new Date().toISOString()
-    if (updates.lastMessagePreview !== undefined) {
-      draft.lastMessagePreview = updates.lastMessagePreview
-    }
-    if (updates.lastMessageAt !== undefined) {
-      draft.lastMessageAt = updates.lastMessageAt
-    }
-    if (updates.incrementCount) {
-      draft.messageCount += updates.incrementCount
-    }
-  })
-  await schedulePersist()
-}
-
-export async function resetChatThreadMessages(threadId: string) {
-  await ensureHydrated()
-  const existing = chatThreadsCollection.get(threadId)
-  if (!existing) {
-    throw new Error(`Chat thread ${threadId} not found`)
-  }
-  await chatThreadsCollection.update(threadId, (draft) => {
-    draft.messageCount = 0
-    draft.lastMessagePreview = undefined
-    draft.lastMessageAt = undefined
-    draft.updatedAt = new Date().toISOString()
-  })
-  await schedulePersist()
-  return chatThreadsCollection.get(threadId)!
-}
-
-export async function clearThreadsForSession(sessionId: SessionId) {
-  await ensureHydrated()
-  const matches = chatThreadsCollection.toArray.filter((thread) => thread.sessionId === sessionId)
-  for (const record of matches) {
-    await chatThreadsCollection.delete(record.id)
-  }
-  await schedulePersist()
+  return result.rows[0] ?? null
 }
 
 function deriveDefaultTitle(mode: ChatMode, index = 1) {

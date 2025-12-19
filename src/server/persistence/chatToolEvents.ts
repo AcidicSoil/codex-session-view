@@ -1,13 +1,10 @@
-import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
-import fs from 'node:fs/promises'
-import path from 'node:path'
+import { dbQuery } from '~/server/persistence/database'
 import {
   createChatToolEventRecord,
   markChatToolEventResult,
   type ChatToolEventRecord,
   type ChatToolEventStatus,
 } from '~/lib/chatbot/toolEvents'
-import { logError } from '~/lib/logger'
 
 export interface ChatToolEventRepository {
   listBySession(sessionId: string): Promise<ChatToolEventRecord[]>
@@ -31,119 +28,107 @@ export interface ChatToolEventRepository {
   ) => Promise<ChatToolEventRecord | null>
 }
 
-const toolEventsCollection = createCollection(
-  localOnlyCollectionOptions<ChatToolEventRecord>({
-    id: 'chat-tool-events',
-    getKey: (record) => record.id,
-  }),
-)
+const EVENT_COLUMNS = `
+  id,
+  session_id AS "sessionId",
+  thread_id AS "threadId",
+  tool_call_id AS "toolCallId",
+  tool_name AS "toolName",
+  arguments,
+  status,
+  result,
+  error,
+  context_events AS "contextEvents",
+  duration_ms AS "latencyMs",
+  started_at AS "startedAt",
+  completed_at AS "completedAt"
+`
 
-const DATA_DIR = path.join(process.cwd(), 'data')
-const TOOL_EVENTS_FILE = path.join(DATA_DIR, 'chat-tool-events.json')
-
-let hydrated = false
-let hydrationPromise: Promise<void> | null = null
-let writeChain = Promise.resolve()
-let isHydrating = false
-
-async function ensureHydrated() {
-  if (hydrated) return
-  if (!hydrationPromise) {
-    hydrationPromise = hydrateFromDisk()
-  }
-  await hydrationPromise
-}
-
-async function hydrateFromDisk() {
-  isHydrating = true
-  try {
-    await fs.mkdir(DATA_DIR, { recursive: true })
-    const raw = await fs.readFile(TOOL_EVENTS_FILE, 'utf8').catch((error: NodeJS.ErrnoException) => {
-      if (error?.code === 'ENOENT') {
-        return '[]'
-      }
-      throw error
-    })
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) {
-      for (const record of parsed) {
-        if (!record?.id) continue
-        if (!toolEventsCollection.get(record.id)) {
-          await toolEventsCollection.insert(record as ChatToolEventRecord)
-        }
-      }
-    }
-  } catch (error) {
-    logError('chatToolEvents.hydrate', 'Unable to hydrate tool events store', error as Error)
-  } finally {
-    hydrated = true
-    isHydrating = false
-  }
-}
-
-function schedulePersist() {
-  if (isHydrating) {
-    return writeChain
-  }
-  writeChain = writeChain
-    .then(async () => {
-      await fs.mkdir(DATA_DIR, { recursive: true })
-      await fs.writeFile(TOOL_EVENTS_FILE, JSON.stringify([...toolEventsCollection.toArray], null, 2), 'utf8')
-    })
-    .catch((error) => {
-      logError('chatToolEvents.persist', 'Failed to persist tool events', error as Error)
-    })
-  return writeChain
-}
-
-export const localChatToolEventRepository: ChatToolEventRepository = {
+export const postgresChatToolEventRepository: ChatToolEventRepository = {
   async listBySession(sessionId) {
-    await ensureHydrated()
-    return toolEventsCollection.toArray
-      .filter((record) => record.sessionId === sessionId)
-      .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+    const result = await dbQuery<ChatToolEventRecord>(
+      `SELECT ${EVENT_COLUMNS}
+         FROM chat_tool_events
+        WHERE session_id = $1
+        ORDER BY started_at ASC`,
+      [sessionId],
+    )
+    return result.rows
   },
 
   async insert(input) {
-    await ensureHydrated()
     const record = createChatToolEventRecord(input)
-    await toolEventsCollection.insert(record)
-    await schedulePersist()
-    return record
+    const inserted = await dbQuery<ChatToolEventRecord>(
+      `INSERT INTO chat_tool_events (id, session_id, thread_id, tool_call_id, tool_name, arguments, status, context_events, started_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING ${EVENT_COLUMNS}`,
+      [
+        record.id,
+        record.sessionId,
+        record.threadId,
+        record.toolCallId,
+        record.toolName,
+        toJsonb(record.arguments),
+        record.status,
+        toJsonb(record.contextEvents),
+        record.startedAt,
+      ],
+    )
+    return inserted.rows[0]
   },
 
   async updateStatus(id, status, updates = {}) {
-    await ensureHydrated()
-    const existing = toolEventsCollection.get(id)
+    const existing = await getEventById(id)
     if (!existing) {
       throw new Error(`Tool event ${id} not found`)
     }
-    const updated = markChatToolEventResult(existing, {
+    const updatedRecord = markChatToolEventResult(existing, {
       status,
       result: updates.result,
       error: updates.error,
       contextEvents: updates.contextEvents,
     })
-    await toolEventsCollection.update(id, () => updated)
-    await schedulePersist()
-    return updated
+    const result = await dbQuery<ChatToolEventRecord>(
+      `UPDATE chat_tool_events
+          SET status = $2,
+              result = $3,
+              error = $4,
+              context_events = $5,
+              duration_ms = $6,
+              completed_at = $7
+        WHERE id = $1
+        RETURNING ${EVENT_COLUMNS}`,
+      [
+        updatedRecord.id,
+        updatedRecord.status,
+        toJsonb(updatedRecord.result),
+        updatedRecord.error ?? null,
+        toJsonb(updatedRecord.contextEvents),
+        updatedRecord.latencyMs ?? null,
+        updatedRecord.completedAt ?? null,
+      ],
+    )
+    return result.rows[0]
   },
 
   async updateStatusByToolCall(toolCallId, status, updates = {}) {
-    if (!toolCallId) return null
-    await ensureHydrated()
-    const target = toolEventsCollection.toArray.find((record) => record.toolCallId === toolCallId)
-    if (!target) return null
-    return this.updateStatus(target.id, status, updates)
+    if (!toolCallId) {
+      return null
+    }
+    const target = await findEventByToolCall(toolCallId)
+    if (!target) {
+      return null
+    }
+    return await postgresChatToolEventRepository.updateStatus(target.id, status, updates)
   },
 }
 
 export function getChatToolEventRepository(): ChatToolEventRepository {
-  return localChatToolEventRepository
+  return postgresChatToolEventRepository
 }
 
 export async function listChatToolEvents(sessionId: string) {
-  return localChatToolEventRepository.listBySession(sessionId)
+  return postgresChatToolEventRepository.listBySession(sessionId)
 }
 
 export async function insertChatToolEvent(input: {
@@ -154,7 +139,7 @@ export async function insertChatToolEvent(input: {
   arguments: unknown
   contextEvents?: ChatToolEventRecord['contextEvents']
 }) {
-  return localChatToolEventRepository.insert(input)
+  return postgresChatToolEventRepository.insert(input)
 }
 
 export async function updateChatToolEventStatus(
@@ -162,5 +147,22 @@ export async function updateChatToolEventStatus(
   status: ChatToolEventStatus,
   updates: { result?: unknown; error?: string; contextEvents?: ChatToolEventRecord['contextEvents'] } = {},
 ) {
-  return localChatToolEventRepository.updateStatus(id, status, updates)
+  return postgresChatToolEventRepository.updateStatus(id, status, updates)
+}
+
+async function getEventById(id: string) {
+  const result = await dbQuery<ChatToolEventRecord>(`SELECT ${EVENT_COLUMNS} FROM chat_tool_events WHERE id = $1`, [id])
+  return result.rows[0] ?? null
+}
+
+async function findEventByToolCall(toolCallId: string) {
+  const result = await dbQuery<ChatToolEventRecord>(`SELECT ${EVENT_COLUMNS} FROM chat_tool_events WHERE tool_call_id = $1`, [toolCallId])
+  return result.rows[0] ?? null
+}
+
+function toJsonb(value: unknown | null | undefined) {
+  if (value === undefined || value === null) {
+    return null
+  }
+  return JSON.stringify(value)
 }

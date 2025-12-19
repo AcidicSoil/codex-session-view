@@ -33,7 +33,7 @@ export async function resolveRepoRootForAssetPath(
     return { ...cached, assetPath: `uploads/${originalName}` };
   }
 
-  const record = findSessionUploadRecordByOriginalName(originalName);
+  const record = await findSessionUploadRecordByOriginalName(originalName);
   if (!record) {
     const miss: RepoRootCacheEntry = { rootDir: null, reason: 'asset-not-found' };
     assetRootCache.set(originalName, miss);

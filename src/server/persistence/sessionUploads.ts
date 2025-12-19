@@ -1,8 +1,8 @@
-import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
 import path from 'node:path'
 import type { SessionAssetSource } from '~/lib/viewerDiscovery'
 import { deriveRepoDetailsFromLine, deriveSessionTimestampMs, type RepoMetadata } from '~/lib/repo-metadata'
 import { detectSessionOriginFromContent, type SessionOrigin } from '~/lib/session-origin'
+import { dbQuery } from '~/server/persistence/database'
 
 type FsModule = typeof import('node:fs/promises')
 let fsModulePromise: Promise<FsModule> | null = null
@@ -19,15 +19,14 @@ interface SessionUploadRecord {
   storedAt: string
   size: number
   content: string
-  repoLabel?: string
-  repoMeta?: RepoMetadata
+  repoLabel?: string | null
+  repoMeta?: RepoMetadata | null
   source: SessionAssetSource
-  sourcePath?: string
-  sourceUpdatedAt?: number
-  lastModifiedMs?: number
-  lastModifiedIso?: string
-  workspaceRoot?: string
-  origin?: SessionOrigin
+  sourcePath?: string | null
+  sourceUpdatedAt?: number | null
+  workspaceRoot?: string | null
+  origin?: SessionOrigin | null
+  lastModifiedAt?: string | null
 }
 
 export interface SessionUploadRecordDetails {
@@ -35,11 +34,11 @@ export interface SessionUploadRecordDetails {
   originalName: string
   storedAt: string
   source: SessionAssetSource
-  sourcePath?: string
-  repoLabel?: string
-  repoMeta?: RepoMetadata
-  workspaceRoot?: string
-  origin?: SessionOrigin
+  sourcePath?: string | null
+  repoLabel?: string | null
+  repoMeta?: RepoMetadata | null
+  workspaceRoot?: string | null
+  origin?: SessionOrigin | null
 }
 
 export interface SessionUploadSummary {
@@ -53,77 +52,108 @@ export interface SessionUploadSummary {
   source: SessionAssetSource
   lastModifiedMs?: number
   lastModifiedIso?: string
-  origin?: SessionOrigin
+  origin?: SessionOrigin | null
 }
 
-const sessionUploadsCollection = createCollection(
-  localOnlyCollectionOptions<SessionUploadRecord>({
-    id: 'session-uploads-store',
-    getKey: (record) => record.id,
-  }),
-)
+const UPLOAD_COLUMNS = `
+  id,
+  original_name AS "originalName",
+  stored_at AS "storedAt",
+  size,
+  content,
+  repo_label AS "repoLabel",
+  repo_meta AS "repoMeta",
+  source,
+  source_path AS "sourcePath",
+  source_updated_at AS "sourceUpdatedAt",
+  workspace_root AS "workspaceRoot",
+  origin,
+  last_modified_at AS "lastModifiedAt"
+`
 
 export async function saveSessionUpload(originalName: string, content: string): Promise<SessionUploadSummary> {
   const repoDetails = deriveRepoDetailsFromContent(content)
   const lastModifiedMs = resolveLastModifiedMs(deriveSessionTimestampFromContent(content))
   const origin = detectSessionOriginFromContent(content, { defaultOrigin: 'codex' })
-  const record: SessionUploadRecord = {
-    id: createUploadId(),
-    originalName,
-    storedAt: new Date().toISOString(),
-    size: measureContentSize(content),
-    content,
-    repoLabel: repoDetails.repoLabel,
-    repoMeta: repoDetails.repoMeta,
-    source: 'upload',
-    lastModifiedMs,
-    lastModifiedIso: new Date(lastModifiedMs).toISOString(),
-    workspaceRoot: repoDetails.workspaceRoot,
-    origin,
-  }
-  await sessionUploadsCollection.insert(record)
-  return toRecordView(record)
+  const storedAt = new Date().toISOString()
+  const result = await dbQuery<SessionUploadRecord>(
+    `INSERT INTO session_uploads (
+        id,
+        original_name,
+        size,
+        content,
+        repo_label,
+        repo_meta,
+        source,
+        stored_at,
+        last_modified_at,
+        workspace_root,
+        origin
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      RETURNING ${UPLOAD_COLUMNS}`,
+    [
+      createUploadId(),
+      originalName,
+      measureContentSize(content),
+      content,
+      repoDetails.repoLabel ?? null,
+      repoDetails.repoMeta ?? null,
+      'upload',
+      storedAt,
+      new Date(lastModifiedMs).toISOString(),
+      repoDetails.workspaceRoot ?? null,
+      origin ?? null,
+    ],
+  )
+  return toRecordView(result.rows[0])
 }
 
 export async function listSessionUploadRecords(): Promise<SessionUploadSummary[]> {
-  return sessionUploadsCollection.toArray.map(toRecordView)
+  const result = await dbQuery<SessionUploadRecord>(`SELECT ${UPLOAD_COLUMNS} FROM session_uploads ORDER BY stored_at DESC`)
+  return result.rows.map(toRecordView)
 }
 
-export function findSessionUploadRecordByOriginalName(originalName: string): SessionUploadRecordDetails | null {
-  const record = sessionUploadsCollection.toArray.find((entry) => entry.originalName === originalName)
+export async function findSessionUploadRecordByOriginalName(originalName: string): Promise<SessionUploadRecordDetails | null> {
+  const result = await dbQuery<SessionUploadRecord>(
+    `SELECT ${UPLOAD_COLUMNS}
+       FROM session_uploads
+      WHERE original_name = $1
+      LIMIT 1`,
+    [originalName],
+  )
+  const record = result.rows[0]
   return record ? toRecordDetails(record) : null
 }
 
-export function findSessionUploadRecordById(id: string): SessionUploadRecordDetails | null {
-  const record = sessionUploadsCollection.get(id)
+export async function findSessionUploadRecordById(id: string): Promise<SessionUploadRecordDetails | null> {
+  const record = await getUploadById(id)
   return record ? toRecordDetails(record) : null
 }
 
-export function getSessionUploadSummaryById(id: string): SessionUploadSummary | null {
-  const record = sessionUploadsCollection.get(id)
+export async function getSessionUploadSummaryById(id: string): Promise<SessionUploadSummary | null> {
+  const record = await getUploadById(id)
   return record ? toRecordView(record) : null
 }
 
-export function getSessionUploadContentByOriginalName(originalName: string) {
-  const record = sessionUploadsCollection.toArray.find((entry) => entry.originalName === originalName)
-  if (!record) return null
-  return record.content
+export async function getSessionUploadContentByOriginalName(originalName: string) {
+  const result = await dbQuery<{ content: string }>(`SELECT content FROM session_uploads WHERE original_name = $1 LIMIT 1`, [
+    originalName,
+  ])
+  return result.rows[0]?.content ?? null
 }
 
 export async function clearSessionUploadRecords() {
-  for (const record of sessionUploadsCollection.toArray) {
-    await sessionUploadsCollection.delete(record.id)
-  }
+  await dbQuery(`DELETE FROM session_uploads`)
 }
 
 export async function getSessionUploadContent(id: string) {
-  const record = sessionUploadsCollection.get(id)
-  if (!record) return null
-  return record.content
+  const result = await dbQuery<{ content: string }>(`SELECT content FROM session_uploads WHERE id = $1`, [id])
+  return result.rows[0]?.content ?? null
 }
 
 export async function refreshSessionUploadFromSource(id: string): Promise<SessionUploadSummary | null> {
-  const record = sessionUploadsCollection.get(id)
+  const record = await getUploadById(id)
   if (!record) {
     return null
   }
@@ -143,60 +173,36 @@ export async function refreshSessionUploadFromSource(id: string): Promise<Sessio
   const canonicalLastModifiedMs = resolveLastModifiedMs(sessionTimestampMs, stat.mtimeMs)
   const canonicalLastModifiedIso = new Date(canonicalLastModifiedMs).toISOString()
 
-  await sessionUploadsCollection.update(id, (draft) => {
-    draft.content = content
-    draft.size = measureContentSize(content)
-    draft.storedAt = new Date().toISOString()
-    draft.repoLabel = draft.repoLabel ?? derivedRepoDetails.repoLabel
-    draft.repoMeta = draft.repoMeta ?? derivedRepoDetails.repoMeta
-    draft.sourcePath = normalizeAbsolutePath(record.sourcePath!)
-    draft.sourceUpdatedAt = stat.mtimeMs
-    draft.lastModifiedMs = canonicalLastModifiedMs
-    draft.lastModifiedIso = canonicalLastModifiedIso
-    if (derivedRepoDetails.workspaceRoot) {
-      draft.workspaceRoot = derivedRepoDetails.workspaceRoot
-    }
-    const updatedOrigin =
-      detectSessionOriginFromContent(content, { defaultOrigin: draft.origin ?? 'codex' }) ?? draft.origin
-    draft.origin = updatedOrigin
-  })
+  await dbQuery(
+    `UPDATE session_uploads
+        SET content = $2,
+            size = $3,
+            stored_at = $4,
+            repo_label = COALESCE(repo_label, $5),
+            repo_meta = COALESCE(repo_meta, $6),
+            source_path = $7,
+            source_updated_at = $8,
+            last_modified_at = $9,
+            workspace_root = COALESCE(workspace_root, $10),
+            origin = COALESCE($11, origin)
+      WHERE id = $1`,
+    [
+      id,
+      content,
+      measureContentSize(content),
+      new Date().toISOString(),
+      derivedRepoDetails.repoLabel ?? null,
+      derivedRepoDetails.repoMeta ?? null,
+      normalizeAbsolutePath(record.sourcePath),
+      stat.mtimeMs,
+      canonicalLastModifiedIso,
+      derivedRepoDetails.workspaceRoot ?? null,
+      detectSessionOriginFromContent(content, { defaultOrigin: record.origin ?? 'codex' }) ?? record.origin ?? null,
+    ],
+  )
 
-  const refreshed = sessionUploadsCollection.get(id)
+  const refreshed = await getUploadById(id)
   return refreshed ? toRecordView(refreshed) : null
-}
-
-function toRecordView(record: SessionUploadRecord): SessionUploadSummary {
-  const needsRepoDetails = !record.repoLabel || !record.repoMeta
-  const repoDetails = needsRepoDetails ? deriveRepoDetailsFromContent(record.content) : {}
-  const lastModifiedMs = resolveLastModifiedMs(record.lastModifiedMs, Date.parse(record.storedAt))
-  const lastModifiedIso = record.lastModifiedIso ?? new Date(lastModifiedMs).toISOString()
-  return {
-    id: record.id,
-    originalName: record.originalName,
-    storedAt: record.storedAt,
-    size: record.size,
-    url: `/api/uploads/${record.id}`,
-    repoLabel: record.repoLabel ?? repoDetails.repoLabel,
-    repoMeta: record.repoMeta ?? repoDetails.repoMeta,
-    source: record.source,
-    lastModifiedMs,
-    lastModifiedIso,
-    origin: record.origin,
-  }
-}
-
-function toRecordDetails(record: SessionUploadRecord): SessionUploadRecordDetails {
-  return {
-    id: record.id,
-    originalName: record.originalName,
-    storedAt: record.storedAt,
-    source: record.source,
-    sourcePath: record.sourcePath,
-    repoLabel: record.repoLabel,
-    repoMeta: record.repoMeta,
-    workspaceRoot: record.workspaceRoot,
-    origin: record.origin,
-  }
 }
 
 export async function ensureSessionUploadForFile(options: {
@@ -214,34 +220,37 @@ export async function ensureSessionUploadForFile(options: {
   const updatedAt = stat.mtimeMs
   const canonicalLastModifiedMs = resolveLastModifiedMs(options.sessionTimestampMs, updatedAt)
   const canonicalLastModifiedIso = new Date(canonicalLastModifiedMs).toISOString()
-  const existing = findRecordBySource(normalizedPath, options.source)
+  const existing = await findRecordBySource(normalizedPath, options.source)
   const content = await fs.readFile(options.absolutePath, 'utf8')
   const derivedRepoDetails = deriveRepoDetailsFromContent(content)
   const resolvedRepoLabel = options.repoLabel ?? derivedRepoDetails.repoLabel
   const resolvedRepoMeta = options.repoMeta ?? derivedRepoDetails.repoMeta
   const fileOrigin = options.origin ?? detectSessionOriginFromContent(content, { defaultOrigin: 'codex' })
+
   if (existing && existing.sourceUpdatedAt === updatedAt) {
     const needsMetadataUpdate = (!!resolvedRepoLabel && !existing.repoLabel) || (!!resolvedRepoMeta && !existing.repoMeta)
-    const needsTimestampUpdate =
-      existing.lastModifiedMs !== canonicalLastModifiedMs || existing.lastModifiedIso !== canonicalLastModifiedIso
+    const needsTimestampUpdate = !existing.lastModifiedAt || existing.lastModifiedAt !== canonicalLastModifiedIso
     const needsWorkspaceUpdate = !!derivedRepoDetails.workspaceRoot && !existing.workspaceRoot
     const needsOriginUpdate = !!fileOrigin && existing.origin !== fileOrigin
     if (needsMetadataUpdate || needsTimestampUpdate || needsWorkspaceUpdate || needsOriginUpdate) {
-      await sessionUploadsCollection.update(existing.id, (draft) => {
-        draft.repoLabel = draft.repoLabel ?? resolvedRepoLabel
-        draft.repoMeta = draft.repoMeta ?? resolvedRepoMeta
-        if (needsWorkspaceUpdate) {
-          draft.workspaceRoot = derivedRepoDetails.workspaceRoot
-        }
-        if (needsTimestampUpdate) {
-          draft.lastModifiedMs = canonicalLastModifiedMs
-          draft.lastModifiedIso = canonicalLastModifiedIso
-        }
-        if (needsOriginUpdate && fileOrigin) {
-          draft.origin = fileOrigin
-        }
-      })
-      const refreshed = sessionUploadsCollection.get(existing.id)
+      await dbQuery(
+        `UPDATE session_uploads
+            SET repo_label = COALESCE(repo_label, $2),
+                repo_meta = COALESCE(repo_meta, $3),
+                workspace_root = COALESCE(workspace_root, $4),
+                last_modified_at = $5,
+                origin = COALESCE($6, origin)
+          WHERE id = $1`,
+        [
+          existing.id,
+          resolvedRepoLabel ?? null,
+          resolvedRepoMeta ?? null,
+          derivedRepoDetails.workspaceRoot ?? null,
+          canonicalLastModifiedIso,
+          fileOrigin ?? null,
+        ],
+      )
+      const refreshed = await getUploadById(existing.id)
       if (refreshed) {
         return toRecordView(refreshed)
       }
@@ -251,50 +260,79 @@ export async function ensureSessionUploadForFile(options: {
 
   const size = measureContentSize(content)
   if (existing) {
-    await sessionUploadsCollection.update(existing.id, (draft) => {
-      draft.originalName = options.relativePath
-      draft.size = size
-      draft.content = content
-      draft.storedAt = new Date().toISOString()
-      draft.repoLabel = resolvedRepoLabel ?? draft.repoLabel
-      draft.repoMeta = resolvedRepoMeta ?? draft.repoMeta
-      draft.source = options.source
-      draft.sourcePath = normalizedPath
-      draft.sourceUpdatedAt = updatedAt
-      draft.lastModifiedMs = canonicalLastModifiedMs
-      draft.lastModifiedIso = canonicalLastModifiedIso
-      if (derivedRepoDetails.workspaceRoot) {
-        draft.workspaceRoot = derivedRepoDetails.workspaceRoot
-      }
-      if (fileOrigin) {
-        draft.origin = fileOrigin
-      }
-    })
-    const refreshed = sessionUploadsCollection.get(existing.id)
+    await dbQuery(
+      `UPDATE session_uploads
+          SET original_name = $2,
+              size = $3,
+              content = $4,
+              stored_at = $5,
+              repo_label = COALESCE($6, repo_label),
+              repo_meta = COALESCE($7, repo_meta),
+              source = $8,
+              source_path = $9,
+              source_updated_at = $10,
+              last_modified_at = $11,
+              workspace_root = COALESCE($12, workspace_root),
+              origin = COALESCE($13, origin)
+        WHERE id = $1`,
+      [
+        existing.id,
+        options.relativePath,
+        size,
+        content,
+        new Date().toISOString(),
+        resolvedRepoLabel ?? null,
+        resolvedRepoMeta ?? null,
+        options.source,
+        normalizedPath,
+        updatedAt,
+        canonicalLastModifiedIso,
+        derivedRepoDetails.workspaceRoot ?? null,
+        fileOrigin ?? null,
+      ],
+    )
+    const refreshed = await getUploadById(existing.id)
     if (!refreshed) {
       throw new Error('Failed to refresh session upload record')
     }
     return toRecordView(refreshed)
   }
 
-  const record: SessionUploadRecord = {
-    id: createUploadId(),
-    originalName: options.relativePath,
-    storedAt: new Date().toISOString(),
-    size,
-    content,
-    repoLabel: resolvedRepoLabel,
-    repoMeta: resolvedRepoMeta,
-    source: options.source,
-    sourcePath: normalizedPath,
-    sourceUpdatedAt: updatedAt,
-    lastModifiedMs: canonicalLastModifiedMs,
-    lastModifiedIso: canonicalLastModifiedIso,
-    workspaceRoot: derivedRepoDetails.workspaceRoot,
-    origin: fileOrigin,
-  }
-  await sessionUploadsCollection.insert(record)
-  return toRecordView(record)
+  const inserted = await dbQuery<SessionUploadRecord>(
+    `INSERT INTO session_uploads (
+        id,
+        original_name,
+        size,
+        content,
+        repo_label,
+        repo_meta,
+        source,
+        source_path,
+        source_updated_at,
+        stored_at,
+        last_modified_at,
+        workspace_root,
+        origin
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      RETURNING ${UPLOAD_COLUMNS}`,
+    [
+      createUploadId(),
+      options.relativePath,
+      size,
+      content,
+      resolvedRepoLabel ?? null,
+      resolvedRepoMeta ?? null,
+      options.source,
+      normalizedPath,
+      updatedAt,
+      new Date().toISOString(),
+      canonicalLastModifiedIso,
+      derivedRepoDetails.workspaceRoot ?? null,
+      fileOrigin ?? null,
+    ],
+  )
+  return toRecordView(inserted.rows[0])
 }
 
 function createUploadId() {
@@ -352,8 +390,8 @@ function normalizeTimestamp(value: number | undefined) {
   return Number.isFinite(rounded) ? rounded : undefined
 }
 
-function normalizeAbsolutePath(path: string) {
-  return path.replace(/\\/g, '/').replace(/\/+$/, '')
+function normalizeAbsolutePath(inputPath: string) {
+  return inputPath.replace(/\\/g, '/').replace(/\/+$/, '')
 }
 
 function normalizeWorkspaceRootPath(input?: string) {
@@ -373,6 +411,52 @@ function normalizeWorkspaceRootPath(input?: string) {
   return normalizeAbsolutePath(resolved)
 }
 
-function findRecordBySource(absolutePath: string, source: SessionAssetSource) {
-  return sessionUploadsCollection.toArray.find((record) => record.sourcePath === absolutePath && record.source === source)
+async function findRecordBySource(absolutePath: string, source: SessionAssetSource) {
+  const result = await dbQuery<SessionUploadRecord>(
+    `SELECT ${UPLOAD_COLUMNS}
+       FROM session_uploads
+      WHERE source_path = $1 AND source = $2
+      LIMIT 1`,
+    [absolutePath, source],
+  )
+  return result.rows[0] ?? null
+}
+
+async function getUploadById(id: string) {
+  const result = await dbQuery<SessionUploadRecord>(`SELECT ${UPLOAD_COLUMNS} FROM session_uploads WHERE id = $1`, [id])
+  return result.rows[0] ?? null
+}
+
+function toRecordView(record: SessionUploadRecord): SessionUploadSummary {
+  const needsRepoDetails = !record.repoLabel || !record.repoMeta
+  const repoDetails = needsRepoDetails ? deriveRepoDetailsFromContent(record.content) : {}
+  const lastModifiedMs = resolveLastModifiedMs(record.lastModifiedAt ? Date.parse(record.lastModifiedAt) : undefined, Date.parse(record.storedAt))
+  const lastModifiedIso = record.lastModifiedAt ?? new Date(lastModifiedMs).toISOString()
+  return {
+    id: record.id,
+    originalName: record.originalName,
+    storedAt: record.storedAt,
+    size: record.size,
+    url: `/api/uploads/${record.id}`,
+    repoLabel: record.repoLabel ?? repoDetails.repoLabel,
+    repoMeta: record.repoMeta ?? repoDetails.repoMeta,
+    source: record.source,
+    lastModifiedMs,
+    lastModifiedIso,
+    origin: record.origin ?? null,
+  }
+}
+
+function toRecordDetails(record: SessionUploadRecord): SessionUploadRecordDetails {
+  return {
+    id: record.id,
+    originalName: record.originalName,
+    storedAt: record.storedAt,
+    source: record.source,
+    sourcePath: record.sourcePath ?? undefined,
+    repoLabel: record.repoLabel ?? undefined,
+    repoMeta: record.repoMeta ?? undefined,
+    workspaceRoot: record.workspaceRoot ?? undefined,
+    origin: record.origin ?? undefined,
+  }
 }
