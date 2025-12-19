@@ -125,13 +125,15 @@
 * Never create a local pnpm --store
 * Never use `git reset --hard HEAD`
 * Before ending your turn:
-  * Create e2e tests for webapp-testing by following instructions in `~/.codex/prompts/codex-skills/webapp-testing/SKILL.md`
-  * Run `pnpm lint`, resolve linting warnings and errors
-  * Run `pnpm build`, resolve build errors if any
-  * Documentation and test synchronization:
-    * Revise/sync externally facing documentation.
-    * Update CHANGELOG
-    * Revise/sync old existing e2e tests until all e2e tests pass.
+  * Use `sequential-thinking-mcp` for each item listed below:
+    * Create e2e tests for webapp-testing by following instructions in `~/.codex/prompts/codex-skills/webapp-testing/SKILL.md`
+    * Run `pnpm lint`, resolve linting warnings and errors
+    * Run `pnpm build`, resolve build errors if any
+    * Documentation and test synchronization:
+      * Revise/sync externally facing documentation.
+      * Update CHANGELOG
+      * Revise/sync old existing e2e tests until all e2e tests pass.
+  * If you are unable to resolve an issue after three attempts, document your state of progress and elaborate in detail your thought process and steps you were planning to resolve the issue at the bottom of the plan file that was initially created. Ask for help once this has been done.
 
 ## docs map
 
