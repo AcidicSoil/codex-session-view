@@ -82,28 +82,6 @@ export function useChatDockController({
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const sessionAnchorRef = useRef(initialState.sessionId);
 
-  useEffect(() => {
-    const isSameSession = sessionAnchorRef.current === initialState.sessionId;
-    sessionAnchorRef.current = initialState.sessionId;
-    if (isSameSession) {
-      stateCacheRef.current.set(initialState.mode, initialState);
-      setActiveState(initialState);
-      setMessages(initialState.messages ?? []);
-      if (initialState.mode === 'session') {
-        setMisalignments(initialState.misalignments ?? []);
-      }
-      return;
-    }
-    stateCacheRef.current = new Map([[initialState.mode, initialState]]);
-    setActiveState(initialState);
-    setMessages(initialState.messages ?? []);
-    setMisalignments(initialState.misalignments ?? []);
-    setDraftState('');
-    setStreamError(null);
-    setSelectedModelId(null);
-    resetStreamState();
-  }, [initialState, resetStreamState]);
-
   const availableModels = useMemo(
     () => activeState.modelOptions ?? [],
     [activeState.modelOptions]
@@ -145,6 +123,52 @@ export function useChatDockController({
     }
   }, [defaultModelId, selectedModelId]);
 
+  const {
+    isStreaming,
+    activeStreamId,
+    streamToolCalls,
+    pendingMetadata,
+    setPendingMetadata,
+    vanishText,
+    setVanishText,
+    handleSend,
+    resetStreamState,
+  } = useChatStreamController({
+    sessionId,
+    mode: activeState.mode,
+    threadId: activeState.threadId ?? null,
+    draft,
+    setDraft: setDraftState,
+    setMessages,
+    loadChatState,
+    streamParameters,
+    selectedModelId,
+    defaultModelId,
+    setStreamError,
+  });
+
+  useEffect(() => {
+    const isSameSession = sessionAnchorRef.current === initialState.sessionId;
+    sessionAnchorRef.current = initialState.sessionId;
+    if (isSameSession) {
+      stateCacheRef.current.set(initialState.mode, initialState);
+      setActiveState(initialState);
+      setMessages(initialState.messages ?? []);
+      if (initialState.mode === 'session') {
+        setMisalignments(initialState.misalignments ?? []);
+      }
+      return;
+    }
+    stateCacheRef.current = new Map([[initialState.mode, initialState]]);
+    setActiveState(initialState);
+    setMessages(initialState.messages ?? []);
+    setMisalignments(initialState.misalignments ?? []);
+    setDraftState('');
+    setStreamError(null);
+    setSelectedModelId(null);
+    resetStreamState();
+  }, [initialState, resetStreamState]);
+
   const handleModelChange = useCallback(
     (modelId: string) => {
       setSelectedModelId(modelId);
@@ -169,30 +193,6 @@ export function useChatDockController({
     () => [...messages].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [messages]
   );
-
-  const {
-    isStreaming,
-    activeStreamId,
-    streamToolCalls,
-    pendingMetadata,
-    setPendingMetadata,
-    vanishText,
-    setVanishText,
-    handleSend,
-    resetStreamState,
-  } = useChatStreamController({
-    sessionId,
-    mode: activeState.mode,
-    threadId: activeState.threadId ?? null,
-    draft,
-    setDraft: setDraftState,
-    setMessages,
-    loadChatState,
-    streamParameters,
-    selectedModelId,
-    defaultModelId,
-    setStreamError,
-  });
   const {
     handleThreadSelect,
     handleThreadRename,
