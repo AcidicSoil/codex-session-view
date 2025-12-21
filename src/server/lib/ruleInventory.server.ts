@@ -1,5 +1,5 @@
 import { relative } from 'node:path'
-import { loadAgentRules } from '~/server/lib/chatbotData'
+import { loadAgentRules } from '~/server/lib/chatbotData.server'
 import { listSessionRepoBindings, type SessionRepoBindingRecord } from '~/server/persistence/sessionRepoBindings'
 import type { RuleInventoryEntry, RuleInventoryRule } from '~/lib/ruleInventoryTypes'
 

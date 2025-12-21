@@ -5,7 +5,7 @@ import {
   findSessionUploadRecordById,
   getSessionUploadSummaryById,
   refreshSessionUploadFromSource,
-} from '~/server/persistence/sessionUploads';
+} from '~/server/persistence/sessionUploads.server';
 
 type NodeFsModule = typeof import('node:fs');
 

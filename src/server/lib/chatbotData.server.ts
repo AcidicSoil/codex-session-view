@@ -121,7 +121,7 @@ export async function loadSnapshotFromAssetPath(
   try {
     const normalized = normalizeAssetName(assetPath);
     const { getSessionUploadContentByOriginalName } = await import(
-      '~/server/persistence/sessionUploads'
+      '~/server/persistence/sessionUploads.server'
     );
     const content = getSessionUploadContentByOriginalName(normalized);
     if (!content) {

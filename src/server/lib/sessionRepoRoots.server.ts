@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import type { SessionAssetSource } from '~/lib/viewerDiscovery';
-import { findSessionUploadRecordByOriginalName } from '~/server/persistence/sessionUploads';
+import { findSessionUploadRecordByOriginalName } from '~/server/persistence/sessionUploads.server';
 
 export type RepoRootMissingReason = 'missing-file-path' | 'asset-not-found' | 'no-source-path';
 

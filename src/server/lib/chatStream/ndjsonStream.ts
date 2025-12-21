@@ -1,6 +1,6 @@
 import type { ToolSet } from 'ai';
 import type { ChatStreamResult } from '~/server/lib/aiRuntime';
-import { getChatToolEventRepository } from '~/server/persistence/chatToolEvents';
+import { getChatToolEventRepository } from '~/server/persistence/chatToolEvents.server';
 
 interface NdjsonStreamOptions<TOOLS extends ToolSet = ToolSet> {
   runtime: ChatStreamResult<TOOLS>;

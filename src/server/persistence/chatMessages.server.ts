@@ -9,7 +9,7 @@ import {
   type SessionId,
 } from '~/lib/sessions/model'
 import { logError } from '~/lib/logger'
-import { getActiveChatThread, touchChatThread, startNewChatThread, setActiveChatThread } from '~/server/persistence/chatThreads'
+import { getActiveChatThread, touchChatThread, startNewChatThread, setActiveChatThread } from '~/server/persistence/chatThreads.server'
 
 const chatMessagesCollection = createCollection(
   localOnlyCollectionOptions<ChatMessageRecord>({

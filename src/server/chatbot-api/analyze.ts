@@ -10,11 +10,11 @@ import {
   loadAgentRules,
   loadSessionSnapshot,
   SessionSnapshotUnavailableError,
-} from '~/server/lib/chatbotData'
+} from '~/server/lib/chatbotData.server'
 import { generateSessionAnalysis } from '~/server/lib/aiRuntime'
 import { getSessionRepoBinding } from '~/server/persistence/sessionRepoBindings'
-import { getActiveChatThread } from '~/server/persistence/chatThreads'
-import { listChatMessages } from '~/server/persistence/chatMessages'
+import { getActiveChatThread } from '~/server/persistence/chatThreads.server'
+import { listChatMessages } from '~/server/persistence/chatMessages.server'
 import { listMisalignments } from '~/server/persistence/misalignments'
 import { jsonResponse } from '~/server/chatbot-api/response'
 import { getProviderErrorMessage, isAiProviderError, isProviderUnavailableError } from '~/server/chatbot-api/errors'
