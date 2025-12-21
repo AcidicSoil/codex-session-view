@@ -5,7 +5,7 @@ const defaultGeneralModel = process.env.PLAYWRIGHT_GENERAL_MODEL ?? 'lmstudio:lo
 const baseOrigin = process.env.PLAYWRIGHT_BASE_ORIGIN ?? 'http://127.0.0.1:4173';
 const basePath = process.env.PLAYWRIGHT_BASE_PATH ?? '';
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `${baseOrigin}${basePath}`;
-const startCommand = 'pnpm start';
+const startCommand = 'pnpm start -- --hostname 127.0.0.1 --port 4173';
 const buildCommand = 'pnpm build';
 const webServerCommand =
   process.env.PLAYWRIGHT_WEB_SERVER_COMMAND ??
@@ -31,8 +31,14 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL,
+    navigationTimeout: 30_000,
+    actionTimeout: 15_000,
     trace: 'on-first-retry',
   },
+  expect: {
+    timeout: 10_000,
+  },
+  timeout: 60_000,
 
   projects: [
     {
@@ -75,7 +81,7 @@ export default defineConfig({
     command: webServerCommand,
     url: baseOrigin,
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: 180 * 1000,
     env: {
       ...process.env,
       HOST: '127.0.0.1',

@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+- Added a safe server fallback for browser log forwarding to prevent test crashes when Start transforms are not applied.
+- Aligned unit tests with explicit `.server` module suffixes for server-only session repo and upload helpers.
 - Re-exported `getDefaultModelForMode` from the AI client surface and aligned Browser Echo logging to accept `warn` entries end-to-end.
 - Added first-class Gemini CLI session ingestion (JSON fallback parser, `GEMINI_SESSION_DIR` discovery opt-in, `.json` upload UX) plus documentation in `docs/gemini-cli-support.md`.
 - Updated session export docs to clarify that Gemini-derived sessions retain tool metadata when re-exported.
@@ -12,4 +14,4 @@
 - Added canonical `data-testid` constants shared between the UI and tests (`viewer-hero-title`, `viewer-title`, `session-upload-input`, `chat-textarea`, `chat-mode-*`, `viewer-log-container`) so selectors survive future content/design updates.
 - Introduced public testing APIs for seeding fixtures—`POST /api/uploads` to persist JSONL files, `POST /api/session/repo-context` to bind sessions to assets, and `POST /api/logs` to append Browser Echo entries—plus updated e2e specs to seed analyze/log flows with contract-valid payloads instead of relying on legacy fallbacks.
 - Hardened logging boundaries so server-only file writes stay in `src/lib/logger.server.ts`, client forwarding uses server functions, and a `pnpm check:client-bundle` guard blocks `node:` imports from leaking into client assets.
-- Added an optional Playwright smoke script plus README guidance for running it via the Codex webapp-testing helper.
+- Added optional Playwright smoke scripts plus README guidance for running them via the Codex webapp-testing helper.

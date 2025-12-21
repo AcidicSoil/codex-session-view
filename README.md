@@ -104,6 +104,9 @@ pnpm build
 python3 /home/user/.codex/skills/webapp-testing/scripts/with_server.py \
   --server "pnpm start -- --hostname 127.0.0.1 --port 4173" --port 4173 \
   -- python3 e2e/webapp-smoke.py
+python3 /home/user/.codex/skills/webapp-testing/scripts/with_server.py \
+  --server "pnpm start -- --hostname 127.0.0.1 --port 4173" --port 4173 \
+  -- python3 e2e/webapp-logger-smoke.py
 ```
 
 > The e2e commands inject `AI_SESSION_DEFAULT_MODEL=lmstudio:local-default` and `AI_GENERAL_DEFAULT_MODEL=lmstudio:local-default`. Make sure `AI_LMSTUDIO_BASE_URL` points to a running LM Studio/OpenAI-compatible server before running these suites.

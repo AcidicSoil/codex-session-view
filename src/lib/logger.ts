@@ -8,6 +8,7 @@ const appendServerLog = createServerOnlyFn(async (entry: ServerLogEntry) => {
 })
 
 const forwardBrowserLog = createIsomorphicFn()
+  .server(() => undefined)
   .client(async (payload: BrowserLogPayload) => {
     const { forwardBrowserLog: forwardBrowserLogClient } = await import('./logger.client')
     return forwardBrowserLogClient(payload)
@@ -71,9 +72,13 @@ function forwardToServer(level: LogLevel, scope: string, message: string, meta?:
   }
 
   queueMicrotask(() => {
-    forwardBrowserLog(payload).catch(() => {
-      // swallow network errors
-    })
+    try {
+      Promise.resolve(forwardBrowserLog(payload)).catch(() => {
+        // swallow network errors
+      })
+    } catch {
+      // swallow sync errors
+    }
   })
 }
 

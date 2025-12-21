@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
-import { clearAssetRepoRootCache, resolveRepoRootForAssetPath } from '~/server/lib/sessionRepoRoots'
-import { clearSessionUploadRecords, ensureSessionUploadForFile } from '~/server/persistence/sessionUploads'
+import { clearAssetRepoRootCache, resolveRepoRootForAssetPath } from '~/server/lib/sessionRepoRoots.server'
+import { clearSessionUploadRecords, ensureSessionUploadForFile } from '~/server/persistence/sessionUploads.server'
 
 function normalize(dir: string) {
   return dir.replace(/\\/g, '/').replace(/\/+$/, '')
