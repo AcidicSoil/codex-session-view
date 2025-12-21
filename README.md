@@ -102,6 +102,7 @@ Playwright now boots a single production-equivalent server via `pnpm build && pn
 - `POST /api/uploads` to persist JSONL session fixtures for testing.
 - `POST /api/session/repo-context` to bind a session ID to an uploaded asset.
 - `POST /api/logs` to append deterministic Browser Echo log entries.
+  - Supported Browser Echo log levels: `debug`, `info`, `warn`, `error`.
 
 ## 🎯 Core Technologies
 

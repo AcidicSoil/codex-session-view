@@ -1,10 +1,5 @@
-import {
-  streamText,
-  type LanguageModel,
-  type ToolSet,
-} from 'ai'
+import { streamText, type ToolSet } from 'ai'
 import type { ProviderId } from '~/lib/ai/client'
-import type { ChatMessageRecord } from '~/lib/sessions/model'
 import { getChatModelDefinition, resolveModelForMode } from '~/lib/ai/client'
 import { resolveProvider } from '~/server/lib/aiRuntime.providers'
 import {

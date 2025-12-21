@@ -1,4 +1,3 @@
-import type { ResponseItemParsed } from './schemas'
 import {
   asString,
   extractMessageFromResponse,

@@ -4,7 +4,7 @@ import { z } from 'zod'
 const DEFAULT_LOG_DIR = process.env.BROWSER_ECHO_LOG_DIR ?? 'logs/frontend'
 const DEFAULT_MAX_CHARS = Number(process.env.BROWSER_LOG_MAX_CHARS ?? 40_000)
 
-type BasicLogLevel = 'debug' | 'info' | 'error'
+type BasicLogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 function logDebug(message: string, meta?: unknown) {
   logToConsole('debug', message, meta)
@@ -24,6 +24,8 @@ function logToConsole(level: BasicLogLevel, message: string, meta?: unknown) {
     console.debug(prefix, meta ?? '')
   } else if (level === 'info') {
     console.info(prefix, meta ?? '')
+  } else if (level === 'warn') {
+    console.warn(prefix, meta ?? '')
   } else {
     console.error(prefix, meta ?? '')
   }
@@ -42,10 +44,10 @@ export interface ClearBrowserLogsResult {
   existed: boolean
 }
 
-type BrowserLogLevel = 'debug' | 'info' | 'error'
+type BrowserLogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 export const browserLogEntrySchema = z.object({
-  level: z.enum(['debug', 'info', 'error']),
+  level: z.enum(['debug', 'info', 'warn', 'error']),
   scope: z.string(),
   message: z.string(),
   meta: z.any().optional(),
