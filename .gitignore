@@ -69,6 +69,10 @@ scripts
 /.codex/config.toml.bak
 /AGENTS.md
 /AGENTS.md.bak
+/e2e/.codex/config.toml
+/e2e/.codex/config.toml.bak
+/e2e/AGENTS.md
+/e2e/AGENTS.md.bak
 /src/.codex/config.toml
 /src/.codex/config.toml.bak
 /src/AGENTS.md
