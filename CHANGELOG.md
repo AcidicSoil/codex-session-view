@@ -11,3 +11,5 @@
 - Stabilized the Playwright suite by switching to a production build + `pnpm start` web server on `127.0.0.1:4173`, aligning `baseURL`/`webServer.url`, and eliminating brittle `networkidle` waits in favor of element-gated readiness checks.
 - Added canonical `data-testid` constants shared between the UI and tests (`viewer-hero-title`, `viewer-title`, `session-upload-input`, `chat-textarea`, `chat-mode-*`, `viewer-log-container`) so selectors survive future content/design updates.
 - Introduced public testing APIs for seeding fixtures—`POST /api/uploads` to persist JSONL files, `POST /api/session/repo-context` to bind sessions to assets, and `POST /api/logs` to append Browser Echo entries—plus updated e2e specs to seed analyze/log flows with contract-valid payloads instead of relying on legacy fallbacks.
+- Hardened logging boundaries so server-only file writes stay in `src/lib/logger.server.ts`, client forwarding uses server functions, and a `pnpm check:client-bundle` guard blocks `node:` imports from leaking into client assets.
+- Added an optional Playwright smoke script plus README guidance for running it via the Codex webapp-testing helper.

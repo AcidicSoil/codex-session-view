@@ -325,13 +325,13 @@ async function readFirstLine(absolutePath: string, deps: NodeDeps) {
     await handle.close();
   }
 }
-type SessionUploadsModule = typeof import('~/server/persistence/sessionUploads');
+type SessionUploadsModule = typeof import('~/server/persistence/sessionUploads.server');
 
 let sessionUploadsPromise: Promise<SessionUploadsModule> | null = null;
 
 async function ensureSessionUploadsModule(): Promise<SessionUploadsModule> {
   if (!sessionUploadsPromise) {
-    sessionUploadsPromise = import('~/server/persistence/sessionUploads');
+    sessionUploadsPromise = import('~/server/persistence/sessionUploads.server');
   }
   return sessionUploadsPromise;
 }

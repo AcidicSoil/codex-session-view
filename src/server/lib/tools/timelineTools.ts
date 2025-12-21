@@ -1,12 +1,12 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 import type { ChatEventReference } from '~/lib/sessions/model'
-import { loadSessionSnapshot } from '~/server/lib/chatbotData'
+import { loadSessionSnapshot } from '~/server/lib/chatbotData.server'
 import {
   findTimelineEventByDisplayIndex,
   formatTimelineEventSummary,
 } from '~/server/lib/sessionEventResolver'
-import { insertChatToolEvent, updateChatToolEventStatus } from '~/server/persistence/chatToolEvents'
+import { insertChatToolEvent, updateChatToolEventStatus } from '~/server/persistence/chatToolEvents.server'
 
 const SINGLE_EVENT_INPUT = z.object({
   sessionId: z.string().min(1, 'sessionId is required'),

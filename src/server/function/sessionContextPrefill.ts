@@ -12,7 +12,7 @@ const inputSchema = z.object({
 export const generateSessionContextPrefill = createServerFn({ method: 'POST' })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }): Promise<CoachPrefillPayload> => {
-    const { loadSessionSnapshot, loadAgentRules } = await import('~/server/lib/chatbotData')
+    const { loadSessionSnapshot, loadAgentRules } = await import('~/server/lib/chatbotData.server')
     const snapshot = await loadSessionSnapshot(data.sessionId)
     if (!snapshot) {
       throw new Error('Session context unavailable. Load a session before injecting context.')

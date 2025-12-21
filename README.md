@@ -47,6 +47,7 @@ The Session Coach vertical stitches together the chat dock, `/api/chatbot/*` end
 - **Misalignment banner + timeline badges:** Open misalignments (status `open`) render in a top-of-view banner and inline timeline badges. Severity colors reuse the shadcn semantic tokens (info → secondary, warning → outline, high → destructive), and overlapping ranges collapse into a single badge with the tooltip template `"{Severity} severity: AGENT-3 “Rule title”, …"`.
 - **Remediation metadata:** When a banner or badge is clicked, the chat dock receives a prefilled remediation prompt _plus_ structured metadata (`metadata?: { misalignmentId; ruleId; severity; eventRange }`). The metadata travels to `/api/chatbot/stream` but is not persisted with chat messages.
 - **Telemetry:** `/api/chatbot/stream`, `/api/chatbot/analyze`, and misalignment status changes emit unsampled `~/lib/logger` events tagged with `{ mode, sessionId, analysisType?, misalignmentId?, oldStatus?, newStatus?, userId?, durationMs, success }` for staging + prod dashboards.
+- **Logging boundaries:** `~/lib/logger` remains an isomorphic facade; server-only file appends live in `src/lib/logger.server.ts`, and browser forwarding uses server functions so Node builtins never ship to the client. Use `pnpm check:client-bundle` to validate bundles.
 
 ## 🚀 Quick Start
 
@@ -93,6 +94,16 @@ pnpm biome:fix:unsafe # Fix code issues (unsafe)
 pnpm test            # Vitest unit test suite
 pnpm test:e2e        # Playwright suite against pnpm dev (expects an OpenAI-compatible endpoint such as LM Studio)
 pnpm test:e2e:prod   # pnpm build + Playwright against pnpm start -- --prod
+pnpm check:client-bundle # Scan built client assets for node: imports
+```
+
+Optional Python Playwright smoke check (uses the Codex webapp-testing helper):
+
+```bash
+pnpm build
+python3 /home/user/.codex/skills/webapp-testing/scripts/with_server.py \
+  --server "pnpm start -- --hostname 127.0.0.1 --port 4173" --port 4173 \
+  -- python3 e2e/webapp-smoke.py
 ```
 
 > The e2e commands inject `AI_SESSION_DEFAULT_MODEL=lmstudio:local-default` and `AI_GENERAL_DEFAULT_MODEL=lmstudio:local-default`. Make sure `AI_LMSTUDIO_BASE_URL` points to a running LM Studio/OpenAI-compatible server before running these suites.

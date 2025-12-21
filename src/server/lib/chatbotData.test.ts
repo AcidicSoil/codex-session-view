@@ -7,7 +7,7 @@ import {
   checkDuplicateInstructionFile,
   clearAgentRulesCache,
   loadAgentRules,
-} from '~/server/lib/chatbotData';
+} from '~/server/lib/chatbotData.server';
 
 describe('loadAgentRules content hashing', () => {
   let tempDir: string;

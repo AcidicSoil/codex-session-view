@@ -1,5 +1,5 @@
-import { activateChatThread } from '~/server/persistence/chatMessages'
-import { getActiveChatThread } from '~/server/persistence/chatThreads'
+import { activateChatThread } from '~/server/persistence/chatMessages.server'
+import { getActiveChatThread } from '~/server/persistence/chatThreads.server'
 
 export async function resolveActiveThreadId(
   sessionId: string,
