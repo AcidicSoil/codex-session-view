@@ -1,0 +1,161 @@
+
+
+```md
+ Affected files:
+
+  - src/server/function/chatbotState.ts: imports getDefaultModelForMode from ~/lib/ai/client;
+    runtime crash shows it is not exported.
+  - src/features/chatbot/chatModeConfig.ts: same missing export path for default model ids.
+  - src/lib/ai/client.ts: public barrel for AI helpers; currently does not export
+    getDefaultModelForMode.
+  - src/lib/ai/aiConfig.ts: defines getDefaultModelForMode; moved here during refactor.
+  - src/lib/ai/client.models.ts: already imports getDefaultModelForMode from aiConfig,
+    indicating the function was relocated.
+  - src/server/function/browserLogs.ts: zod schema only allows debug|info|error; rejects
+    warn.
+  - src/lib/logger.ts: emits warn and forwards it via captureBrowserLog, causing the zod
+    validation error.
+  - README.md: references Browser Echo logging, but doesn’t document allowed levels; current
+    schema is inconsistent with logger.ts.
+
+  Root cause:
+
+  - getDefaultModelForMode was moved into aiConfig.ts during refactor, but src/lib/ai/
+    client.ts stopped re-exporting it. Server code still imports it from ~/lib/ai/client, so
+    Vite SSR resolves undefined and throws at runtime.
+  - Browser logging schema in browserLogs.ts wasn’t updated when logger.ts added/used the
+    warn level, so the server validator rejects the payload.
+
+  Proposed fix:
+
+  - Steps/patch outline:
+      - Re-export getDefaultModelForMode from src/lib/ai/client.ts (minimal surface fix), or
+        update all imports to pull from ~/lib/ai/aiConfig directly (larger change).
+      - Update BrowserLogLevel / BasicLogLevel in src/server/function/browserLogs.ts to
+        include warn.
+      - Extend browserLogEntrySchema enum to ['debug','info','warn','error'].
+      - Update logToConsole to handle warn (e.g. console.warn).
+  - Tests:
+      - Add/adjust a small unit test for browserLogEntrySchema to accept warn.
+      - Add/adjust a test (if any exist around lib/ai/client exports) asserting
+        getDefaultModelForMode is exported and callable.
+
+  Documentation gaps:
+
+  - README.md: add a short note under Browser Echo describing supported log levels (debug|
+    info|warn|error) so client/server expectations stay aligned.
+  - If there is an internal dev doc for AI config or client API surface, add a brief note
+    that getDefaultModelForMode is part of the ~/lib/ai/client public API and must remain
+    exported.
+
+  Open questions/assumptions:
+
+  - Should getDefaultModelForMode remain a public API from ~/lib/ai/client, or should call
+    sites migrate to ~/lib/ai/aiConfig?
+  - Is warn the only missing log level, or do we expect others (e.g., trace, fatal) from
+    Browser Echo?
+
+
+
+```
+
+> codex-session-view@ dev /home/user/projects/temp/codex-session-view
+> vite dev -- --run --reporter=verbose
+
+
+  VITE v7.3.0  ready in 1666 ms
+
+  ➜  Local:   http://localhost:3001/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
+[codex:session-discovery] Starting session discovery
+[codex:session-discovery] Discovery inputs {
+  projectGlobPatterns: [
+    '/.git',
+    '/app/**/*',
+    '/src/**/*',
+    '/scripts/**/*',
+    '/public/**/*',
+    '/package.json',
+    '/tsconfig.json'
+  ],
+  projectExcludedGlobs: [
+    '!/src/**/__tests__/**',
+    '!/src/**/__mocks__/**',
+    '!/src/**/*.test.{ts,tsx,js,jsx}',
+    '!/src/**/*.spec.{ts,tsx,js,jsx}'
+  ],
+  bundledSessionGlobs: [
+    '/.codex/sessions/**/*.{jsonl,ndjson,json}',
+    '/sessions/**/*.{jsonl,ndjson,json}',
+    '/artifacts/sessions/**/*.{jsonl,ndjson,json}'
+  ],
+  externalDirectories: [
+    {
+      absolute: '/home/user/.codex/sessions',
+      displayPrefix: '~/.codex/sessions',
+      origin: 'codex'
+    },
+    {
+      absolute: '/home/user/.gemini/tmp',
+      displayPrefix: '~/.gemini/tmp',
+      origin: 'gemini-cli'
+    },
+    {
+      absolute: '/home/user/.gemini',
+      displayPrefix: 'Gemini sessions',
+      origin: 'gemini-cli'
+    }
+  ],
+  uploadStores: [ 'session-uploads-store' ]
+}
+[codex:session-discovery] Discovery outputs { bundled: 0, external: 787, uploads: 565, total: 565 }
+[codex:lmstudio.models] Synced LM Studio models { count: 30 }
+[codex:chatbot.state] No repo root bound to session; skipping AGENT rules { sessionId: 'session-default' }
+
+TypeError: (0 , __vite_ssr_import_7__.getDefaultModelForMode) is not a function
+    at Object.serverFn (/home/user/projects/temp/codex-session-view/src/server/function/chatbotState.ts:68:23)
+    at server (/home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-client-core@1.141.6/node_modules/@tanstack/start-client-core/src/createServerFn.ts:715:24)
+    at /home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/server-functions-handler.ts:135:18
+    at /home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/server-functions-handler.ts:68:20
+    at handleServerAction (/home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/server-functions-handler.ts:66:20)
+    at /home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/createStartHandler.ts:156:26
+    at /home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/createStartHandler.ts:145:28
+    at /home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/createStartHandler.ts:443:22
+    at next (/home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/createStartHandler.ts:461:16)
+    at startRequestResolver (/home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/createStartHandler.ts:248:19)
+Server Fn Error!
+
+
+
+ZodError: [
+  {
+    "code": "invalid_value",
+    "values": [
+      "debug",
+      "info",
+      "error"
+    ],
+    "path": [
+      "level"
+    ],
+    "message": "Invalid option: expected one of \"debug\"|\"info\"|\"error\""
+  }
+]
+    at /home/user/projects/temp/codex-session-view/src/server/function/browserLogs.ts:135:63
+    at execValidator (/home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-client-core@1.141.6/node_modules/@tanstack/start-client-core/src/createServerFn.ts:683:12)
+    at next (/home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-client-core@1.141.6/node_modules/@tanstack/start-client-core/src/createServerFn.ts:196:24)
+    at executeMiddleware (/home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-client-core@1.141.6/node_modules/@tanstack/start-client-core/src/createServerFn.ts:233:10)
+    at AsyncFunction.captureBrowserLog.__executeServer (/home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-client-core@1.141.6/node_modules/@tanstack/start-client-core/src/createServerFn.ts:147:20)
+    at /home/user/projects/temp/codex-session-view/src/server/function/browserLogs.ts:136:11
+    at /home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/server-functions-handler.ts:135:24
+    at /home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/server-functions-handler.ts:68:20
+    at handleServerAction (/home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/server-functions-handler.ts:66:20)
+    at /home/user/projects/temp/codex-session-view/node_modules/.pnpm/@tanstack+start-server-core@1.141.6_crossws@0.4.1_srvx@0.8.16_/node_modules/@tanstack/start-server-core/src/createStartHandler.ts:156:26
+Server Fn Error!
+
+
+5:53:48 PM [vite] (client) hmr update /src/styles/app.css?direct
+5:53:48 PM [vite] (client) hmr update /src/styles/app.css?direct
+5:53:50 PM [vite] (client) hmr update /src/styles/app.css?direct
+5:54:14 PM [vite] (client) hmr update /src/styles/app.css?direct
