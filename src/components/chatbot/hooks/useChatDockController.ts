@@ -127,7 +127,6 @@ export function useChatDockController({
     isStreaming,
     activeStreamId,
     streamToolCalls,
-    pendingMetadata,
     setPendingMetadata,
     vanishText,
     setVanishText,

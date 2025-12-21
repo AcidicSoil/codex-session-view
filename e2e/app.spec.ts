@@ -92,6 +92,24 @@ test.describe('codex session viewer', () => {
     });
   });
 
+  test('logs route accepts warn-level entries', async ({ page }) => {
+    await page.goto('/');
+    await page.request.post(buildAbsoluteUrl('/api/logs'), {
+      data: {
+        level: 'warn',
+        scope: 'playwright',
+        message: 'Seeded warn entry from e2e test',
+        timestamp: new Date().toISOString(),
+      },
+      headers: { 'content-type': 'application/json' },
+    });
+    await page.goto('/logs');
+    await expect(page.getByRole('heading', { name: /Client Logs/i })).toBeVisible();
+    await expect(page.getByTestId(DATA_TEST_IDS.viewerLogContainer)).toContainText(/Seeded warn entry/, {
+      timeout: 10_000,
+    });
+  });
+
   test('timeline layout keeps dropzone, tracing beam, navbar, and chat dock aligned', async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1200 });
     await page.goto('/viewer');
