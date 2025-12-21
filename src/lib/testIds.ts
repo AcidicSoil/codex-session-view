@@ -3,6 +3,8 @@ export const DATA_TEST_IDS = {
   viewerTitle: 'viewer-title',
   sessionUploadDropzone: 'session-upload-dropzone',
   sessionUploadInput: 'session-upload-input',
+  sessionRepoToggle: 'session-repo-toggle',
+  sessionLoadButton: 'session-load-button',
   chatTextarea: 'chat-textarea',
   chatModeToggle: 'chat-mode-toggle',
   chatModeSession: 'chat-mode-session',

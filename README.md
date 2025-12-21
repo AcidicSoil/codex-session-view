@@ -97,6 +97,8 @@ pnpm test:e2e:prod   # pnpm build + Playwright against pnpm start -- --prod
 pnpm check:client-bundle # Scan built client assets for node: imports
 ```
 
+Playwright E2E covers the critical upload → timeline journey; chatbot API contracts now live in Vitest alongside the rest of the server/unit checks.
+
 Optional Python Playwright smoke check (uses the Codex webapp-testing helper):
 
 ```bash

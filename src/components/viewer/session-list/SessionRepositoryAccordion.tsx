@@ -6,6 +6,7 @@ import { Loader } from '~/components/ui/loader';
 import { HighlightedText } from '~/components/ui/highlighted-text';
 import { cn } from '~/lib/utils';
 import { formatCount } from '~/utils/intl';
+import { DATA_TEST_IDS } from '~/lib/testIds';
 import type { RepositoryGroup } from './sessionExplorerTypes';
 import { describeBranches, formatBytes, formatDate, formatRelativeTime, getSessionChipIntent } from './sessionExplorerUtils';
 import type { SearchMatcher } from '~/utils/search';
@@ -48,6 +49,7 @@ export function SessionRepositoryAccordion({
             <AccordionItem value={repo.id} className="border-0">
               <AccordionTrigger
                 aria-label={`Toggle ${repo.label} repository`}
+                data-testid={DATA_TEST_IDS.sessionRepoToggle}
                 className={cn(
                   'rounded-2xl border border-transparent px-4 py-3 text-left transition-colors hover:no-underline focus-visible:ring-2 focus-visible:ring-ring',
                   intentClass,

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import type { DiscoveredSessionAsset } from '~/lib/viewerDiscovery';
 import { HighlightedText } from '~/components/ui/highlighted-text';
 import type { SearchMatcher } from '~/utils/search';
+import { DATA_TEST_IDS } from '~/lib/testIds';
 import {
   extractSessionId,
   formatBytes,
@@ -152,6 +153,7 @@ export function SessionCard({
                 size="sm"
                 variant="secondary"
                 disabled={isLoading}
+                data-testid={DATA_TEST_IDS.sessionLoadButton}
                 onClick={() => onSessionOpen(session)}
               >
                 {isLoading ? 'Loading…' : 'Load session'}
