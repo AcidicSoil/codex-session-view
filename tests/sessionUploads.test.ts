@@ -9,7 +9,7 @@ describe('sessionUploads persistence', () => {
   })
 
   it('stores uploads in TanStack DB collection', async () => {
-    const store = await import('~/server/persistence/sessionUploads')
+    const store = await import('~/server/persistence/sessionUploads.server')
     const record = await store.saveSessionUpload('example.json', '{"foo":1}')
     expect(record.url).toMatch(/\/api\/uploads\//)
     expect(record.source).toBe('upload')
@@ -25,7 +25,7 @@ describe('sessionUploads persistence', () => {
   })
 
   it('ensures discovered files are cached as uploads', async () => {
-    const store = await import('~/server/persistence/sessionUploads')
+    const store = await import('~/server/persistence/sessionUploads.server')
     const tmpPath = path.join(os.tmpdir(), `codex-session-${Date.now()}.jsonl`)
     await fs.writeFile(tmpPath, '{"meta":{"git":{"repo":"example/repo","branch":"main"}}}\n{"event":1}')
     try {

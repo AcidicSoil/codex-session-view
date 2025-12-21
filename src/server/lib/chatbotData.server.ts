@@ -43,10 +43,17 @@ async function loadBaseSnapshot(): Promise<Omit<SessionSnapshot, 'sessionId'>> {
     return baseSnapshot;
   }
   const fs = await import('node:fs/promises');
+  const path = await import('node:path');
   // Fallback to fixture if no live session is loaded yet, or implement live loading here if needed.
   // Currently keeping fixture logic as base implementation.
-  const url = new URL('../../../tests/fixtures/session-large.json', import.meta.url);
-  const file = await fs.readFile(url, 'utf8');
+  const cwdFixturePath = path.resolve(process.cwd(), 'tests', 'fixtures', 'session-large.json');
+  const parentFixturePath = path.resolve(process.cwd(), '..', 'tests', 'fixtures', 'session-large.json');
+  let file: string;
+  try {
+    file = await fs.readFile(cwdFixturePath, 'utf8');
+  } catch {
+    file = await fs.readFile(parentFixturePath, 'utf8');
+  }
   const parsed = JSON.parse(file) as {
     meta: SessionSnapshot['meta'];
     events: SessionSnapshot['events'];
