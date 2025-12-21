@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+- Trimmed Playwright E2E coverage to the critical upload → timeline journey and migrated chatbot API checks to Vitest contract tests.
+- Added stable test IDs for repository toggles and session load buttons to keep E2E selectors resilient.
 - Added a safe server fallback for browser log forwarding to prevent test crashes when Start transforms are not applied.
 - Aligned unit tests with explicit `.server` module suffixes for server-only session repo and upload helpers.
 - Re-exported `getDefaultModelForMode` from the AI client surface and aligned Browser Echo logging to accept `warn` entries end-to-end.
