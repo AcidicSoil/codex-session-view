@@ -5,9 +5,11 @@ const defaultGeneralModel = process.env.PLAYWRIGHT_GENERAL_MODEL ?? 'lmstudio:lo
 const baseOrigin = process.env.PLAYWRIGHT_BASE_ORIGIN ?? 'http://127.0.0.1:4173';
 const basePath = process.env.PLAYWRIGHT_BASE_PATH ?? '';
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `${baseOrigin}${basePath}`;
+const startCommand = 'pnpm start';
+const buildCommand = 'pnpm build';
 const webServerCommand =
   process.env.PLAYWRIGHT_WEB_SERVER_COMMAND ??
-  'pnpm build && pnpm start -- --hostname 127.0.0.1 --port 4173';
+  (process.env.SKIP_BUILD ? startCommand : `${buildCommand} && ${startCommand}`);
 
 /**
  * Read environment variables from file.
@@ -73,6 +75,7 @@ export default defineConfig({
     command: webServerCommand,
     url: baseOrigin,
     reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
     env: {
       ...process.env,
       HOST: '127.0.0.1',
