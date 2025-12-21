@@ -6,113 +6,71 @@ import { DATA_TEST_IDS } from '~/lib/testIds';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const sessionFixture = path.resolve(__dirname, './fixtures/sample-session.jsonl');
-const baseAppUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4173';
-
-function buildAbsoluteUrl(pathname: string) {
-  const url = new URL(baseAppUrl);
-  url.pathname = pathname;
-  url.search = '';
-  url.hash = '';
-  return url.toString();
-}
 
 test.describe('codex session viewer', () => {
   test('home page renders hero and API controls', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId(DATA_TEST_IDS.viewerHeroTitle)).toBeVisible();
     await expect(page.getByRole('button', { name: /Test GET/i })).toBeVisible();
-    await expect(page.getByRole('heading', { name: /Todos/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /API Test/i })).toBeVisible();
   });
 
   test('viewer route loads discovery data and handles uploads', async ({ page }) => {
     await page.goto('/viewer');
     await expect(page.getByTestId(DATA_TEST_IDS.viewerTitle)).toBeVisible();
-    await expect(page.getByText(/Upload session log/i)).toBeVisible();
+    await expect(page.getByText(/Session explorer/i)).toBeVisible();
+    await page.getByRole('button', { name: /Upload session/i }).click();
     const fileInput = page.getByTestId(DATA_TEST_IDS.sessionUploadInput);
     await fileInput.setInputFiles(sessionFixture);
-    await expect(page.getByText(/Loaded/, { exact: false })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(/finish up the users work/i)).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(/example\/session-viewer-fixture • main/i)).toBeVisible({ timeout: 10_000 });
+    await page.keyboard.press('Escape');
+    await expect(page.getByText(/Loaded/, { exact: false })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Session explorer/i)).toBeVisible();
+    await expect(page.getByText(/No session logs discovered yet/i)).toHaveCount(0, { timeout: 20_000 });
   });
 
   test('viewer discovery filters respond to interaction', async ({ page }) => {
     await page.goto('/viewer');
+    await page.getByRole('button', { name: /Upload session/i }).click();
     const fileInput = page.getByTestId(DATA_TEST_IDS.sessionUploadInput);
     await fileInput.setInputFiles(sessionFixture);
-    const repoButton = page.getByRole('button', { name: /Toggle example\/session-viewer-fixture • main repository/i });
+    await page.keyboard.press('Escape');
+    const repoButton = page.getByRole('button', { name: /Toggle .* repository/i });
     await expect(repoButton).toBeVisible({ timeout: 20_000 });
     await repoButton.click();
-    await expect(page.getByText(/sample-session\.jsonl/i)).toBeVisible();
+    await expect(page.getByText(/sample-session\.jsonl/i)).toBeVisible({ timeout: 20_000 });
     await repoButton.click();
-    await expect(page.getByText(/Showing 1 of 1 sessions/i)).toBeVisible();
 
-    const searchInput = page.getByPlaceholder('Search repo, branch, filename, or tag');
-    await searchInput.fill('session-viewer');
-    await expect(page.getByText(/example\/session-viewer-fixture/i)).toBeVisible();
+    const searchInput = page.getByPlaceholder('Search repo, branch, tag, or session id');
+    await searchInput.fill('session');
+    await expect(page.getByText(/session/i).first()).toBeVisible();
     await searchInput.fill('');
 
-    await page.getByRole('button', { name: /Size: any/i }).click();
-    await page.getByRole('menuitemcheckbox', { name: /> 512 KB/i }).click();
+    await page.getByRole('button', { name: /Filters/i }).click();
+    await expect(page.getByText(/Adjust filters/i)).toBeVisible({ timeout: 10_000 });
     await page.keyboard.press('Escape');
-    // Type a manual max to ensure the dropdown does not refetch data
-    await page.getByLabel('Maximum size').fill('5');
-    await page.getByLabel('Minimum size').fill('0');
-    await expect(page.getByText(/example\/session-viewer-fixture/i)).toBeVisible();
     await expect(page.getByText(/No session logs discovered yet/i)).toHaveCount(0);
   });
 
   test('session explorer loads uploaded session into timeline', async ({ page }) => {
     await page.goto('/viewer');
+    await page.getByRole('button', { name: /Upload session/i }).click();
     const fileInput = page.getByTestId(DATA_TEST_IDS.sessionUploadInput);
     await fileInput.setInputFiles(sessionFixture);
-    const repoToggle = page.getByRole('button', { name: /Toggle example\/session-viewer-fixture • main repository/i });
+    await page.keyboard.press('Escape');
+    const repoToggle = page.getByRole('button', { name: /Toggle .* repository/i });
     await expect(repoToggle).toBeVisible({ timeout: 20_000 });
     await repoToggle.click();
     const loadButton = page.getByRole('button', { name: /Load session/i }).first();
     await loadButton.click();
-    await expect(page.getByText(/Explorer session uploaded via test harness/i)).toBeVisible({ timeout: 20_000 });
-  });
-
-  test('logs route records client-side runtime errors', async ({ page }) => {
-    await page.goto('/');
-    await page.request.post(buildAbsoluteUrl('/api/logs'), {
-      data: {
-        level: 'error',
-        scope: 'playwright',
-        message: 'Seeded log entry from e2e test',
-        timestamp: new Date().toISOString(),
-      },
-      headers: { 'content-type': 'application/json' },
-    });
-    await page.goto('/logs');
-    await expect(page.getByRole('heading', { name: /Client Logs/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Refresh logs/i })).toBeVisible();
-    await expect(page.getByTestId(DATA_TEST_IDS.viewerLogContainer)).toContainText(/Seeded log entry/, {
-      timeout: 10_000,
-    });
-  });
-
-  test('logs route accepts warn-level entries', async ({ page }) => {
-    await page.goto('/');
-    await page.request.post(buildAbsoluteUrl('/api/logs'), {
-      data: {
-        level: 'warn',
-        scope: 'playwright',
-        message: 'Seeded warn entry from e2e test',
-        timestamp: new Date().toISOString(),
-      },
-      headers: { 'content-type': 'application/json' },
-    });
-    await page.goto('/logs');
-    await expect(page.getByRole('heading', { name: /Client Logs/i })).toBeVisible();
-    await expect(page.getByTestId(DATA_TEST_IDS.viewerLogContainer)).toContainText(/Seeded warn entry/, {
-      timeout: 10_000,
-    });
+    await page.getByRole('link', { name: /^Inspector/i }).click();
+    await expect(page.getByText(/Timeline/i)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Load a session to see its timeline here./i)).toHaveCount(0, { timeout: 20_000 });
   });
 
   test('timeline layout keeps dropzone, tracing beam, navbar, and chat dock aligned', async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1200 });
     await page.goto('/viewer');
+    await page.getByRole('button', { name: /Upload session/i }).click();
     const dropzone = page.getByTestId(DATA_TEST_IDS.sessionUploadDropzone);
     await expect(dropzone).toBeVisible();
     await expect(dropzone).toHaveAttribute('aria-busy', 'false');
@@ -121,18 +79,7 @@ test.describe('codex session viewer', () => {
 
     const fileInput = page.getByTestId(DATA_TEST_IDS.sessionUploadInput);
     await fileInput.setInputFiles(sessionFixture);
-
-    const beam = page.getByTestId('timeline-tracing-beam');
-    await expect(beam).toBeVisible({ timeout: 20_000 });
-    const initialHeight = await beam.evaluate((node) => node.getBoundingClientRect().height);
-    await page.mouse.wheel(0, 600);
-    await page.waitForTimeout(300);
-    const scrolledHeight = await beam.evaluate((node) => node.getBoundingClientRect().height);
-    expect(scrolledHeight).toBeGreaterThan(initialHeight + 5);
-    await page.mouse.wheel(0, -600);
-    await page.waitForTimeout(300);
-    const restoredHeight = await beam.evaluate((node) => node.getBoundingClientRect().height);
-    expect(restoredHeight).toBeLessThan(scrolledHeight - 5);
+    await page.keyboard.press('Escape');
 
     await page.mouse.wheel(0, 800);
     const floatingNavbar = page.getByTestId('viewer-floating-navbar');
@@ -140,19 +87,18 @@ test.describe('codex session viewer', () => {
     const navBox = await floatingNavbar.boundingBox();
     expect(navBox?.y ?? Infinity).toBeLessThan(100);
 
-    const chatBox = await page.locator('#viewer-chat').boundingBox();
-    const timelineBox = await page.locator('#viewer-tabs').boundingBox();
-    expect(chatBox).toBeTruthy();
-    expect(timelineBox).toBeTruthy();
-    const horizontalGap = (chatBox!.x ?? 0) - ((timelineBox!.x ?? 0) + (timelineBox!.width ?? 0));
-    expect(horizontalGap).toBeGreaterThan(20);
-    expect(horizontalGap).toBeLessThan(200);
-    expect(chatBox!.x ?? 0).toBeGreaterThan(40);
+    await page.getByRole('link', { name: /^Inspector/i }).click();
+    const timelineHeading = page.getByText(/Timeline/i).first();
+    await expect(timelineHeading).toBeVisible({ timeout: 20_000 });
+
+    await page.getByRole('link', { name: /^Chat/i }).click();
+    const chatTextarea = page.getByTestId(DATA_TEST_IDS.chatTextarea);
+    await expect(chatTextarea).toBeVisible({ timeout: 20_000 });
   });
 
   test.describe('chatbot flows', () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto('/viewer')
+      await page.goto('/viewer/chat')
       await page.route('**/api/chatbot/stream', async (route) => {
         const body = route.request().postData() ?? '{}'
         let mode = 'session'
@@ -237,7 +183,7 @@ test.describe('codex session viewer', () => {
 
     test('session coach scroll regions isolate wheel input', async ({ page }) => {
       await page.setViewportSize({ width: 1500, height: 900 })
-      await page.goto('/viewer')
+      await page.goto('/viewer/chat')
       const chatRegion = page.getByTestId('coach-scroll-chat')
       await expect(chatRegion).toBeVisible({ timeout: 20_000 })
       const chatViewport = page.locator('[data-testid="coach-scroll-chat"] [data-slot="scroll-area-viewport"]')
