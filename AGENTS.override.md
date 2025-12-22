@@ -125,13 +125,13 @@
 * Never create a local pnpm --store
 * Never use `git reset --hard HEAD`
 * Before ending your turn:
-  * Create/adjust e2e tests for webapp-testing by following `~/.codex/skills/webapp-testing/SKILL.md`
-  * Run `pnpm lint`, resolve linting warnings and errors
-  * Run `pnpm build`, resolve build errors if any
+  * Create new and/or sync existing e2e tests with `$webapp-testing` skill
+  * Run `pnpm lint` once per run, resolve linting warnings and errors
+  * Run `pnpm build` once per run, resolve build errors if any
   * Documentation and test synchronization:
-    * Revise/sync externally facing documentation and keep README.md up to date with latest changes while also pruning outdated content.
-    * Update CHANGELOG
-    * Revise/sync old existing e2e tests until all e2e tests pass.
+    * Review and/or sync any externally facing documentation and keep README.md up to date with latest changes while also pruning outdated content.
+    * Update CHANGELOG after every run
+    * Review and/or sync all tests and old existing e2e tests until all e2e tests pass. Do this once per turn.
 
 ## docs map
 
@@ -291,8 +291,8 @@ Add/rename variant = update config once; TS catches stale refs.
 
 # Codex skills usage
 
-* For every UI/frontend related task (new components, refactoring existing component, scanning through existing components, removing/replacing components, etc. ), first interpret the task under the applicable `AGENTS.md` rules, then apply `~/.codex/skills/frontend-design/SKILL.md`.
-* For every logic/backend task (refactors, features, tests, docs, workflows, integrations, etc.), first interpret the task under the applicable [`AGENTS.override.md`, `src/AGENTS.md`] rules.
+* For every UI/frontend related task (new components, refactoring existing component, scanning through existing components, removing/replacing components, etc. ), first interpret the task under the applicable `AGENTS.md` rules, then apply `$frontend-design` skill.
+* For every logic/backend task (refactors, features, tests, docs, workflows, integrations, etc.), first interpret the task under the applicable [`AGENTS.md`, `src/AGENTS.md`] rules.
 * Always reference `src/AGENTS.md` and follow section `MODULE AND FILE DESIGN` for all work/tasks performed under `src/`.
 * Always report files that exceed the 400 line threshold at the end of each turn, use `pnpm thres` to locate these files. Any file reported and located under `src/` shall be considered in your end-turn report.
 * Before ending turn, review work performed this run by referencing all sections under `file size and responsibility rules`. Report your findings if any work performed did not align with the rules.
