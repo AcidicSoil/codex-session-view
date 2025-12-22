@@ -41,10 +41,22 @@ export function SessionCard({
   const branchName = session.repoMeta?.branch ?? session.branch;
   const repoDisplay = session.repoName && session.repoName !== 'unknown-repo' ? session.repoName : null;
   const branchDisplay = branchName && branchName !== 'unknown' ? branchName : null;
-  const sessionId = extractSessionId(displayName) ?? extractSessionId(session.path);
+  const sessionId = session.sessionId ?? extractSessionId(displayName) ?? extractSessionId(session.path);
   const branchLine = branchDisplay ? `Branch ${branchDisplay}` : '';
   const commitLine = session.repoMeta?.commit ? `Commit ${formatCommit(session.repoMeta.commit)}` : '';
   const branchMeta = [branchLine, commitLine].filter(Boolean).join(' · ');
+  const statusLabel = session.statusLabel ?? session.status ?? 'unknown';
+  const statusClass =
+    session.status === 'running'
+      ? 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-100'
+      : session.status === 'failed'
+        ? 'bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-100'
+        : session.status === 'queued'
+          ? 'bg-slate-100 text-slate-900 dark:bg-slate-500/20 dark:text-slate-100'
+          : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-100';
+  const lastUpdatedMs = session.lastUpdatedAt ? Date.parse(session.lastUpdatedAt) : session.sortKey;
+  const startedMs = session.startedAt ? Date.parse(session.startedAt) : undefined;
+  const completedMs = session.completedAt ? Date.parse(session.completedAt) : undefined;
 
   const handleCopySessionId = useCallback(async () => {
     if (!sessionId || typeof navigator === 'undefined' || !navigator.clipboard) return;
@@ -103,6 +115,11 @@ export function SessionCard({
               text={displayName}
               matchers={searchMatchers}
             />
+            {sessionId ? (
+              <p className="truncate text-[10px] font-mono uppercase tracking-tight text-muted-foreground">
+                ID {sessionId}
+              </p>
+            ) : null}
             <HighlightedText
               as="p"
               className="truncate text-xs text-muted-foreground"
@@ -112,13 +129,18 @@ export function SessionCard({
           </div>
           <div className="flex flex-col items-end gap-1 text-right text-xs text-muted-foreground">
             <SessionOriginBadge origin={session.origin} size="sm" />
+            <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide', statusClass)}>
+              {statusLabel}
+            </span>
             <p>{formatBytes(session.size)}</p>
             {session.lastModifiedIso ? (
               <p className="font-mono text-[10px] uppercase tracking-tight text-muted-foreground" aria-label="Last modified timestamp">
                 {session.lastModifiedIso}
               </p>
             ) : null}
-            <p>{formatRelativeTime(session.sortKey, snapshotTimestamp)}</p>
+            {startedMs ? <p>Started {formatRelativeTime(startedMs, snapshotTimestamp)}</p> : null}
+            {completedMs ? <p>Completed {formatRelativeTime(completedMs, snapshotTimestamp)}</p> : null}
+            <p>{formatRelativeTime(lastUpdatedMs, snapshotTimestamp)}</p>
             {isSelected ? (
               <span className="mt-1 inline-flex rounded-full border border-primary/30 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
                 Selected
@@ -155,8 +177,9 @@ export function SessionCard({
                 disabled={isLoading}
                 data-testid={DATA_TEST_IDS.sessionLoadButton}
                 onClick={() => onSessionOpen(session)}
+                title="Open the session in the timeline inspector"
               >
-                {isLoading ? 'Loading…' : 'Load session'}
+                {isLoading ? 'Loading…' : 'Open session'}
               </Button>
             ) : null}
             <a
@@ -164,8 +187,9 @@ export function SessionCard({
               href={session.url}
               target="_blank"
               rel="noreferrer"
+              title="Open the raw session file in a new tab"
             >
-              Open file
+              Open session file
             </a>
           </div>
         </div>

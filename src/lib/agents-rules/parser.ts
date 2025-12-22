@@ -1,4 +1,7 @@
 import type { MisalignmentSeverity } from '~/lib/sessions/model';
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import remarkGfm from 'remark-gfm';
 
 export interface AgentRule {
   id: string;
@@ -16,7 +19,23 @@ export interface AgentRule {
   source?: string;
 }
 
-const HEADING_REGEX = /^(?<hashes>#{1,6})\s+(?<title>.+)$/;
+interface MdastNode {
+  type: string;
+  depth?: number;
+  value?: string;
+  children?: MdastNode[];
+}
+
+interface MdastRoot extends MdastNode {
+  children: MdastNode[];
+}
+
+interface SectionBlock {
+  heading: string;
+  level: number;
+  nodes: MdastNode[];
+}
+
 const ARROW_REGEX = /(.+?)\s*(?:→|->)\s*(.+)/;
 const COLON_REGEX = /^([^:]+):\s*(.+)/;
 
@@ -27,38 +46,14 @@ const COLON_REGEX = /^([^:]+):\s*(.+)/;
  * e.g. `/home/user/projects/foo/.ruler/components.md`.
  */
 export function parseAgentRules(markdown: string, source?: string): AgentRule[] {
-  const lines = markdown.split(/\r?\n/);
-  const sections: Array<{ heading: string; level: number; lines: string[] }> = [];
-  let current: { heading: string; level: number; lines: string[] } | null = null;
-
-  // 1. Group by headings
-  for (const line of lines) {
-    const headingMatch = line.match(HEADING_REGEX);
-    if (headingMatch) {
-      if (current) sections.push(current);
-      current = {
-        heading: headingMatch.groups?.title?.trim() ?? 'Untitled',
-        level: headingMatch.groups?.hashes?.length ?? 1,
-        lines: [],
-      };
-      continue;
-    }
-    if (!current) {
-      current = { heading: 'Introduction', level: 1, lines: [] };
-    }
-    current.lines.push(line);
-  }
-  if (current) sections.push(current);
+  const tree = unified().use(remarkParse).use(remarkGfm).parse(markdown) as MdastRoot;
+  const sections = splitSections(tree);
 
   const rules: AgentRule[] = [];
   const seenIds = new Map<string, number>();
 
   for (const section of sections) {
-    // 2. Parse bullets as potential sub-rules
-    const bullets = section.lines
-      .map((line) => line.trim())
-      .filter((line) => /^[-*+]/.test(line) || /^\d+\./.test(line))
-      .map((line) => line.replace(/^[-*+\d.\s]+/, '').trim());
+    const bullets = extractBullets(section.nodes);
 
     const bulletRules: AgentRule[] = [];
 
@@ -107,16 +102,10 @@ export function parseAgentRules(markdown: string, source?: string): AgentRule[] 
 
     // 4. Optionally add the parent rule
     // We only add the parent if there is content beyond the bullets we just parsed.
-    const hasNonBulletContent = section.lines.some((raw) => {
-      const l = raw.trim();
-      if (!l) return false;
-      if (/^[-*+]/.test(l)) return false;
-      if (/^\d+\./.test(l)) return false;
-      return true;
-    });
+    const hasNonBulletContent = hasNonListContent(section.nodes);
 
     if (bulletRules.length === 0 || hasNonBulletContent) {
-      const body = section.lines.join('\n').trim();
+      const body = extractPlainText(section.nodes);
 
       // If we exploded the bullets, don't re-include them in the parent's
       // keywords to avoid dilution; headings alone are enough.
@@ -127,7 +116,7 @@ export function parseAgentRules(markdown: string, source?: string): AgentRule[] 
           id: makeSectionId(section.heading, seenIds),
           heading: section.heading,
           level: section.level,
-          summary: deriveSummaryText(section.lines),
+          summary: deriveSummaryText(section.nodes),
           body,
           bullets,
           severity: inferSeverity(section.heading, body),
@@ -141,14 +130,85 @@ export function parseAgentRules(markdown: string, source?: string): AgentRule[] 
   return rules;
 }
 
-function deriveSummaryText(lines: string[]): string {
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
-    if (/^[-*+]/.test(line)) continue;
-    if (/^\d+\./.test(line)) continue;
-    if (line.startsWith('```')) continue;
-    return line;
+function splitSections(root: MdastRoot): SectionBlock[] {
+  const sections: SectionBlock[] = [];
+  let current: SectionBlock | null = null;
+
+  for (const node of root.children ?? []) {
+    if (node.type === 'heading') {
+      if (current) sections.push(current);
+      current = {
+        heading: extractNodeText(node).trim() || 'Untitled',
+        level: typeof node.depth === 'number' ? node.depth : 1,
+        nodes: [],
+      };
+      continue;
+    }
+    if (!current) {
+      current = { heading: 'Introduction', level: 1, nodes: [] };
+    }
+    current.nodes.push(node);
+  }
+
+  if (current) sections.push(current);
+  return sections;
+}
+
+function extractBullets(nodes: MdastNode[]): string[] {
+  const bullets: string[] = [];
+  const stack = [...nodes];
+  while (stack.length) {
+    const node = stack.shift();
+    if (!node) continue;
+    if (node.type === 'list' && node.children) {
+      for (const item of node.children) {
+        if (item.type === 'listItem' && item.children) {
+          const text = extractNodeText(item).trim();
+          if (text) {
+            bullets.push(text);
+          }
+        }
+      }
+      continue;
+    }
+    if (node.children) {
+      stack.push(...node.children);
+    }
+  }
+  return bullets;
+}
+
+function hasNonListContent(nodes: MdastNode[]): boolean {
+  for (const node of nodes) {
+    if (node.type === 'list') continue;
+    const text = extractNodeText(node).trim();
+    if (text) return true;
+  }
+  return false;
+}
+
+function extractPlainText(nodes: MdastNode[]): string {
+  return nodes.map((node) => extractNodeText(node)).filter(Boolean).join('\n').trim();
+}
+
+function extractNodeText(node: MdastNode): string {
+  if (!node) return '';
+  if (node.type === 'text' && typeof node.value === 'string') {
+    return node.value;
+  }
+  if (node.type === 'code' && typeof node.value === 'string') {
+    return node.value;
+  }
+  if (!node.children) return '';
+  return node.children.map((child) => extractNodeText(child)).filter(Boolean).join(' ');
+}
+
+function deriveSummaryText(nodes: MdastNode[]): string {
+  for (const node of nodes) {
+    if (node.type === 'paragraph') {
+      const text = extractNodeText(node).trim();
+      if (text) return text;
+    }
   }
   return '';
 }

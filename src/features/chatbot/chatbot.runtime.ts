@@ -1,5 +1,7 @@
 import type { ChatMode } from '~/lib/sessions/model'
 import type { ChatRemediationMetadata } from '~/lib/chatbot/types'
+import { streamChat } from '~/server/function/chatbotStream'
+import { analyzeChat } from '~/server/function/chatbotAnalyze'
 
 export interface ChatStreamRequestBody {
   sessionId: string
@@ -19,13 +21,10 @@ export interface ChatAnalyzeRequestBody {
 }
 
 export async function requestChatStream(body: ChatStreamRequestBody) {
-  const response = await fetch('/api/chatbot/stream', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
+  const response = await streamChat({ data: body })
+  if (!(response instanceof Response)) {
+    throw new Error('Chat stream request failed to return a response.')
+  }
   const contentType = response.headers.get('content-type') ?? ''
   if (!response.ok) {
     const payload = contentType.includes('application/json') ? await response.json().catch(() => null) : null
@@ -57,13 +56,10 @@ export async function requestChatStream(body: ChatStreamRequestBody) {
 }
 
 export async function requestChatAnalysis<T = unknown>(body: ChatAnalyzeRequestBody) {
-  const response = await fetch('/api/chatbot/analyze', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
+  const response = await analyzeChat({ data: body })
+  if (!(response instanceof Response)) {
+    throw new Error('Analyze request failed to return a response.')
+  }
   if (!response.ok) {
     const contentType = response.headers.get('content-type') ?? ''
     const payload = contentType.includes('application/json') ? await response.json().catch(() => null) : null

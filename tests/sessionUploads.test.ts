@@ -1,11 +1,22 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { promises as fs } from 'fs'
 import os from 'os'
 import path from 'path'
 
 describe('sessionUploads persistence', () => {
+  const previousUploadDir = process.env.CODEX_SESSION_UPLOAD_DIR
+
   beforeEach(() => {
     vi.resetModules()
+    process.env.CODEX_SESSION_UPLOAD_DIR = path.join(os.tmpdir(), `codex-uploads-${Date.now()}`)
+  })
+
+  afterEach(() => {
+    if (previousUploadDir === undefined) {
+      delete process.env.CODEX_SESSION_UPLOAD_DIR
+    } else {
+      process.env.CODEX_SESSION_UPLOAD_DIR = previousUploadDir
+    }
   })
 
   it('stores uploads in TanStack DB collection', async () => {
@@ -13,6 +24,8 @@ describe('sessionUploads persistence', () => {
     const record = await store.saveSessionUpload('example.json', '{"foo":1}')
     expect(record.url).toMatch(/\/api\/uploads\//)
     expect(record.source).toBe('upload')
+    expect(record.status).toBe('succeeded')
+    expect(record.sessionId).toMatch(/session-/)
     expect(typeof record.lastModifiedMs).toBe('number')
     expect(record.lastModifiedIso).toBeTruthy()
 
@@ -37,6 +50,7 @@ describe('sessionUploads persistence', () => {
       })
       expect(summary.url).toContain('/api/uploads/')
       expect(summary.source).toBe('external')
+      expect(summary.status).toBe('queued')
       expect(summary.lastModifiedMs).toBe(Math.round(stat.mtimeMs))
       expect(summary.lastModifiedIso).toBe(new Date(Math.round(stat.mtimeMs)).toISOString())
 

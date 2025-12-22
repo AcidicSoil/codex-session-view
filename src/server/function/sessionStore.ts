@@ -6,6 +6,7 @@ const loadSessionStoreServer = createServerOnlyFn(() => import('./sessionStore.s
 const inputSchema = z.object({
   filename: z.string().min(1).max(256),
   content: z.string().min(1),
+  persist: z.boolean().optional(),
 });
 
 export const persistSessionFile = createServerFn({ method: 'POST' })

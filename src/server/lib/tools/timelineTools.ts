@@ -25,6 +25,11 @@ const RANGE_INPUT = z
     path: ['endNumber'],
   })
 
+const ERROR_SUMMARY_INPUT = z.object({
+  sessionId: z.string().min(1),
+  limit: z.number().int().positive().max(20).default(5),
+})
+
 export interface TimelineToolContext {
   sessionId: string
   threadId: string | null
@@ -95,6 +100,58 @@ export function createTimelineTools(context: TimelineToolContext) {
         }
       },
     }),
+    summarize_error_events: tool({
+      description: 'Summarize recent error-like timeline events (non-zero exits, error outputs).',
+      inputSchema: ERROR_SUMMARY_INPUT,
+      execute: async (input, meta) => {
+        assertSameSession(context.sessionId, input.sessionId)
+        const audit = await insertChatToolEvent({
+          sessionId: context.sessionId,
+          threadId: context.threadId,
+          toolCallId: meta?.toolCallId ?? null,
+          toolName: 'summarize_error_events',
+          arguments: input,
+        })
+        try {
+          const snapshot = await loadSessionSnapshot(context.sessionId)
+          const payload = buildErrorSummaryPayload(snapshot, input.limit)
+          await updateChatToolEventStatus(audit.id, 'succeeded', {
+            result: payload,
+            contextEvents: payload.errors.map((entry) => entry.context),
+          })
+          return payload
+        } catch (error) {
+          await updateChatToolEventStatus(audit.id, 'failed', { error: error instanceof Error ? error.message : 'Unknown error' })
+          throw error
+        }
+      },
+    }),
+    find_root_cause_candidates: tool({
+      description: 'Highlight likely root-cause events by pairing failures with their immediate predecessors.',
+      inputSchema: ERROR_SUMMARY_INPUT,
+      execute: async (input, meta) => {
+        assertSameSession(context.sessionId, input.sessionId)
+        const audit = await insertChatToolEvent({
+          sessionId: context.sessionId,
+          threadId: context.threadId,
+          toolCallId: meta?.toolCallId ?? null,
+          toolName: 'find_root_cause_candidates',
+          arguments: input,
+        })
+        try {
+          const snapshot = await loadSessionSnapshot(context.sessionId)
+          const payload = buildRootCausePayload(snapshot, input.limit)
+          await updateChatToolEventStatus(audit.id, 'succeeded', {
+            result: payload,
+            contextEvents: payload.candidates.map((entry) => entry.context),
+          })
+          return payload
+        } catch (error) {
+          await updateChatToolEventStatus(audit.id, 'failed', { error: error instanceof Error ? error.message : 'Unknown error' })
+          throw error
+        }
+      },
+    }),
   }
 }
 
@@ -117,6 +174,97 @@ function buildContextReference(entry: NonNullable<ReturnType<typeof findTimeline
     eventType: entry.event.type,
     summary: formatTimelineEventSummary(entry.event, entry.eventIndex, entry.displayIndex).split('\n')[0],
   }
+}
+
+function buildErrorSummaryPayload(snapshot: Awaited<ReturnType<typeof loadSessionSnapshot>>, limit: number) {
+  const errors = collectErrorEvents(snapshot.events, limit)
+  return {
+    errors: errors.map((entry) => ({
+      eventNumber: entry.displayIndex,
+      heading: formatTimelineEventSummary(entry.event, entry.eventIndex, entry.displayIndex).split('\n')[0],
+      summary: entry.summary,
+      context: buildContextFromEvent(entry.event, entry.eventIndex, entry.displayIndex),
+      eventType: entry.event.type,
+    })),
+  }
+}
+
+function buildRootCausePayload(snapshot: Awaited<ReturnType<typeof loadSessionSnapshot>>, limit: number) {
+  const errors = collectErrorEvents(snapshot.events, limit)
+  const candidates = errors.map((entry) => ({
+    eventNumber: entry.displayIndex,
+    heading: formatTimelineEventSummary(entry.event, entry.eventIndex, entry.displayIndex).split('\n')[0],
+    summary: entry.summary,
+    context: buildContextFromEvent(entry.event, entry.eventIndex, entry.displayIndex),
+    eventType: entry.event.type,
+  }))
+  return { candidates }
+}
+
+function collectErrorEvents(events: Awaited<ReturnType<typeof loadSessionSnapshot>>['events'], limit: number) {
+  const matches: Array<{
+    event: Awaited<ReturnType<typeof loadSessionSnapshot>>['events'][number]
+    eventIndex: number
+    displayIndex: number
+    summary: string
+  }> = []
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index]
+    const failure = describeFailureEvent(event)
+    if (!failure) continue
+    const eventIndex = typeof event.index === 'number' ? event.index : index
+    const displayIndex = eventIndex + 1
+    matches.push({ event, eventIndex, displayIndex, summary: failure })
+    if (matches.length >= limit) break
+  }
+  return matches.reverse()
+}
+
+function describeFailureEvent(event: Awaited<ReturnType<typeof loadSessionSnapshot>>['events'][number]) {
+  if (event.type === 'LocalShellCall') {
+    if (typeof event.exitCode === 'number' && event.exitCode !== 0) {
+      return `Shell exited with code ${event.exitCode}${event.stderr ? ` (${trimPreview(event.stderr)})` : ''}`
+    }
+    if (event.stderr) {
+      return `Shell stderr: ${trimPreview(event.stderr)}`
+    }
+  }
+  if (event.type === 'FunctionCall' || event.type === 'CustomToolCall') {
+    const output = (event as { result?: unknown; output?: unknown }).result ?? (event as { output?: unknown }).output
+    if (output && typeof output === 'object' && 'error' in (output as Record<string, unknown>)) {
+      return `Tool error: ${stringifyPreview((output as { error?: unknown }).error)}`
+    }
+  }
+  return null
+}
+
+function buildContextFromEvent(
+  event: Awaited<ReturnType<typeof loadSessionSnapshot>>['events'][number],
+  eventIndex: number,
+  displayIndex: number,
+): ChatEventReference {
+  return {
+    eventIndex,
+    displayIndex,
+    eventId: typeof event.id === 'string' ? event.id : undefined,
+    eventType: event.type,
+    summary: formatTimelineEventSummary(event, eventIndex, displayIndex).split('\n')[0],
+  }
+}
+
+function stringifyPreview(value: unknown) {
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function trimPreview(value: string, max = 120) {
+  const trimmed = value.trim()
+  if (trimmed.length <= max) return trimmed
+  return `${trimmed.slice(0, max)}…`
 }
 
 function collectRange(total: number, start: number, end: number, limit: number) {

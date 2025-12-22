@@ -1,5 +1,6 @@
 import type { RepoMetadata } from '~/lib/repo-metadata';
 import type { SessionOrigin } from '~/lib/session-origin';
+import type { SessionStatus } from '~/lib/sessions/model';
 import { fallbackRepositoryLabelFromPath } from '~/lib/repository';
 
 export type SessionAssetSource = 'bundled' | 'external' | 'upload';
@@ -7,6 +8,12 @@ export type SessionAssetSource = 'bundled' | 'external' | 'upload';
 export interface SessionAssetInput {
   path: string;
   url: string;
+  sessionId: string;
+  status?: SessionStatus;
+  statusLabel?: string;
+  startedAt?: string;
+  completedAt?: string;
+  lastUpdatedAt?: string;
   sortKey?: number;
   size?: number;
   tags?: readonly string[];
@@ -58,6 +65,12 @@ export interface SessionUploadView {
   storedAt: string;
   size: number;
   url: string;
+  sessionId: string;
+  status?: SessionStatus;
+  statusLabel?: string;
+  startedAt?: string;
+  completedAt?: string;
+  lastUpdatedAt?: string;
   repoLabel?: string;
   repoMeta?: RepoMetadata;
   source: SessionAssetSource;
@@ -89,6 +102,12 @@ export function uploadRecordToAsset(record: SessionUploadView): DiscoveredSessio
   return createDiscoveredSessionAsset({
     path: `uploads/${record.originalName}`,
     url: record.url,
+    sessionId: record.sessionId,
+    status: record.status,
+    statusLabel: record.statusLabel,
+    startedAt: record.startedAt,
+    completedAt: record.completedAt,
+    lastUpdatedAt: record.lastUpdatedAt,
     sortKey: normalizedSortKey,
     size: record.size,
     tags: Array.from(baseTags),

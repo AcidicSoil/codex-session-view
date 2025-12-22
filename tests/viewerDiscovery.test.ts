@@ -3,7 +3,9 @@ import { resolve } from "node:path"
 
 const fixtureDir = resolve(process.cwd(), "tests/fixtures/home-sessions")
 const previousEnv = process.env.CODEX_SESSION_DIR
+const previousHome = process.env.HOME
 process.env.CODEX_SESSION_DIR = fixtureDir
+process.env.HOME = resolve(process.cwd(), "tests/fixtures/fake-home")
 
 import { discoverProjectAssets } from "~/lib/viewerDiscovery.server"
 
@@ -12,6 +14,11 @@ afterAll(() => {
     delete process.env.CODEX_SESSION_DIR
   } else {
     process.env.CODEX_SESSION_DIR = previousEnv
+  }
+  if (previousHome === undefined) {
+    delete process.env.HOME
+  } else {
+    process.env.HOME = previousHome
   }
 })
 
@@ -33,28 +40,17 @@ describe("discoverProjectAssets", () => {
   })
 
   it("includes sessions from the current user's ~/.codex/sessions", async () => {
-    const previousHome = process.env.HOME
-    try {
-      process.env.HOME = resolve(process.cwd(), "tests/fixtures/fake-home")
+    const snapshot = await discoverProjectAssets()
+    const homeDirectory = snapshot.inputs.externalDirectories.find(
+      (dir) => dir.displayPrefix === "~/.codex/sessions"
+    )
 
-      const snapshot = await discoverProjectAssets()
-      const homeDirectory = snapshot.inputs.externalDirectories.find(
-        (dir) => dir.displayPrefix === "~/.codex/sessions"
-      )
+    expect(homeDirectory).toBeDefined()
+    const homeAsset = snapshot.sessionAssets.find(
+      (asset) => asset.source === "external" && asset.path.includes(homeDirectory!.displayPrefix)
+    )
 
-      expect(homeDirectory).toBeDefined()
-      const homeAsset = snapshot.sessionAssets.find(
-        (asset) => asset.source === "external" && asset.path.includes(homeDirectory!.displayPrefix)
-      )
-
-      expect(homeAsset).toBeDefined()
-      expect(homeAsset?.path).toContain(homeDirectory!.displayPrefix)
-    } finally {
-      if (previousHome === undefined) {
-        delete process.env.HOME
-      } else {
-        process.env.HOME = previousHome
-      }
-    }
+    expect(homeAsset).toBeDefined()
+    expect(homeAsset?.path).toContain(homeDirectory!.displayPrefix)
   })
 })

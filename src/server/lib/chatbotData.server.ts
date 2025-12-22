@@ -1,8 +1,13 @@
 import { parseAgentRules, type AgentRule } from '~/lib/agents-rules/parser';
 import type { SessionSnapshot } from '~/lib/sessions/model';
 import { logWarn } from '~/lib/logger';
-import { parseSessionToArrays } from '~/lib/session-parser/streaming';
 import { getSessionRepoBinding } from '~/server/persistence/sessionRepoBindings';
+import { ensureSessionSnapshotFromContent, getSessionSnapshot, getSessionSnapshotRecord } from '~/server/persistence/sessionSnapshots.server'
+import {
+  findSessionUploadRecordByAssetPath,
+  getSessionUploadContentByAssetPath,
+  updateSessionUploadStatusByAssetPath,
+} from '~/server/persistence/sessionUploads.server'
 
 interface SnapshotCacheEntry {
   snapshot: SessionSnapshot;
@@ -67,6 +72,7 @@ async function loadBaseSnapshot(): Promise<Omit<SessionSnapshot, 'sessionId'>> {
 
 interface LoadSnapshotOptions {
   requireAsset?: boolean;
+  assetPath?: string;
 }
 
 export async function loadSessionSnapshot(
@@ -74,7 +80,7 @@ export async function loadSessionSnapshot(
   options: LoadSnapshotOptions = {}
 ): Promise<SessionSnapshot> {
   const repoBinding = getSessionRepoBinding(sessionId);
-  const desiredAssetPath = repoBinding?.assetPath ?? null;
+  const desiredAssetPath = options.assetPath ?? repoBinding?.assetPath ?? null;
   const desiredUpdatedAt = repoBinding?.updatedAt ?? null;
   const cacheHit = cachedSnapshots.get(sessionId);
   if (
@@ -86,6 +92,21 @@ export async function loadSessionSnapshot(
   }
 
   if (desiredAssetPath) {
+    const existing = getSessionSnapshotRecord(sessionId)
+    if (existing && existing.assetPath === desiredAssetPath) {
+      const cachedSnapshot = getSessionSnapshot(sessionId)
+      if (cachedSnapshot) {
+        cachedSnapshots.set(sessionId, {
+          snapshot: cachedSnapshot,
+          assetPath: desiredAssetPath,
+          bindingUpdatedAt: desiredUpdatedAt,
+          source: 'upload',
+        })
+        return cachedSnapshot
+      }
+    }
+
+    await updateSessionUploadStatusByAssetPath(desiredAssetPath, 'running')
     const snapshot = await loadSnapshotFromAssetPath(desiredAssetPath, sessionId);
     if (snapshot) {
       cachedSnapshots.set(sessionId, {
@@ -94,6 +115,7 @@ export async function loadSessionSnapshot(
         bindingUpdatedAt: desiredUpdatedAt,
         source: 'upload',
       });
+      await updateSessionUploadStatusByAssetPath(desiredAssetPath, 'succeeded')
       return snapshot;
     }
     if (options.requireAsset) {
@@ -101,6 +123,9 @@ export async function loadSessionSnapshot(
         `Session ${sessionId} is bound to ${desiredAssetPath} but the upload content is unavailable.`
       );
     }
+    await updateSessionUploadStatusByAssetPath(desiredAssetPath, 'failed', {
+      reason: 'Session content unavailable',
+    })
     logWarn('chatbot.snapshot', 'Falling back to fixture snapshot after upload parse failure', {
       sessionId,
       assetPath: desiredAssetPath,
@@ -126,24 +151,23 @@ export async function loadSnapshotFromAssetPath(
   sessionId: string
 ): Promise<SessionSnapshot | null> {
   try {
-    const normalized = normalizeAssetName(assetPath);
-    const { getSessionUploadContentByOriginalName } = await import(
-      '~/server/persistence/sessionUploads.server'
-    );
-    const content = getSessionUploadContentByOriginalName(normalized);
+    const content = getSessionUploadContentByAssetPath(assetPath)
     if (!content) {
       return null;
     }
-    const blob = new Blob([content], { type: 'application/json' });
-    const result = await parseSessionToArrays(blob);
-    if (!result.meta || !Array.isArray(result.events)) {
-      return null;
-    }
-    return {
+    const uploadRecord = findSessionUploadRecordByAssetPath(assetPath)
+    const record = await ensureSessionSnapshotFromContent({
       sessionId,
-      meta: result.meta,
-      events: result.events,
-    };
+      assetPath,
+      content,
+      source: 'upload',
+      persisted: uploadRecord?.persisted ?? true,
+    })
+    return {
+      sessionId: record.sessionId,
+      meta: record.meta,
+      events: record.events,
+    }
   } catch (error) {
     logWarn('chatbot.snapshot', 'Failed to load session snapshot from upload', {
       sessionId,

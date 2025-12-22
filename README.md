@@ -27,7 +27,7 @@ A specialized workbench for visualizing, analyzing, and debugging AI coding agen
 
 - **Interactive Session Timeline**: Visualize command execution, file edits, tool usage, and agent reasoning in a linear, searchable timeline.
 - **AI Session Coach**: A context-aware chatbot that can analyze the current session, explain errors, and suggest remediations.
-- **Misalignment Detection**: Automatically detects violations of agent rules (defined in `AGENTS.md`, `.ruler/*.md`, etc.) using regex and keyword matching.
+- **Misalignment Detection**: Automatically detects violations of agent rules (defined in `AGENTS.md`, `.ruler/*.md`, etc.) using structured Markdown parsing and keyword matching.
 - **Rule Inspector**: Browse and audit the active ruleset derived from your repository's documentation.
 - **Local-First Architecture**: Designed to run locally, accessing your project's file system to resolve rules and assets.
 - **Search & Filter**: Deep search across session logs, events, and metadata.
@@ -37,7 +37,7 @@ A specialized workbench for visualizing, analyzing, and debugging AI coding agen
 - **Framework**: [TanStack Start](https://tanstack.com/start) (Server-Side Rendering & Server Functions)
 - **Routing**: [TanStack Router](https://tanstack.com/router)
 - **Data Fetching**: [TanStack Query](https://tanstack.com/query)
-- **State Management**: [Zustand](https://github.com/pmndrs/zustand) & [TanStack DB](https://tanstack.com/db) (In-memory/LocalStorage)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand) & [TanStack DB](https://tanstack.com/db) (Server-authoritative, persisted locally)
 - **AI Runtime**: [Vercel AI SDK](https://sdk.vercel.ai/docs)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com) v4
 - **Testing**: Vitest & Playwright
@@ -74,7 +74,7 @@ Configure your AI providers in `.env`. The system supports:
 Start the development server:
 
 ```bash
-pnpm dev
+pnpm dev:vercel
 ```
 
 The application will be available at `http://localhost:3000` (or the port shown in your terminal).
@@ -90,8 +90,8 @@ pnpm start
 
 The system follows a **Local-First Analysis Workbench** architecture:
 
-*   **Viewer (Client)**: A rich React application that parses session files and renders the visualization. It persists state using `localStorage`.
-*   **Analysis Engine (Server)**: A Nitro-based server that handles file uploads (in-memory) and hosts the AI Runtime.
+*   **Viewer (Client)**: A rich React application that renders the timeline from server-authored snapshots.
+*   **Analysis Engine (Server)**: A Nitro-based server that persists session uploads, snapshots, and AI context locally.
 *   **Coach (AI)**: An LLM-based agent that "reads" the session context from the server's memory and applies rules parsed from your local file system.
 
 ### Key Directories
@@ -99,8 +99,12 @@ The system follows a **Local-First Analysis Workbench** architecture:
 - `src/features/viewer`: Core visualization logic and UI components.
 - `src/features/chatbot`: AI Coach implementation and misalignment detection.
 - `src/server/function`: Server-side RPC functions (TanStack Start).
-- `src/server/persistence`: In-memory data collections (`@tanstack/db`).
+- `src/server/persistence`: Local persistent data collections (`@tanstack/db` + JSON snapshot files).
 - `src/lib/agents-rules`: Logic for parsing `AGENTS.md` and other rule files.
+
+## 🗂️ Logs & Artifacts
+
+See `docs/logs-and-artifacts.md` for storage locations, size constraints, and recommended workflows for large assets.
 
 ## 🧪 Testing
 

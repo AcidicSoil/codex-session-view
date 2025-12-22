@@ -1,6 +1,11 @@
 # Changelog
 
 ## [Unreleased]
+- Made session snapshots server-authoritative with persisted JSON indexes and on-demand parsing; uploads now write to `~/.codex/sessions/uploads`.
+- Added session status/timestamps and clarified “Open session” actions in the Session Explorer.
+- Migrated chatbot stream/analyze calls to TanStack Start server functions for type-safe RPC.
+- Replaced regex agent-rule parsing with Markdown AST parsing (remark/unified) and added deterministic error/root-cause tooling helpers.
+- Documented logs/artifacts storage locations and size-handling workflow in `docs/logs-and-artifacts.md`.
 - Added a comprehensive Product-Parity Gap Analysis (`docs/gap-analysis.md`) comparing the workbench against enterprise standards (LangSmith, Phoenix) and outlining a roadmap for structured persistence and multi-project workspaces.
 - Trimmed Playwright E2E coverage to the critical upload → timeline journey and migrated chatbot API checks to Vitest contract tests.
 - Added stable test IDs for repository toggles and session load buttons to keep E2E selectors resilient.

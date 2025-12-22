@@ -4,6 +4,8 @@ import { generateId } from '~/utils/id-generator'
 export type SessionId = string
 export type ChatMode = 'session' | 'general'
 export type ChatRole = 'system' | 'user' | 'assistant'
+export const SESSION_STATUSES = ['queued', 'running', 'succeeded', 'failed'] as const
+export type SessionStatus = (typeof SESSION_STATUSES)[number]
 
 export interface SessionSnapshot {
   sessionId: SessionId

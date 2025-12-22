@@ -37,7 +37,7 @@ export function useUploadController({ loader, onUploadsPersisted }: UploadContro
   const [isPersistingUpload, setIsPersistingUpload] = useState(false)
 
   const persistUploads = useCallback(
-    async (files: File[]) => {
+    async (files: File[], options?: { autoLoad?: boolean }) => {
       if (!files.length) return
       setIsPersistingUpload(true)
       logInfo('viewer.upload', 'Persisting uploads', { count: files.length })
@@ -45,13 +45,17 @@ export function useUploadController({ loader, onUploadsPersisted }: UploadContro
         const appendedAssets: DiscoveredSessionAsset[] = []
         for (const file of files) {
           const content = await file.text()
-          const summary = await persistSessionFile({ data: { filename: file.name, content } })
+          const summary = await persistSessionFile({ data: { filename: file.name, content, persist: loader.persist } })
           const asset = uploadRecordToAsset(summary)
           appendedAssets.push(asset)
           logDebug('viewer.upload', 'Persisted session file', { name: file.name, repo: asset.repoMeta?.repo })
         }
         if (appendedAssets.length) {
           onUploadsPersisted?.(appendedAssets)
+          if (options?.autoLoad) {
+            const latest = appendedAssets[appendedAssets.length - 1]
+            await loader.loadSession({ sessionId: latest.sessionId, path: latest.path })
+          }
           const latestPath = appendedAssets[0]?.path
           if (latestPath) {
             logInfo('viewer.discovery', 'Auto-selecting persisted upload asset', { path: latestPath })
@@ -59,8 +63,8 @@ export function useUploadController({ loader, onUploadsPersisted }: UploadContro
         }
         toast.success(
           files.length > 1
-            ? `${formatCount(files.length)} sessions cached to ~/.codex/sessions`
-            : 'Session cached to ~/.codex/sessions',
+            ? `${formatCount(files.length)} sessions cached to ~/.codex/sessions/uploads`
+            : 'Session cached to ~/.codex/sessions/uploads',
         )
         logInfo('viewer.upload', 'Persisted uploads successfully')
       } catch (error) {
@@ -72,16 +76,15 @@ export function useUploadController({ loader, onUploadsPersisted }: UploadContro
         setIsPersistingUpload(false)
       }
     },
-    [onUploadsPersisted],
+    [loader.loadSession, loader.persist, onUploadsPersisted],
   )
 
   const handleFile = useCallback(
     (file: File) => {
       logInfo('viewer.dropzone', 'File selected', { name: file.name })
-      loader.start(file)
-      void persistUploads([file])
+      void persistUploads([file], { autoLoad: true })
     },
-    [loader, persistUploads],
+    [persistUploads],
   )
 
   const handleFolderSelection = useCallback(
@@ -95,14 +98,14 @@ export function useUploadController({ loader, onUploadsPersisted }: UploadContro
 
   const progressLabel =
     loader.state.phase === 'parsing'
-      ? `Parsing… (${formatCount(loader.progress.ok)} ok / ${formatCount(loader.progress.fail)} errors)`
+      ? `Loading… (${formatCount(loader.progress.ok)} ok / ${formatCount(loader.progress.fail)} errors)`
       : loader.state.phase === 'success'
         ? `Loaded ${formatCount(loader.state.events.length)} events`
         : loader.state.phase === 'error' && loader.progress.fail > 0
           ? `Finished with ${formatCount(loader.progress.fail)} errors`
           : 'Idle'
   const dropZonePending = loader.state.phase === 'parsing' || isPersistingUpload
-  const dropZoneStatus = isPersistingUpload ? 'Caching session to ~/.codex/sessions…' : progressLabel
+  const dropZoneStatus = isPersistingUpload ? 'Caching session to ~/.codex/sessions/uploads…' : progressLabel
   const hasEvents = loader.state.events.length > 0
 
   const ejectSession = useCallback(() => {

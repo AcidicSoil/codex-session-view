@@ -54,16 +54,6 @@ export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDi
 
   useEffect(() => () => stopLiveWatcher(), [stopLiveWatcher])
 
-  const fetchAssetFile = useCallback(async (asset: DiscoveredSessionAsset) => {
-    const response = await fetch(asset.url, { cache: 'no-store' })
-    if (!response.ok) {
-      throw new Error(`Failed to fetch session (${response.status})`)
-    }
-    const blob = await response.blob()
-    const filename = asset.path.split(/[/\\]/).pop() ?? 'session.jsonl'
-    return new File([blob], filename, { type: blob.type || 'application/json' })
-  }, [])
-
   const appendSessionAssets = useCallback((assets: DiscoveredSessionAsset[], reason: string) => {
     if (!assets.length) return
     setSessionAssets((current) => {
@@ -85,8 +75,7 @@ export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDi
       }
       const task = (async () => {
         try {
-          const file = await fetchAssetFile(asset)
-          await loader.start(file)
+          await loader.loadSession({ sessionId: asset.sessionId, path: asset.path })
           logInfo('viewer.discovery', 'Live session refreshed', { path: asset.path })
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Unknown error'
@@ -99,7 +88,7 @@ export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDi
       })
       return liveReloadRef.current
     },
-    [fetchAssetFile, loader],
+    [loader],
   )
 
   const handleLiveWatcherPayload = useCallback(
@@ -181,9 +170,9 @@ export function useViewerDiscovery({ loader }: ViewerDiscoveryOptions): ViewerDi
     setLoadingSessionPath(asset.path)
     logInfo('viewer.discovery', 'Loading session asset into timeline', { path: asset.path })
     try {
-      const file = await fetchAssetFile(asset)
-      await loader.start(file)
-      toast.success('Session loaded', { description: file.name })
+      await loader.loadSession({ sessionId: asset.sessionId, path: asset.path })
+      const filename = asset.path.split(/[/\\]/).pop() ?? 'session.jsonl'
+      toast.success('Session loaded', { description: filename })
       if (asset.source !== 'upload') {
         startLiveWatcher(asset)
       } else {

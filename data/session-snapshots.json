@@ -1,0 +1,24 @@
+[
+  {
+    "sessionId": "session-75706c6f6164732f6578616d706c652e6a736f6e",
+    "assetPath": "uploads/example.json",
+    "source": "upload",
+    "persisted": true,
+    "meta": {
+      "timestamp": "2025-12-22T09:20:06.082Z",
+      "origin": "codex"
+    },
+    "events": [
+      {
+        "type": "Other",
+        "data": {
+          "foo": 1
+        },
+        "origin": "codex"
+      }
+    ],
+    "eventCount": 1,
+    "createdAt": "2025-12-22T09:20:06.082Z",
+    "updatedAt": "2025-12-22T09:20:06.082Z"
+  }
+]

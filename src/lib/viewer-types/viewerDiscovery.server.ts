@@ -185,6 +185,9 @@ async function synchronizeExternalSessions(
     });
     await Promise.all(
       matches.map(async (relativePath) => {
+        if (dirInfo.origin === 'codex' && relativePath.replace(/\\/g, '/').startsWith('uploads/')) {
+          return;
+        }
         const absolutePath = deps.path.resolve(dirInfo.absolute, relativePath);
         const repoDetails = await readRepoDetailsFromFile(absolutePath, deps);
         const relativeDisplayPath = joinDisplayPath(dirInfo.displayPrefix, relativePath);

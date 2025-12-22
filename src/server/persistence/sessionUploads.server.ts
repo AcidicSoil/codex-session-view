@@ -1,8 +1,32 @@
 import { createCollection, localOnlyCollectionOptions } from '@tanstack/db'
-import path from 'node:path'
+import fs from 'node:fs'
 import type { SessionAssetSource } from '~/lib/viewerDiscovery'
-import { deriveRepoDetailsFromLine, deriveSessionTimestampMs, type RepoMetadata } from '~/lib/repo-metadata'
-import { detectSessionOriginFromContent, type SessionOrigin } from '~/lib/session-origin'
+import type { RepoMetadata } from '~/lib/repo-metadata'
+import type { SessionOrigin } from '~/lib/session-origin'
+import { deriveSessionIdFromAssetPath } from '~/lib/sessions/session-id'
+import type { SessionStatus } from '~/lib/sessions/model'
+import {
+  createUploadId,
+  deriveRepoDetailsFromContent,
+  deriveSessionTimestampFromContent,
+  ensureUploadOrigin,
+  measureContentSize,
+  normalizeAbsolutePath,
+  resolveAssetPath,
+  resolveLastModifiedMs,
+  resolveOriginalNameFromAssetPath,
+} from './sessionUploads.utils'
+import {
+  getUploadsDataDir,
+  getUploadsFilePath,
+  loadPersistedUploads,
+  resolveUploadStorageDir,
+  writeUploadToDisk,
+} from './sessionUploads.storage'
+import { toRecordDetails, toRecordView } from './sessionUploads.mappers'
+import type { SessionUploadRecord, SessionUploadRecordDetails, SessionUploadSummary } from './sessionUploads.types'
+
+export type { SessionUploadRecordDetails, SessionUploadSummary } from './sessionUploads.types'
 
 type FsModule = typeof import('node:fs/promises')
 let fsModulePromise: Promise<FsModule> | null = null
@@ -13,76 +37,77 @@ async function loadFsModule(): Promise<FsModule> {
   return fsModulePromise
 }
 
-interface SessionUploadRecord {
-  id: string
-  originalName: string
-  storedAt: string
-  size: number
-  content: string
-  repoLabel?: string
-  repoMeta?: RepoMetadata
-  source: SessionAssetSource
-  sourcePath?: string
-  sourceUpdatedAt?: number
-  lastModifiedMs?: number
-  lastModifiedIso?: string
-  workspaceRoot?: string
-  origin?: SessionOrigin
-}
+const DATA_DIR = getUploadsDataDir()
+const SESSION_UPLOADS_FILE = getUploadsFilePath()
+const SESSION_UPLOADS_DIR = resolveUploadStorageDir()
 
-export interface SessionUploadRecordDetails {
-  id: string
-  originalName: string
-  storedAt: string
-  source: SessionAssetSource
-  sourcePath?: string
-  repoLabel?: string
-  repoMeta?: RepoMetadata
-  workspaceRoot?: string
-  origin?: SessionOrigin
-}
-
-export interface SessionUploadSummary {
-  id: string
-  originalName: string
-  storedAt: string
-  size: number
-  url: string
-  repoLabel?: string
-  repoMeta?: RepoMetadata
-  source: SessionAssetSource
-  lastModifiedMs?: number
-  lastModifiedIso?: string
-  origin?: SessionOrigin
-}
+const initialUploadRecords = loadPersistedUploads()
 
 const sessionUploadsCollection = createCollection(
   localOnlyCollectionOptions<SessionUploadRecord>({
     id: 'session-uploads-store',
     getKey: (record) => record.id,
+    initialData: initialUploadRecords,
   }),
 )
 
-export async function saveSessionUpload(originalName: string, content: string): Promise<SessionUploadSummary> {
+let writeChain = Promise.resolve()
+
+function schedulePersist() {
+  writeChain = writeChain
+    .then(async () => {
+      await fs.promises.mkdir(DATA_DIR, { recursive: true })
+      const snapshot = sessionUploadsCollection.toArray.filter((record) => record.persisted)
+      await fs.promises.writeFile(SESSION_UPLOADS_FILE, JSON.stringify(snapshot, null, 2), 'utf8')
+    })
+    .catch(() => {})
+  return writeChain
+}
+
+export async function saveSessionUpload(
+  originalName: string,
+  content: string,
+  options?: { persist?: boolean },
+): Promise<SessionUploadSummary> {
   const repoDetails = deriveRepoDetailsFromContent(content)
   const lastModifiedMs = resolveLastModifiedMs(deriveSessionTimestampFromContent(content))
-  const origin = detectSessionOriginFromContent(content, { defaultOrigin: 'codex' })
+  const origin = ensureUploadOrigin(content, 'codex')
+  const assetPath = resolveAssetPath(originalName)
+  const shouldPersist = options?.persist !== false
+  const now = new Date().toISOString()
+  let sourcePath: string | undefined
+  let sourceUpdatedAt: number | undefined
+  if (shouldPersist) {
+    const result = await writeUploadToDisk(SESSION_UPLOADS_DIR, originalName, content)
+    sourcePath = result.sourcePath
+    sourceUpdatedAt = result.sourceUpdatedAt
+  }
   const record: SessionUploadRecord = {
     id: createUploadId(),
+    sessionId: deriveSessionIdFromAssetPath(assetPath),
     originalName,
-    storedAt: new Date().toISOString(),
+    storedAt: now,
     size: measureContentSize(content),
     content,
+    status: 'running',
+    startedAt: now,
+    lastUpdatedAt: now,
+    persisted: shouldPersist,
     repoLabel: repoDetails.repoLabel,
     repoMeta: repoDetails.repoMeta,
     source: 'upload',
+    sourcePath,
+    sourceUpdatedAt,
     lastModifiedMs,
     lastModifiedIso: new Date(lastModifiedMs).toISOString(),
     workspaceRoot: repoDetails.workspaceRoot,
     origin,
   }
   await sessionUploadsCollection.insert(record)
-  return toRecordView(record)
+  schedulePersist()
+  await finalizeUploadParsing(record.id, assetPath, content)
+  const refreshed = sessionUploadsCollection.get(record.id)
+  return toRecordView(refreshed ?? record)
 }
 
 export async function listSessionUploadRecords(): Promise<SessionUploadSummary[]> {
@@ -104,16 +129,55 @@ export function getSessionUploadSummaryById(id: string): SessionUploadSummary | 
   return record ? toRecordView(record) : null
 }
 
+export function findSessionUploadRecordByAssetPath(assetPath: string): SessionUploadRecordDetails | null {
+  const originalName = resolveOriginalNameFromAssetPath(assetPath)
+  return findSessionUploadRecordByOriginalName(originalName)
+}
+
+export function getSessionUploadSummaryByAssetPath(assetPath: string): SessionUploadSummary | null {
+  const originalName = resolveOriginalNameFromAssetPath(assetPath)
+  const record = sessionUploadsCollection.toArray.find((entry) => entry.originalName === originalName)
+  return record ? toRecordView(record) : null
+}
+
 export function getSessionUploadContentByOriginalName(originalName: string) {
   const record = sessionUploadsCollection.toArray.find((entry) => entry.originalName === originalName)
   if (!record) return null
   return record.content
 }
 
+export function getSessionUploadContentByAssetPath(assetPath: string) {
+  const originalName = resolveOriginalNameFromAssetPath(assetPath)
+  return getSessionUploadContentByOriginalName(originalName)
+}
+
 export async function clearSessionUploadRecords() {
   for (const record of sessionUploadsCollection.toArray) {
     await sessionUploadsCollection.delete(record.id)
   }
+  schedulePersist()
+}
+
+export async function updateSessionUploadStatusByAssetPath(
+  assetPath: string,
+  status: SessionStatus,
+  options?: { reason?: string; completedAt?: string },
+) {
+  const originalName = resolveOriginalNameFromAssetPath(assetPath)
+  const record = sessionUploadsCollection.toArray.find((entry) => entry.originalName === originalName)
+  if (!record) return null
+  const completedAt =
+    options?.completedAt ?? (status === 'succeeded' || status === 'failed' ? new Date().toISOString() : undefined)
+  await sessionUploadsCollection.update(record.id, (draft) => {
+    draft.status = status
+    draft.statusReason = options?.reason
+    if (completedAt) {
+      draft.completedAt = completedAt
+    }
+    draft.lastUpdatedAt = new Date().toISOString()
+  })
+  schedulePersist()
+  return sessionUploadsCollection.get(record.id) ?? record
 }
 
 export async function getSessionUploadContent(id: string) {
@@ -147,56 +211,25 @@ export async function refreshSessionUploadFromSource(id: string): Promise<Sessio
     draft.content = content
     draft.size = measureContentSize(content)
     draft.storedAt = new Date().toISOString()
+    draft.status = 'queued'
+    draft.completedAt = undefined
     draft.repoLabel = draft.repoLabel ?? derivedRepoDetails.repoLabel
     draft.repoMeta = draft.repoMeta ?? derivedRepoDetails.repoMeta
     draft.sourcePath = normalizeAbsolutePath(record.sourcePath!)
     draft.sourceUpdatedAt = stat.mtimeMs
     draft.lastModifiedMs = canonicalLastModifiedMs
     draft.lastModifiedIso = canonicalLastModifiedIso
+    draft.lastUpdatedAt = new Date().toISOString()
     if (derivedRepoDetails.workspaceRoot) {
       draft.workspaceRoot = derivedRepoDetails.workspaceRoot
     }
-    const updatedOrigin =
-      detectSessionOriginFromContent(content, { defaultOrigin: draft.origin ?? 'codex' }) ?? draft.origin
-    draft.origin = updatedOrigin
+    const updatedOrigin = ensureUploadOrigin(content, draft.origin)
+    draft.origin = updatedOrigin ?? draft.origin
   })
+  schedulePersist()
 
   const refreshed = sessionUploadsCollection.get(id)
   return refreshed ? toRecordView(refreshed) : null
-}
-
-function toRecordView(record: SessionUploadRecord): SessionUploadSummary {
-  const needsRepoDetails = !record.repoLabel || !record.repoMeta
-  const repoDetails = needsRepoDetails ? deriveRepoDetailsFromContent(record.content) : {}
-  const lastModifiedMs = resolveLastModifiedMs(record.lastModifiedMs, Date.parse(record.storedAt))
-  const lastModifiedIso = record.lastModifiedIso ?? new Date(lastModifiedMs).toISOString()
-  return {
-    id: record.id,
-    originalName: record.originalName,
-    storedAt: record.storedAt,
-    size: record.size,
-    url: `/api/uploads/${record.id}`,
-    repoLabel: record.repoLabel ?? repoDetails.repoLabel,
-    repoMeta: record.repoMeta ?? repoDetails.repoMeta,
-    source: record.source,
-    lastModifiedMs,
-    lastModifiedIso,
-    origin: record.origin,
-  }
-}
-
-function toRecordDetails(record: SessionUploadRecord): SessionUploadRecordDetails {
-  return {
-    id: record.id,
-    originalName: record.originalName,
-    storedAt: record.storedAt,
-    source: record.source,
-    sourcePath: record.sourcePath,
-    repoLabel: record.repoLabel,
-    repoMeta: record.repoMeta,
-    workspaceRoot: record.workspaceRoot,
-    origin: record.origin,
-  }
 }
 
 export async function ensureSessionUploadForFile(options: {
@@ -204,7 +237,7 @@ export async function ensureSessionUploadForFile(options: {
   absolutePath: string
   repoLabel?: string
   repoMeta?: RepoMetadata
-  source: Extract<SessionAssetSource, 'bundled' | 'external'>
+  source: SessionAssetSource
   sessionTimestampMs?: number
   origin?: SessionOrigin
 }): Promise<SessionUploadSummary> {
@@ -219,28 +252,35 @@ export async function ensureSessionUploadForFile(options: {
   const derivedRepoDetails = deriveRepoDetailsFromContent(content)
   const resolvedRepoLabel = options.repoLabel ?? derivedRepoDetails.repoLabel
   const resolvedRepoMeta = options.repoMeta ?? derivedRepoDetails.repoMeta
-  const fileOrigin = options.origin ?? detectSessionOriginFromContent(content, { defaultOrigin: 'codex' })
+  const fileOrigin = options.origin ?? ensureUploadOrigin(content, 'codex')
   if (existing && existing.sourceUpdatedAt === updatedAt) {
     const needsMetadataUpdate = (!!resolvedRepoLabel && !existing.repoLabel) || (!!resolvedRepoMeta && !existing.repoMeta)
     const needsTimestampUpdate =
       existing.lastModifiedMs !== canonicalLastModifiedMs || existing.lastModifiedIso !== canonicalLastModifiedIso
     const needsWorkspaceUpdate = !!derivedRepoDetails.workspaceRoot && !existing.workspaceRoot
     const needsOriginUpdate = !!fileOrigin && existing.origin !== fileOrigin
-    if (needsMetadataUpdate || needsTimestampUpdate || needsWorkspaceUpdate || needsOriginUpdate) {
+    const assetPath = resolveAssetPath(options.relativePath)
+    const needsSessionId = existing.sessionId !== deriveSessionIdFromAssetPath(assetPath)
+    if (needsMetadataUpdate || needsTimestampUpdate || needsWorkspaceUpdate || needsOriginUpdate || needsSessionId) {
       await sessionUploadsCollection.update(existing.id, (draft) => {
         draft.repoLabel = draft.repoLabel ?? resolvedRepoLabel
         draft.repoMeta = draft.repoMeta ?? resolvedRepoMeta
+        if (needsSessionId) {
+          draft.sessionId = deriveSessionIdFromAssetPath(assetPath)
+        }
         if (needsWorkspaceUpdate) {
           draft.workspaceRoot = derivedRepoDetails.workspaceRoot
         }
         if (needsTimestampUpdate) {
           draft.lastModifiedMs = canonicalLastModifiedMs
           draft.lastModifiedIso = canonicalLastModifiedIso
+          draft.lastUpdatedAt = new Date().toISOString()
         }
         if (needsOriginUpdate && fileOrigin) {
           draft.origin = fileOrigin
         }
       })
+      schedulePersist()
       const refreshed = sessionUploadsCollection.get(existing.id)
       if (refreshed) {
         return toRecordView(refreshed)
@@ -252,10 +292,13 @@ export async function ensureSessionUploadForFile(options: {
   const size = measureContentSize(content)
   if (existing) {
     await sessionUploadsCollection.update(existing.id, (draft) => {
+      draft.sessionId = deriveSessionIdFromAssetPath(resolveAssetPath(options.relativePath))
       draft.originalName = options.relativePath
       draft.size = size
       draft.content = content
       draft.storedAt = new Date().toISOString()
+      draft.status = 'queued'
+      draft.completedAt = undefined
       draft.repoLabel = resolvedRepoLabel ?? draft.repoLabel
       draft.repoMeta = resolvedRepoMeta ?? draft.repoMeta
       draft.source = options.source
@@ -263,6 +306,7 @@ export async function ensureSessionUploadForFile(options: {
       draft.sourceUpdatedAt = updatedAt
       draft.lastModifiedMs = canonicalLastModifiedMs
       draft.lastModifiedIso = canonicalLastModifiedIso
+      draft.lastUpdatedAt = new Date().toISOString()
       if (derivedRepoDetails.workspaceRoot) {
         draft.workspaceRoot = derivedRepoDetails.workspaceRoot
       }
@@ -270,6 +314,7 @@ export async function ensureSessionUploadForFile(options: {
         draft.origin = fileOrigin
       }
     })
+    schedulePersist()
     const refreshed = sessionUploadsCollection.get(existing.id)
     if (!refreshed) {
       throw new Error('Failed to refresh session upload record')
@@ -277,12 +322,18 @@ export async function ensureSessionUploadForFile(options: {
     return toRecordView(refreshed)
   }
 
+  const assetPath = resolveAssetPath(options.relativePath)
   const record: SessionUploadRecord = {
     id: createUploadId(),
+    sessionId: deriveSessionIdFromAssetPath(assetPath),
     originalName: options.relativePath,
     storedAt: new Date().toISOString(),
     size,
     content,
+    status: 'queued',
+    startedAt: new Date().toISOString(),
+    lastUpdatedAt: new Date().toISOString(),
+    persisted: options.source !== 'upload',
     repoLabel: resolvedRepoLabel,
     repoMeta: resolvedRepoMeta,
     source: options.source,
@@ -294,83 +345,37 @@ export async function ensureSessionUploadForFile(options: {
     origin: fileOrigin,
   }
   await sessionUploadsCollection.insert(record)
+  schedulePersist()
   return toRecordView(record)
 }
 
-function createUploadId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
+async function finalizeUploadParsing(uploadId: string, assetPath: string, content: string) {
+  try {
+    const { ensureSessionSnapshotFromContent } = await import('./sessionSnapshots.server')
+    const record = sessionUploadsCollection.get(uploadId)
+    await ensureSessionSnapshotFromContent({
+      sessionId: deriveSessionIdFromAssetPath(assetPath),
+      assetPath,
+      content,
+      source: 'upload',
+      persisted: record?.persisted ?? true,
+    })
+    await sessionUploadsCollection.update(uploadId, (draft) => {
+      draft.status = 'succeeded'
+      draft.completedAt = new Date().toISOString()
+      draft.lastUpdatedAt = new Date().toISOString()
+      draft.statusReason = undefined
+    })
+  } catch (error) {
+    await sessionUploadsCollection.update(uploadId, (draft) => {
+      draft.status = 'failed'
+      draft.completedAt = new Date().toISOString()
+      draft.lastUpdatedAt = new Date().toISOString()
+      draft.statusReason = error instanceof Error ? error.message : 'Failed to parse session'
+    })
+  } finally {
+    schedulePersist()
   }
-  return `upload_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`
-}
-
-function measureContentSize(content: string) {
-  if (typeof TextEncoder !== 'undefined') {
-    return new TextEncoder().encode(content).length
-  }
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.byteLength(content, 'utf8')
-  }
-  return content.length
-}
-
-function deriveRepoDetailsFromContent(content: string) {
-  const firstLine = content.split(/\r?\n/, 1)[0] ?? ''
-  if (!firstLine) return {}
-  const details = deriveRepoDetailsFromLine(firstLine)
-  if (details.workspaceRoot) {
-    return {
-      ...details,
-      workspaceRoot: normalizeWorkspaceRootPath(details.workspaceRoot),
-    }
-  }
-  return details
-}
-
-function deriveSessionTimestampFromContent(content: string) {
-  const firstLine = content.split(/\r?\n/, 1)[0] ?? ''
-  if (!firstLine) return undefined
-  return deriveSessionTimestampMs(firstLine)
-}
-
-function resolveLastModifiedMs(preferred?: number, fallback?: number) {
-  const normalizedPreferred = normalizeTimestamp(preferred)
-  if (typeof normalizedPreferred === 'number') {
-    return normalizedPreferred
-  }
-  const normalizedFallback = normalizeTimestamp(fallback)
-  if (typeof normalizedFallback === 'number') {
-    return normalizedFallback
-  }
-  return Date.now()
-}
-
-function normalizeTimestamp(value: number | undefined) {
-  if (typeof value !== 'number') return undefined
-  if (!Number.isFinite(value)) return undefined
-  const rounded = Math.round(value)
-  return Number.isFinite(rounded) ? rounded : undefined
-}
-
-function normalizeAbsolutePath(path: string) {
-  return path.replace(/\\/g, '/').replace(/\/+$/, '')
-}
-
-function normalizeWorkspaceRootPath(input?: string) {
-  if (!input) return undefined
-  const trimmed = input.trim()
-  if (!trimmed) return undefined
-  let resolved = trimmed
-  if (trimmed.startsWith('~')) {
-    const home = process.env.HOME ?? process.env.USERPROFILE
-    if (home) {
-      resolved = path.join(home, trimmed.slice(1))
-    }
-  }
-  if (!path.isAbsolute(resolved)) {
-    resolved = path.resolve(resolved)
-  }
-  return normalizeAbsolutePath(resolved)
 }
 
 function findRecordBySource(absolutePath: string, source: SessionAssetSource) {
