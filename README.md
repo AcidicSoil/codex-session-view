@@ -17,10 +17,6 @@
 
 ---
 
-<p>
-<img src="https://github.com/acidicsoil/codex-session-view/raw/HEAD/public/demos/demo.gif" alt="session preview" />
-</p>
-
 A specialized workbench for visualizing, analyzing, and debugging AI coding agent sessions. This tool provides an interactive timeline of execution traces and an integrated "Session Coach" agent that validates behavior against defined project rules. It's built to help developers and AI engineers understand complex interactions and diagnose issues with precision.
 
 ## ✨ Key Features
