@@ -122,3 +122,4 @@ node_modules/
 dev-server-output.txt
 test-results.txt
 .env*.local
+data/session-uploads.json
