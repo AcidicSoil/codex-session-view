@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- Added a comprehensive Product-Parity Gap Analysis (`docs/gap-analysis.md`) comparing the workbench against enterprise standards (LangSmith, Phoenix) and outlining a roadmap for structured persistence and multi-project workspaces.
 - Trimmed Playwright E2E coverage to the critical upload → timeline journey and migrated chatbot API checks to Vitest contract tests.
 - Added stable test IDs for repository toggles and session load buttons to keep E2E selectors resilient.
 - Added a safe server fallback for browser log forwarding to prevent test crashes when Start transforms are not applied.
