@@ -121,13 +121,13 @@
 * Never create a local pnpm --store
 * Never use `git reset --hard HEAD`
 * Before ending your turn:
-  * Create/adjust e2e tests for webapp-testing by following `~/.codex/skills/webapp-testing/SKILL.md`
-  * Run `pnpm lint`, resolve linting warnings and errors
-  * Run `pnpm build`, resolve build errors if any
+  * Create new and/or sync existing e2e tests with `$webapp-testing` skill
+  * Run `pnpm lint` once per run, resolve linting warnings and errors
+  * Run `pnpm build` once per run, resolve build errors if any
   * Documentation and test synchronization:
-    * Revise/sync externally facing documentation and keep README.md up to date with latest changes while also pruning outdated content.
-    * Update CHANGELOG
-    * Revise/sync old existing e2e tests until all e2e tests pass.
+    * Review and/or sync any externally facing documentation and keep README.md up to date with latest changes while also pruning outdated content.
+    * Update CHANGELOG after every run
+    * Review and/or sync all tests and old existing e2e tests until all e2e tests pass. Do this once per turn.
 
 ## docs map
 
