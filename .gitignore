@@ -34,7 +34,7 @@ yarn.lock
 src/routeTree.gen.ts
 .ck
 .spezi
-
+data/
 # personal ignores
 **/var/**
 **/.vite/**
