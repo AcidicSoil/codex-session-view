@@ -22,7 +22,8 @@ nested = true
 # output_path_instructions = "AGENTS.md"
 # output_path_config = ".aider.conf.yml"
 
-
+[agents.gemini-cli]
+enabled = true
 
 # --- MCP Servers ---
 # Define Model Context Protocol servers here. Two examples:
