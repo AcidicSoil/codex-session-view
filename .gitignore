@@ -63,6 +63,7 @@ scripts
 .mypy_cache
 .archived
 .codex
+data/
 
 # START Ruler Generated Files
 /.codex/config.toml

@@ -21,7 +21,8 @@
     "code:srca": "pnpm code && pnpm code:agents",
     "agents": "bash scripts/agents-v2.sh && pnpm code:srca",
     "thres": "git ls-files --cached --others --exclude-standard -z | xargs -0 -n 1 wc -l | awk '$1 >= 400 { printf \"%s\\t%s\\n\", $2, $1 }'",
-    "tasks": "codefetch --include-dir docs/tasks/ -o tasks.md"
+    "tasks": "codefetch --include-dir docs/tasks/ -o tasks.md",
+    "code:o": "codefetch -t 5 --include-files \"oracle-out/**/*.md,docs/oracle-pack-2026-01-05.md\" -o oracle-pack_I-O.md --max-tokens 75000 --token-limiter truncated"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.49",
