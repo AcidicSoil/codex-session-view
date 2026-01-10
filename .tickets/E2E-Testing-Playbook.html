@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The E2E Testing Playbook</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8FAFC;
+            color: #1E293B;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card-shadow:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Chart Container Styling - Mandatory */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+
+        @media (max-width: 640px) {
+            .chart-container {
+                height: 250px;
+            }
+        }
+
+        .nav-active {
+            border-bottom: 2px solid #3B82F6;
+            color: #1E40AF;
+        }
+
+        .simulation-box {
+            background-image: radial-gradient(#CBD5E1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+    <!-- Chosen Palette: Slate & Blue (Professional, Technical, Clean) -->
+    <!-- Application Structure Plan:
+         1. Header: Title and Global Navigation.
+         2. Hero: "The North Star" - immediate answer to the user's main question.
+         3. Strategy Section: Interactive visualizations (Chart.js) comparing test types (Pyramid concept).
+         4. Tactics Section: "Selector Dojo" & "Flakiness Lab" - Interactive JS simulations to prove best practices.
+         5. Checklist: Actionable summary.
+         The structure moves from high-level philosophy to concrete technical implementation.
+    -->
+    <!-- Visualization & Content Choices:
+         1. Value vs Cost Scatter Plot: Visualizes the "Sweet Spot" for E2E.
+         2. Simulation DOM: Visualizes Selector fragility using vanilla JS DOM manipulation.
+         3. Progress Bars/Timers: Visualizes "Waiting" strategies.
+         4. NO SVG/Mermaid: All icons are unicode or CSS shapes. Charts are Canvas.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-2xl font-bold text-slate-800 tracking-tight">E2E<span class="text-blue-600">Playbook</span></span>
+                </div>
+                <div class="hidden md:flex space-x-8 items-center" id="nav-links">
+                    <button onclick="navigateTo('north-star')" class="nav-btn text-slate-600 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors" data-target="north-star">The North Star</button>
+                    <button onclick="navigateTo('strategy')" class="nav-btn text-slate-600 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors" data-target="strategy">Strategy</button>
+                    <button onclick="navigateTo('tactics')" class="nav-btn text-slate-600 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors" data-target="tactics">Tactics Lab</button>
+                    <button onclick="navigateTo('checklist')" class="nav-btn text-slate-600 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors" data-target="checklist">Checklist</button>
+                </div>
+                <!-- Mobile menu button placeholder -->
+                <div class="md:hidden flex items-center">
+                    <button class="text-slate-500 hover:text-slate-800" onclick="alert('Please use desktop view for best simulation experience.')">☰</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+
+        <!-- SECTION 1: THE NORTH STAR (Answering "The Main Thing") -->
+        <section id="north-star" class="space-y-6 animate-fade-in">
+            <div class="text-center max-w-3xl mx-auto">
+                <h1 class="text-4xl font-bold text-slate-900 mb-4">What is the <span class="text-blue-600">Main Thing</span> to Test?</h1>
+                <p class="text-lg text-slate-600 leading-relaxed">
+                    End-to-End tests are expensive to run and maintain. To make them impactful, you must ignore edge cases and focus purely on <span class="font-semibold text-slate-900">Critical User Journeys</span>. These are the paths that, if broken, cause your business to lose money or trust immediately.
+                </p>
+            </div>
+
+            <!-- Value vs Cost Chart -->
+            <div class="bg-white rounded-xl card-shadow p-6 border border-slate-100">
+                <div class="mb-4 flex justify-between items-end">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">The ROI Matrix</h2>
+                        <p class="text-sm text-slate-500">Hover over points to see which tests belong in E2E vs. Unit.</p>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="roiChart"></canvas>
+                </div>
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div class="p-3 bg-green-50 rounded-lg border border-green-100">
+                        <div class="font-bold text-green-700">The Sweet Spot</div>
+                        <div class="text-xs text-green-600">High Value, Critical Paths</div>
+                    </div>
+                    <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                        <div class="font-bold text-yellow-700">Integration Zone</div>
+                        <div class="text-xs text-yellow-600">Complex Logic, API Contracts</div>
+                    </div>
+                    <div class="p-3 bg-red-50 rounded-lg border border-red-100">
+                        <div class="font-bold text-red-700">Unit Test Zone</div>
+                        <div class="text-xs text-red-600">Edge Cases, Utility Functions</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: STRATEGY (The Pyramid) -->
+        <section id="strategy" class="space-y-8 hidden">
+            <div class="bg-white rounded-xl card-shadow p-8 border border-slate-100">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                    <div>
+                        <h2 class="text-3xl font-bold text-slate-900 mb-4">The Balanced Portfolio</h2>
+                        <p class="text-slate-600 mb-6">
+                            Imagine your test suite as an investment portfolio. E2E tests are high-risk/high-reward assets. You shouldn't invest everything in them because they are slow and brittle.
+                        </p>
+
+                        <div class="bg-slate-50 p-6 rounded-lg border border-slate-200 space-y-4">
+                            <h3 class="font-semibold text-slate-800">Adjust Your Strategy:</h3>
+                            <div>
+                                <label class="flex justify-between text-sm font-medium text-slate-700 mb-1">
+                                    <span>Unit Tests (Fast, Cheap)</span>
+                                    <span id="unit-val">70%</span>
+                                </label>
+                                <input type="range" min="0" max="100" value="70" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" id="unit-slider">
+                            </div>
+                            <div>
+                                <label class="flex justify-between text-sm font-medium text-slate-700 mb-1">
+                                    <span>Integration Tests (Middle Ground)</span>
+                                    <span id="int-val">20%</span>
+                                </label>
+                                <input type="range" min="0" max="100" value="20" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600" id="int-slider">
+                            </div>
+                            <div>
+                                <label class="flex justify-between text-sm font-medium text-slate-700 mb-1">
+                                    <span>E2E Tests (Slow, Expensive)</span>
+                                    <span id="e2e-val">10%</span>
+                                </label>
+                                <input type="range" min="0" max="100" value="10" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-rose-600" id="e2e-slider">
+                            </div>
+                        </div>
+
+                        <div class="mt-6 grid grid-cols-3 gap-2 text-center text-sm">
+                            <div class="p-2 rounded bg-slate-100">
+                                <div class="text-slate-500 text-xs uppercase tracking-wider">Speed</div>
+                                <div id="metric-speed" class="font-bold text-green-600">Fast</div>
+                            </div>
+                            <div class="p-2 rounded bg-slate-100">
+                                <div class="text-slate-500 text-xs uppercase tracking-wider">Stability</div>
+                                <div id="metric-stability" class="font-bold text-green-600">High</div>
+                            </div>
+                            <div class="p-2 rounded bg-slate-100">
+                                <div class="text-slate-500 text-xs uppercase tracking-wider">Confidence</div>
+                                <div id="metric-confidence" class="font-bold text-blue-600">Optimal</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="pyramidChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: TACTICS LAB (Interactive Best Practices) -->
+        <section id="tactics" class="space-y-8 hidden">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-slate-900">Tactics Laboratory</h2>
+                <p class="text-slate-600">Prove the best practices yourself with these interactive simulations.</p>
+            </div>
+
+            <!-- LAB 1: SELECTOR DOJO -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white rounded-xl card-shadow overflow-hidden border border-slate-100 flex flex-col">
+                    <div class="p-6 bg-slate-900 text-white">
+                        <h3 class="text-xl font-bold flex items-center">
+                            <span class="mr-2">🎯</span> Selector Dojo
+                        </h3>
+                        <p class="text-slate-400 text-sm mt-1">Why <span class="font-mono text-yellow-400">data-testid</span> beats CSS selectors.</p>
+                    </div>
+
+                    <div class="p-6 flex-grow flex flex-col space-y-6">
+                        <div class="text-sm text-slate-600">
+                            <strong>Scenario:</strong> The marketing team just updated the landing page styles. The DOM structure changed, but the functionality is the same.
+                        </div>
+
+                        <!-- Simulation Box -->
+                        <div class="simulation-box rounded-lg p-8 flex items-center justify-center relative min-h-[160px]" id="dom-playground">
+                            <!-- This button will be manipulated by JS -->
+                            <button id="target-btn" data-testid="submit-btn" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition-all">
+                                Submit Order
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <button onclick="runBadTest()" class="flex flex-col items-center justify-center p-4 border-2 border-slate-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-colors group">
+                                <span class="font-bold text-red-600 mb-1">Run Bad Test</span>
+                                <code class="text-xs bg-slate-100 p-1 rounded text-slate-500 group-hover:bg-white">cy.get('div > button.blue')</code>
+                            </button>
+                            <button onclick="runGoodTest()" class="flex flex-col items-center justify-center p-4 border-2 border-slate-200 rounded-lg hover:border-green-400 hover:bg-green-50 transition-colors group">
+                                <span class="font-bold text-green-600 mb-1">Run Good Test</span>
+                                <code class="text-xs bg-slate-100 p-1 rounded text-slate-500 group-hover:bg-white">cy.get('[data-testid="submit-btn"]')</code>
+                            </button>
+                        </div>
+
+                        <div id="selector-result" class="hidden p-3 rounded text-center text-sm font-bold"></div>
+
+                        <button onclick="refactorDom()" class="w-full py-2 bg-slate-200 text-slate-700 font-semibold rounded hover:bg-slate-300 transition-colors">
+                            🔄 Simulate "Refactor" (Change DOM)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LAB 2: FLAKINESS SIMULATOR -->
+                <div class="bg-white rounded-xl card-shadow overflow-hidden border border-slate-100 flex flex-col">
+                    <div class="p-6 bg-slate-900 text-white">
+                        <h3 class="text-xl font-bold flex items-center">
+                            <span class="mr-2">⏳</span> Flakiness Simulator
+                        </h3>
+                        <p class="text-slate-400 text-sm mt-1">Why <span class="font-mono text-yellow-400">auto-wait</span> beats <span class="font-mono text-red-400">sleep()</span>.</p>
+                    </div>
+
+                    <div class="p-6 flex-grow flex flex-col space-y-6">
+                        <div class="text-sm text-slate-600">
+                            <strong>Scenario:</strong> Network latency varies. Sometimes the data loads in 1s, sometimes in 3s.
+                        </div>
+
+                        <!-- Visualization of Load -->
+                        <div class="bg-slate-100 rounded-lg p-4 relative h-24 flex items-center justify-center overflow-hidden">
+                            <div id="loading-spinner" class="hidden animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <div id="data-content" class="hidden text-green-600 font-bold">Data Loaded! 🎉</div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <!-- Bad Strategy -->
+                            <div class="flex items-center justify-between p-3 border border-red-100 bg-red-50 rounded">
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-red-800">Fixed Sleep Strategy</span>
+                                    <code class="text-xs text-red-600">cy.wait(2000) // Sleep 2s</code>
+                                </div>
+                                <button onclick="runWaitSim('fixed')" class="px-3 py-1 bg-white border border-red-200 text-red-700 rounded text-sm hover:bg-red-100">Run</button>
+                            </div>
+
+                            <!-- Good Strategy -->
+                            <div class="flex items-center justify-between p-3 border border-green-100 bg-green-50 rounded">
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-green-800">Smart Wait Strategy</span>
+                                    <code class="text-xs text-green-600">cy.findByText('Data', {timeout: 5000})</code>
+                                </div>
+                                <button onclick="runWaitSim('smart')" class="px-3 py-1 bg-white border border-green-200 text-green-700 rounded text-sm hover:bg-green-100">Run</button>
+                            </div>
+                        </div>
+
+                        <div id="wait-result" class="hidden p-3 rounded text-center text-sm font-bold"></div>
+
+                        <div class="text-xs text-slate-400 text-center italic">
+                            Simulated network latency: <span id="network-latency">2500</span>ms
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: CHECKLIST -->
+        <section id="checklist" class="hidden max-w-4xl mx-auto">
+            <div class="bg-white rounded-xl card-shadow border border-slate-100 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 bg-slate-50">
+                    <h2 class="text-2xl font-bold text-slate-800">The "Golden Rule" Checklist</h2>
+                    <p class="text-slate-600 mt-2">Before merging that PR, check your E2E tests against these rules.</p>
+                </div>
+                <div class="divide-y divide-slate-100" id="checklist-container">
+                    <!-- JS will populate this -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 mt-12 py-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
+            <p>Generated for educational purposes. Inspired by industry best practices.</p>
+            <p class="mt-2">Remember: <strong>Tests should give you confidence, not anxiety.</strong></p>
+        </div>
+    </footer>
+
+    <script>
+        // --- STATE MANAGEMENT ---
+        const state = {
+            currentView: 'north-star',
+            pyramidData: { unit: 70, int: 20, e2e: 10 },
+            domRefactored: false,
+            latency: 2500 // Simulated latency
+        };
+
+        // --- NAVIGATION LOGIC ---
+        function navigateTo(viewId) {
+            // Update State
+            state.currentView = viewId;
+
+            // Update UI: Hide all sections
+            document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
+
+            // Show target section
+            document.getElementById(viewId).classList.remove('hidden');
+
+            // Update Nav Styles
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.dataset.target === viewId) {
+                    btn.classList.add('nav-active', 'text-blue-700');
+                    btn.classList.remove('text-slate-600');
+                } else {
+                    btn.classList.remove('nav-active', 'text-blue-700');
+                    btn.classList.add('text-slate-600');
+                }
+            });
+
+            // Trigger specific inits if needed
+            if (viewId === 'strategy') updatePyramidChart();
+            if (viewId === 'north-star') updateRoiChart();
+        }
+
+        // --- CHART: ROI MATRIX (North Star) ---
+        let roiChartInstance = null;
+        function initRoiChart() {
+            const ctx = document.getElementById('roiChart').getContext('2d');
+            roiChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'E2E Candidates (High Value, High Risk)',
+                        data: [
+                            {x: 85, y: 90, r: 15, label: 'Checkout Flow'},
+                            {x: 90, y: 85, r: 12, label: 'User Login'},
+                            {x: 80, y: 80, r: 10, label: 'Sign Up'}
+                        ],
+                        backgroundColor: 'rgba(37, 99, 235, 0.6)', // Blue-600
+                        borderColor: 'rgba(37, 99, 235, 1)',
+                    }, {
+                        label: 'Integration Candidates',
+                        data: [
+                            {x: 50, y: 60, r: 8, label: 'Search Filters'},
+                            {x: 60, y: 50, r: 8, label: 'Profile Update'},
+                            {x: 45, y: 70, r: 8, label: 'API Data Sync'}
+                        ],
+                        backgroundColor: 'rgba(234, 179, 8, 0.6)', // Yellow-500
+                        borderColor: 'rgba(234, 179, 8, 1)',
+                    }, {
+                        label: 'Unit Test Candidates',
+                        data: [
+                            {x: 20, y: 30, r: 6, label: 'Form Validation'},
+                            {x: 10, y: 20, r: 6, label: 'Date Formatting'},
+                            {x: 15, y: 40, r: 6, label: 'Button States'}
+                        ],
+                        backgroundColor: 'rgba(239, 68, 68, 0.6)', // Red-500
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Business Impact / Criticality' },
+                            min: 0, max: 100,
+                            grid: { display: false }
+                        },
+                        y: {
+                            title: { display: true, text: 'Complexity / Integration Level' },
+                            min: 0, max: 100
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.raw.label || '';
+                                }
+                            }
+                        },
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+        function updateRoiChart() {
+            if (!roiChartInstance) initRoiChart();
+        }
+
+
+        // --- CHART: PYRAMID STRATEGY ---
+        let pyramidChartInstance = null;
+        function initPyramidChart() {
+            const ctx = document.getElementById('pyramidChart').getContext('2d');
+
+            pyramidChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Test Suite Composition'],
+                    datasets: [
+                        {
+                            label: 'E2E (Top)',
+                            data: [state.pyramidData.e2e],
+                            backgroundColor: '#E11D48', // Rose-600
+                            barPercentage: 0.2,
+                        },
+                        {
+                            label: 'Integration (Middle)',
+                            data: [state.pyramidData.int],
+                            backgroundColor: '#9333EA', // Purple-600
+                            barPercentage: 0.6,
+                        },
+                        {
+                            label: 'Unit (Base)',
+                            data: [state.pyramidData.unit],
+                            backgroundColor: '#2563EB', // Blue-600
+                            barPercentage: 1.0,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y', // Horizontal bars stacked to look like pyramid layers (abstractly)
+                    scales: {
+                        x: { stacked: true, display: false, max: 100 },
+                        y: { stacked: true, display: false }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: ${ctx.raw}%`
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Bind Sliders
+            ['unit', 'int', 'e2e'].forEach(type => {
+                document.getElementById(`${type}-slider`).addEventListener('input', (e) => {
+                    const val = parseInt(e.target.value);
+                    document.getElementById(`${type}-val`).innerText = val + '%';
+                    state.pyramidData[type] = val;
+
+                    // Update Chart Data
+                    if(type === 'unit') pyramidChartInstance.data.datasets[2].data = [val];
+                    if(type === 'int') pyramidChartInstance.data.datasets[1].data = [val];
+                    if(type === 'e2e') pyramidChartInstance.data.datasets[0].data = [val];
+
+                    pyramidChartInstance.update();
+                    calculateMetrics();
+                });
+            });
+        }
+
+        function updatePyramidChart() {
+            if (!pyramidChartInstance) initPyramidChart();
+        }
+
+        function calculateMetrics() {
+            const { unit, int, e2e } = state.pyramidData;
+            const total = unit + int + e2e;
+
+            // Heuristic Logic for metrics
+            const speedEl = document.getElementById('metric-speed');
+            const stabilityEl = document.getElementById('metric-stability');
+            const confEl = document.getElementById('metric-confidence');
+
+            // Speed: More E2E = Slower
+            if (e2e > 30) { speedEl.innerText = "Crawling"; speedEl.className = "font-bold text-red-600"; }
+            else if (e2e > 15) { speedEl.innerText = "Sluggish"; speedEl.className = "font-bold text-yellow-600"; }
+            else { speedEl.innerText = "Fast"; speedEl.className = "font-bold text-green-600"; }
+
+            // Stability: More E2E = Flakier
+            if (e2e > 40) { stabilityEl.innerText = "Flaky"; stabilityEl.className = "font-bold text-red-600"; }
+            else { stabilityEl.innerText = "Stable"; stabilityEl.className = "font-bold text-green-600"; }
+
+            // Confidence: Need some E2E, mostly Unit/Int
+            if (e2e < 5) { confEl.innerText = "Low (Blind Spots)"; confEl.className = "font-bold text-red-600"; }
+            else if (unit < 40) { confEl.innerText = "Low (Brittle)"; confEl.className = "font-bold text-yellow-600"; }
+            else { confEl.innerText = "High"; confEl.className = "font-bold text-blue-600"; }
+        }
+
+
+        // --- SIMULATION 1: SELECTOR DOJO ---
+        function refactorDom() {
+            const btn = document.getElementById('target-btn');
+            const box = document.getElementById('dom-playground');
+
+            // Randomly change structure or classes to simulate refactor
+            state.domRefactored = true;
+
+            // Visual Change
+            box.style.justifyContent = Math.random() > 0.5 ? 'flex-start' : 'flex-end';
+            btn.className = `bg-blue-600 text-white px-4 py-2 rounded shadow ${Math.random() > 0.5 ? 'm-4' : 'm-0'}`;
+
+            // Breaking the "Bad" Selector
+            // The bad selector expects 'div > button.blue'. We might wrap it in a span or remove the blue class from DOM perspective (but keep style via Tailwind)
+            if (Math.random() > 0.5) {
+                // Wrap in span
+                if (btn.parentElement.tagName !== 'SPAN') {
+                    const span = document.createElement('span');
+                    btn.parentNode.insertBefore(span, btn);
+                    span.appendChild(btn);
+                }
+            } else {
+                // Change internal structure
+                // Reset wrapper if exists
+            }
+
+            // Provide visual feedback
+            const feedback = document.createElement('div');
+            feedback.innerText = "⚡ Refactor Applied!";
+            feedback.className = "absolute top-2 right-2 text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded animate-pulse";
+            box.appendChild(feedback);
+            setTimeout(() => feedback.remove(), 2000);
+
+            document.getElementById('selector-result').className = "hidden";
+        }
+
+        function runBadTest() {
+            const resultEl = document.getElementById('selector-result');
+            resultEl.className = "block p-3 rounded text-center text-sm font-bold mt-4";
+
+            // Simulating "cy.get('div > button.bg-blue-600')" - naive selector
+            // If we wrapped it in a span during refactor, direct child selector might fail or if classes changed
+
+            if (state.domRefactored) {
+                // High chance of failure in this simulation if refactored
+                resultEl.innerText = "❌ FAIL: Element not found using 'div > button.bg-blue-600'";
+                resultEl.classList.add('bg-red-100', 'text-red-700');
+                resultEl.classList.remove('bg-green-100', 'text-green-700');
+            } else {
+                resultEl.innerText = "✅ PASS: Element found (Lucky you!)";
+                resultEl.classList.add('bg-green-100', 'text-green-700');
+                resultEl.classList.remove('bg-red-100', 'text-red-700');
+            }
+        }
+
+        function runGoodTest() {
+            const resultEl = document.getElementById('selector-result');
+            resultEl.className = "block p-3 rounded text-center text-sm font-bold mt-4";
+
+            // Simulating data-testid lookup
+            const found = document.querySelector('[data-testid="submit-btn"]');
+
+            if (found) {
+                resultEl.innerText = "✅ PASS: Element found via data-testid (Resilient!)";
+                resultEl.classList.add('bg-green-100', 'text-green-700');
+                resultEl.classList.remove('bg-red-100', 'text-red-700');
+            } else {
+                // Should not happen unless dev deletes element entirely
+                resultEl.innerText = "❌ FAIL: Element gone entirely.";
+                resultEl.classList.add('bg-red-100', 'text-red-700');
+            }
+        }
+
+
+        // --- SIMULATION 2: FLAKINESS LAB ---
+        function runWaitSim(strategy) {
+            const spinner = document.getElementById('loading-spinner');
+            const content = document.getElementById('data-content');
+            const resultEl = document.getElementById('wait-result');
+
+            // Reset
+            spinner.classList.remove('hidden');
+            content.classList.add('hidden');
+            resultEl.className = "hidden";
+
+            // Randomize Latency slightly
+            const actualLatency = 2500 + (Math.random() * 1000 - 500);
+            document.getElementById('network-latency').innerText = Math.floor(actualLatency);
+
+            // Start Load
+            setTimeout(() => {
+                spinner.classList.add('hidden');
+                content.classList.remove('hidden');
+            }, actualLatency);
+
+            // Execute Test Logic
+            if (strategy === 'fixed') {
+                // Fixed wait of 2000ms
+                resultEl.className = "block p-3 rounded text-center text-sm font-bold mt-4 bg-yellow-100 text-yellow-800";
+                resultEl.innerText = "⏳ Waiting 2000ms...";
+
+                setTimeout(() => {
+                    if (!content.classList.contains('hidden')) {
+                         resultEl.innerText = "✅ PASS: Data was ready.";
+                         resultEl.className = "block p-3 rounded text-center text-sm font-bold mt-4 bg-green-100 text-green-700";
+                    } else {
+                         resultEl.innerText = `❌ FAIL: Expected data, but it was still loading. (Latency ${Math.floor(actualLatency)}ms > Wait 2000ms)`;
+                         resultEl.className = "block p-3 rounded text-center text-sm font-bold mt-4 bg-red-100 text-red-700";
+                    }
+                }, 2000); // The fixed wait
+            } else {
+                // Smart wait (polling)
+                resultEl.className = "block p-3 rounded text-center text-sm font-bold mt-4 bg-blue-100 text-blue-800";
+                resultEl.innerText = "👀 Watching for element...";
+
+                const checkInterval = setInterval(() => {
+                    if (!content.classList.contains('hidden')) {
+                        clearInterval(checkInterval);
+                        resultEl.innerText = "✅ PASS: Found data immediately after load. Saved time!";
+                        resultEl.className = "block p-3 rounded text-center text-sm font-bold mt-4 bg-green-100 text-green-700";
+                    }
+                }, 100);
+            }
+        }
+
+
+        // --- CONTENT: CHECKLIST GENERATION ---
+        const checklistItems = [
+            { title: "Test Independent State", desc: "Does the test clean up after itself? Can it run in parallel?", cat: "reliability" },
+            { title: "Resilient Selectors", desc: "Are you using `data-testid` instead of CSS classes?", cat: "maintenance" },
+            { title: "Network Mocking", desc: "Are you mocking 3rd party APIs to avoid their downtime failing your build?", cat: "reliability" },
+            { title: "Critical Path Only", desc: "Is this a business-critical flow? If not, move to integration.", cat: "speed" },
+            { title: "No Hard Waits", desc: "Did you remove all `sleep(5000)` calls?", cat: "speed" },
+            { title: "Visual Regression", desc: "Are you checking layout shifts, not just functionality?", cat: "quality" },
+        ];
+
+        function renderChecklist() {
+            const container = document.getElementById('checklist-container');
+            container.innerHTML = checklistItems.map(item => `
+                <div class="flex items-start p-4 hover:bg-slate-50 transition-colors">
+                    <div class="flex-shrink-0 pt-1">
+                        <input type="checkbox" class="h-5 w-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300">
+                    </div>
+                    <div class="ml-4">
+                        <h4 class="text-base font-bold text-slate-900">${item.title}</h4>
+                        <p class="text-sm text-slate-500">${item.desc}</p>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800 mt-2">
+                            ${item.cat.toUpperCase()}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+
+        // --- INIT ---
+        window.addEventListener('load', () => {
+            initRoiChart();
+            renderChecklist();
+
+            // Set initial Nav
+            navigateTo('north-star');
+        });
+
+    </script>
+</body>
+</html>

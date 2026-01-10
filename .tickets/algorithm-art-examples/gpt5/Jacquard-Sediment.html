@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<!--
+    THIS IS A TEMPLATE THAT SHOULD BE USED EVERY TIME AND MODIFIED.
+    WHAT TO KEEP:
+    ✓ Overall structure (header, sidebar, main content)
+    ✓ Anthropic branding (colors, fonts, layout)
+    ✓ Seed navigation section (always include this)
+    ✓ Self-contained artifact (everything inline)
+
+    WHAT TO CREATIVELY EDIT:
+    ✗ The p5.js algorithm (implement YOUR vision)
+    ✗ The parameters (define what YOUR art needs)
+    ✗ The UI controls (match YOUR parameters)
+
+    Let your philosophy guide the implementation.
+    The world is your oyster - be creative!
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generative Art Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* Anthropic Brand Colors */
+        :root {
+            --anthropic-dark: #141413;
+            --anthropic-light: #faf9f5;
+            --anthropic-mid-gray: #b0aea5;
+            --anthropic-light-gray: #e8e6dc;
+            --anthropic-orange: #d97757;
+            --anthropic-blue: #6a9bcc;
+            --anthropic-green: #788c5d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, var(--anthropic-light) 0%, #f5f3ee 100%);
+            min-height: 100vh;
+            color: var(--anthropic-dark);
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(20, 20, 19, 0.1);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .sidebar h1 {
+            font-family: 'Lora', serif;
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--anthropic-dark);
+            margin-bottom: 8px;
+        }
+
+        .sidebar .subtitle {
+            color: var(--anthropic-mid-gray);
+            font-size: 14px;
+            margin-bottom: 32px;
+            line-height: 1.4;
+        }
+
+        /* Control Sections */
+        .control-section {
+            margin-bottom: 32px;
+        }
+
+        .control-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--anthropic-dark);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-section h3::before {
+            content: '•';
+            color: var(--anthropic-orange);
+            font-weight: bold;
+        }
+
+        /* Seed Controls */
+        .seed-input {
+            width: 100%;
+            background: var(--anthropic-light);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin-bottom: 12px;
+            border: 1px solid var(--anthropic-light-gray);
+            text-align: center;
+        }
+
+        .seed-input:focus {
+            outline: none;
+            border-color: var(--anthropic-orange);
+            box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.1);
+            background: white;
+        }
+
+        .seed-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .regen-button {
+            margin-bottom: 0;
+        }
+
+        /* Parameter Controls */
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--anthropic-dark);
+            margin-bottom: 8px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: var(--anthropic-light-gray);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--anthropic-orange);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            background: #c86641;
+        }
+
+        .slider-container input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--anthropic-orange);
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .value-display {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: var(--anthropic-mid-gray);
+            min-width: 60px;
+            text-align: right;
+        }
+
+        /* Color Pickers */
+        .color-group {
+            margin-bottom: 16px;
+        }
+
+        .color-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--anthropic-mid-gray);
+            margin-bottom: 4px;
+        }
+
+        .color-picker-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .color-picker-container input[type="color"] {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+
+        .color-value {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: var(--anthropic-mid-gray);
+        }
+
+        /* Buttons */
+        .button {
+            background: var(--anthropic-orange);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .button:hover {
+            background: #c86641;
+            transform: translateY(-1px);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button.secondary {
+            background: var(--anthropic-blue);
+        }
+
+        .button.secondary:hover {
+            background: #5a8bb8;
+        }
+
+        .button.tertiary {
+            background: var(--anthropic-green);
+        }
+
+        .button.tertiary:hover {
+            background: #6b7b52;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .button-row .button {
+            flex: 1;
+        }
+
+        /* Canvas Area */
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        #canvas-container {
+            width: 100%;
+            max-width: 1000px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(20, 20, 19, 0.1);
+            background: white;
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--anthropic-mid-gray);
+        }
+
+        /* Responsive - Stack on mobile */
+        @media (max-width: 600px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+            }
+
+            .canvas-area {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Control Sidebar -->
+        <div class="sidebar">
+            <!-- Headers (CUSTOMIZE THIS FOR YOUR ART) -->
+            <h1>Jacquard Sediment</h1>
+            <div class="subtitle">Seamless Voronoi textile tiles: engineered cells, bent warp–weft logic, and print-minded glass boundaries.</div>
+
+            <!-- Seed Section (ALWAYS KEEP THIS) -->
+            <div class="control-section">
+                <h3>Seed</h3>
+                <input type="number" id="seed-input" class="seed-input" value="12345" onchange="updateSeed()">
+                <div class="seed-controls">
+                    <button class="button secondary" onclick="previousSeed()">← Prev</button>
+                    <button class="button secondary" onclick="nextSeed()">Next →</button>
+                </div>
+                <button class="button tertiary regen-button" onclick="randomSeedAndUpdate()">↻ Random</button>
+            </div>
+
+            <!-- Parameters Section (CUSTOMIZE THIS FOR YOUR ART) -->
+            <div class="control-section">
+                <h3>Parameters</h3>
+
+                <!-- Cell Density -->
+                <div class="control-group">
+                    <label>Cell Density</label>
+                    <div class="slider-container">
+                        <input type="range" id="density" min="18" max="46" step="1" value="30" oninput="updateParam('density', this.value)">
+                        <span class="value-display" id="density-value">30</span>
+                    </div>
+                </div>
+
+                <!-- Relaxation -->
+                <div class="control-group">
+                    <label>Relaxation</label>
+                    <div class="slider-container">
+                        <input type="range" id="relaxation" min="0" max="6" step="1" value="3" oninput="updateParam('relaxation', this.value)">
+                        <span class="value-display" id="relaxation-value">3</span>
+                    </div>
+                </div>
+
+                <!-- Warp Amount -->
+                <div class="control-group">
+                    <label>Warp Amount</label>
+                    <div class="slider-container">
+                        <input type="range" id="warpAmount" min="0" max="80" step="1" value="24" oninput="updateParam('warpAmount', this.value)">
+                        <span class="value-display" id="warpAmount-value">24</span>
+                    </div>
+                </div>
+
+                <!-- Field Scale -->
+                <div class="control-group">
+                    <label>Field Scale</label>
+                    <div class="slider-container">
+                        <input type="range" id="fieldScale" min="0.60" max="3.00" step="0.05" value="1.35" oninput="updateParam('fieldScale', this.value)">
+                        <span class="value-display" id="fieldScale-value">1.35</span>
+                    </div>
+                </div>
+
+                <!-- Outline -->
+                <div class="control-group">
+                    <label>Outline</label>
+                    <div class="slider-container">
+                        <input type="range" id="outline" min="0" max="10" step="0.5" value="6" oninput="updateParam('outline', this.value)">
+                        <span class="value-display" id="outline-value">6</span>
+                    </div>
+                </div>
+
+                <!-- Micro Texture -->
+                <div class="control-group">
+                    <label>Micro Texture</label>
+                    <div class="slider-container">
+                        <input type="range" id="microTexture" min="0.00" max="1.00" step="0.01" value="0.35" oninput="updateParam('microTexture', this.value)">
+                        <span class="value-display" id="microTexture-value">0.35</span>
+                    </div>
+                </div>
+
+                <!-- Harmony -->
+                <div class="control-group">
+                    <label>Harmony</label>
+                    <div class="slider-container">
+                        <input type="range" id="harmony" min="0.00" max="1.00" step="0.01" value="0.55" oninput="updateParam('harmony', this.value)">
+                        <span class="value-display" id="harmony-value">0.55</span>
+                    </div>
+                </div>
+
+                <!-- Gallery Mode -->
+                <div class="control-group">
+                    <label>Gallery Mode</label>
+                    <div class="slider-container">
+                        <input type="range" id="galleryMode" min="0" max="1" step="1" value="0" oninput="updateParam('galleryMode', this.value)">
+                        <span class="value-display" id="galleryMode-value">Off</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colors Section (OPTIONAL - CUSTOMIZE OR REMOVE) -->
+            <div class="control-section">
+                <h3>Colors</h3>
+
+                <!-- Swatch 1 -->
+                <div class="color-group">
+                    <label>Swatch 1</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color1" value="#2a2b2e" onchange="updateColor('color1', this.value)">
+                        <span class="color-value" id="color1-value">#2a2b2e</span>
+                    </div>
+                </div>
+
+                <!-- Swatch 2 -->
+                <div class="color-group">
+                    <label>Swatch 2</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color2" value="#c49a6c" onchange="updateColor('color2', this.value)">
+                        <span class="color-value" id="color2-value">#c49a6c</span>
+                    </div>
+                </div>
+
+                <!-- Swatch 3 -->
+                <div class="color-group">
+                    <label>Swatch 3</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color3" value="#d65a4a" onchange="updateColor('color3', this.value)">
+                        <span class="color-value" id="color3-value">#d65a4a</span>
+                    </div>
+                </div>
+
+                <!-- Swatch 4 -->
+                <div class="color-group">
+                    <label>Swatch 4</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color4" value="#2f6f73" onchange="updateColor('color4', this.value)">
+                        <span class="color-value" id="color4-value">#2f6f73</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions Section (ALWAYS KEEP THIS) -->
+            <div class="control-section">
+                <h3>Actions</h3>
+                <div class="button-row">
+                    <button class="button" onclick="resetParameters()">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Canvas Area -->
+        <div class="canvas-area">
+            <div id="canvas-container">
+                <div class="loading">Initializing generative art...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════
+        // GENERATIVE ART PARAMETERS - CUSTOMIZE FOR YOUR ALGORITHM
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let params = {
+            seed: 12345,
+            density: 30,
+            relaxation: 3,
+            warpAmount: 24,
+            fieldScale: 1.35,
+            outline: 6,
+            microTexture: 0.35,
+            harmony: 0.55,
+            galleryMode: 0,
+            colorPalette: ['#2a2b2e', '#c49a6c', '#d65a4a', '#2f6f73']
+        };
+
+        function cloneParams(p) {
+            return {
+                seed: p.seed,
+                density: p.density,
+                relaxation: p.relaxation,
+                warpAmount: p.warpAmount,
+                fieldScale: p.fieldScale,
+                outline: p.outline,
+                microTexture: p.microTexture,
+                harmony: p.harmony,
+                galleryMode: p.galleryMode,
+                colorPalette: [...p.colorPalette]
+            };
+        }
+
+        let defaultParams = cloneParams(params); // Store defaults for reset (deep copy)
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // P5.JS GENERATIVE ART ALGORITHM - REPLACE WITH YOUR VISION
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /*
+          Regeneration Rules (implemented below):
+
+          Lightweight live updates (no geometry rebuild):
+          - Palette swatch edits
+          - Harmony (remaps colors per cell)
+          - Outline (render-only)
+          - Micro Texture (render-only)
+          - Gallery Mode (render-only)
+
+          Full initializeSystem() regeneration (recompute sites deterministically):
+          - Cell Density
+          - Relaxation
+          - Warp Amount
+          - Field Scale
+        */
+
+        const W = 1200;
+        const H = 1200;
+
+        let pg; // offscreen render target
+
+        // Current single-seed system (recomputed only on full regeneration)
+        let sys = null;
+
+        // Gallery cache (geometry only) to keep gallery updates responsive
+        let galleryCache = new Map();
+        let galleryCacheGeomKey = '';
+
+        function currentGeomKey() {
+            return `${int(params.density)}|${int(params.relaxation)}|${Math.round(params.fieldScale * 100) / 100}`;
+        }
+
+        function setup() {
+            let canvas = createCanvas(W, H);
+            canvas.parent('canvas-container');
+            pixelDensity(1);
+
+            pg = createGraphics(W, H);
+            pg.pixelDensity(1);
+
+            initializeSystem();
+
+            // Remove loading message
+            document.querySelector('.loading').style.display = 'none';
+        }
+
+        function initializeSystem() {
+            randomSeed(params.seed);
+            noiseSeed(params.seed);
+
+            sys = buildSystemForSeed(params.seed);
+            galleryCache.clear();
+            galleryCacheGeomKey = currentGeomKey();
+
+            // Render once (static)
+            renderPattern();
+        }
+
+        function buildSystemForSeed(seedVal) {
+            randomSeed(seedVal);
+            noiseSeed(seedVal);
+
+            const n = int(params.density);
+            const cell = W / n;
+
+            const px = new Float32Array(n * n);
+            const py = new Float32Array(n * n);
+            const idxBase = new Uint8Array(n * n);
+            const mode = new Uint8Array(n * n);
+            const sign = new Int8Array(n * n);
+            const drift = new Float32Array(n * n);
+            const sediment = new Float32Array(n * n);
+
+            // Jacquard whisper: quantized warp–weft logic bent by a seamless field.
+            const ns = noiseScaleFromField();
+
+            for (let j = 0; j < n; j++) {
+                for (let i = 0; i < n; i++) {
+                    const k = j * n + i;
+
+                    const cx = (i + 0.5) * cell;
+                    const cy = (j + 0.5) * cell;
+
+                    const h = hash01(i, j, seedVal);
+                    const dirIdx = int(h * 8) % 8;
+                    const a = dirIdx * (TWO_PI / 8);
+
+                    // Discrete "punchcard" magnitude levels (subtle, never literal)
+                    const mag = (int((h * 97) % 4)) / 3.0;
+
+                    // Seamless bend field (the loom is slightly warped)
+                    const bx = (tileNoise(cx, cy, ns * 0.85, 11.1) - 0.5) * 2.0;
+                    const by = (tileNoise(cx, cy, ns * 0.85, 57.3) - 0.5) * 2.0;
+
+                    // Small deterministic jitter (seeded)
+                    const jx = (random() * 2 - 1) * 0.08;
+                    const jy = (random() * 2 - 1) * 0.08;
+
+                    const ox = (cos(a) * (0.18 + 0.18 * mag) + bx * 0.35 + jx) * cell * 0.85;
+                    const oy = (sin(a) * (0.18 + 0.18 * mag) + by * 0.35 + jy) * cell * 0.85;
+
+                    px[k] = wrap01(cx + ox, W);
+                    py[k] = wrap01(cy + oy, H);
+
+                    // Base color index: warp–weft quantization, bent by a seamless sediment field
+                    const s = tileNoise(cx, cy, ns * 0.55, 333.3);
+                    idxBase[k] = (i * 3 + j * 5 + int(s * 8) + int(h * 4)) & 3;
+
+                    // Harmony mode per cell (hidden categorical weave)
+                    mode[k] = int(hash01(i + 11, j + 17, seedVal) * 3) % 3;
+                    sign[k] = (hash01(i + 33, j + 7, seedVal) < 0.5) ? -1 : 1;
+
+                    drift[k] = hash01(i + 5, j + 9, seedVal);
+                    sediment[k] = s;
+                }
+            }
+
+            // Optional relaxation (engineered but alive)
+            const iters = int(params.relaxation);
+            if (iters > 0) {
+                relaxPoints(px, py, n, cell, iters);
+            }
+
+            const siteR = new Uint8Array(n * n);
+            const siteG = new Uint8Array(n * n);
+            const siteB = new Uint8Array(n * n);
+            computeSiteColors(idxBase, mode, sign, drift, sediment, siteR, siteG, siteB);
+
+            return { n, cell, px, py, idxBase, mode, sign, drift, sediment, siteR, siteG, siteB };
+        }
+
+        function relaxPoints(px, py, n, cell, iters) {
+            const step = 0.12 * cell;
+            const target = 0.95 * cell;
+
+            const nx = new Float32Array(px.length);
+            const ny = new Float32Array(py.length);
+
+            for (let iter = 0; iter < iters; iter++) {
+                for (let j = 0; j < n; j++) {
+                    for (let i = 0; i < n; i++) {
+                        const k = j * n + i;
+
+                        let fx = 0;
+                        let fy = 0;
+
+                        const x0 = px[k];
+                        const y0 = py[k];
+
+                        for (let dj = -1; dj <= 1; dj++) {
+                            for (let di = -1; di <= 1; di++) {
+                                if (di === 0 && dj === 0) continue;
+
+                                const ii = (i + di + n) % n;
+                                const jj = (j + dj + n) % n;
+                                const kk = jj * n + ii;
+
+                                let dx = x0 - px[kk];
+                                let dy = y0 - py[kk];
+
+                                dx -= Math.round(dx / W) * W;
+                                dy -= Math.round(dy / H) * H;
+
+                                const d2 = dx * dx + dy * dy;
+                                if (d2 < 1e-6) continue;
+
+                                const d = Math.sqrt(d2);
+                                const push = (target - d) / target; // positive => repel, negative => attract
+                                const w = 0.35;
+
+                                fx += (dx / d) * push * w;
+                                fy += (dy / d) * push * w;
+                            }
+                        }
+
+                        nx[k] = wrap01(x0 + fx * step, W);
+                        ny[k] = wrap01(y0 + fy * step, H);
+                    }
+                }
+
+                px.set(nx);
+                py.set(ny);
+            }
+        }
+
+        function computeSiteColors(idxBase, mode, sign, drift, sediment, outR, outG, outB) {
+            const base = params.colorPalette.map(hexToRgb);
+            for (let k = 0; k < idxBase.length; k++) {
+                const rgb = base[idxBase[k] & 3];
+                let hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+                const m = mode[k];
+                const sgn = sign[k];
+                const d = drift[k];
+
+                // Three harmony families: analogous / triadic / complementary
+                const targetShift = (m === 0) ? 18 : (m === 1) ? 120 : 180;
+                const shift = params.harmony * (0.25 + 0.75 * d) * targetShift * sgn;
+
+                hsl.h = (hsl.h + shift) % 360;
+                if (hsl.h < 0) hsl.h += 360;
+
+                // Slightly tighten saturation as harmony increases (print-minded restraint)
+                hsl.s = clamp01(hsl.s * (1.0 - 0.18 * params.harmony) + 0.04 * params.harmony);
+
+                // Sediment: tiny, controlled lightness drift per cell
+                const sed = (sediment[k] - 0.5) * 0.12;
+                hsl.l = clamp01(hsl.l + sed);
+
+                const out = hslToRgb(hsl.h, hsl.s, hsl.l);
+                outR[k] = out.r;
+                outG[k] = out.g;
+                outB[k] = out.b;
+            }
+        }
+
+        function renderPattern() {
+            if (params.galleryMode === 1) {
+                renderGallery();
+                return;
+            }
+            renderSingle(sys);
+        }
+
+        function renderSingle(system) {
+            // Ensure warp/micro fields are seeded for this seed
+            randomSeed(params.seed);
+            noiseSeed(params.seed);
+
+            pg.loadPixels();
+
+            const n = system.n;
+            const cell = system.cell;
+
+            const ns = noiseScaleFromField();
+            const warpAmt = params.warpAmount;
+
+            const outlinePx = map(params.outline, 0, 10, 0.8, 6.2);
+            const microAmt = params.microTexture;
+
+            const Wm1 = W - 1;
+            const Hm1 = H - 1;
+
+            for (let y = 0; y < H; y++) {
+                const gy = (Hm1 === 0) ? 0 : (y / Hm1) * H; // ensures y=H maps to 0
+                for (let x = 0; x < W; x++) {
+                    const gx = (Wm1 === 0) ? 0 : (x / Wm1) * W;
+
+                    const col = sampleAt(system, gx, gy, ns, warpAmt, outlinePx, microAmt);
+
+                    const idx = 4 * (y * W + x);
+                    pg.pixels[idx + 0] = col.r;
+                    pg.pixels[idx + 1] = col.g;
+                    pg.pixels[idx + 2] = col.b;
+                    pg.pixels[idx + 3] = 255;
+                }
+            }
+
+            pg.updatePixels();
+            image(pg, 0, 0);
+        }
+
+        function getGallerySystem(seedVal) {
+            const key = currentGeomKey();
+            if (key !== galleryCacheGeomKey) {
+                galleryCache.clear();
+                galleryCacheGeomKey = key;
+            }
+            if (!galleryCache.has(seedVal)) {
+                galleryCache.set(seedVal, buildSystemForSeed(seedVal));
+            }
+            return galleryCache.get(seedVal);
+        }
+
+        function renderGallery() {
+            pg.loadPixels();
+
+            const tile = int(W / 10);
+            const tilem1 = tile - 1;
+
+            for (let gy = 0; gy < 10; gy++) {
+                for (let gx = 0; gx < 10; gx++) {
+                    const seedVal = gy * 10 + gx + 1;
+
+                    // Ensure warp/micro fields are seeded per tile
+                    randomSeed(seedVal);
+                    noiseSeed(seedVal);
+
+                    const tmp = getGallerySystem(seedVal);
+                    // Update colors only (no geometry rebuild)
+                    computeSiteColors(tmp.idxBase, tmp.mode, tmp.sign, tmp.drift, tmp.sediment, tmp.siteR, tmp.siteG, tmp.siteB);
+
+                    const ns = noiseScaleFromField();
+                    const warpAmt = params.warpAmount;
+                    const outlinePx = map(params.outline, 0, 10, 0.7, 4.4);
+                    const microAmt = params.microTexture;
+
+                    for (let y = 0; y < tile; y++) {
+                        const v = (tilem1 === 0) ? 0 : (y / tilem1);
+                        const sy = v * H;
+                        const py0 = (gy * tile + y) * W;
+
+                        for (let x = 0; x < tile; x++) {
+                            const u = (tilem1 === 0) ? 0 : (x / tilem1);
+                            const sx = u * W;
+
+                            const col = sampleAt(tmp, sx, sy, ns, warpAmt, outlinePx, microAmt);
+
+                            const idx = 4 * (py0 + (gx * tile + x));
+                            pg.pixels[idx + 0] = col.r;
+                            pg.pixels[idx + 1] = col.g;
+                            pg.pixels[idx + 2] = col.b;
+                            pg.pixels[idx + 3] = 255;
+                        }
+                    }
+                }
+            }
+
+            pg.updatePixels();
+            image(pg, 0, 0);
+        }
+
+        function sampleAt(system, x, y, ns, warpAmt, outlinePx, microAmt) {
+            // Seamless warp field
+            const wx = (tileNoise(x, y, ns, 12.34) - 0.5) * 2.0;
+            const wy = (tileNoise(x, y, ns, 98.76) - 0.5) * 2.0;
+
+            let sx = x + wx * warpAmt;
+            let sy = y + wy * warpAmt;
+
+            sx = wrap01(sx, W);
+            sy = wrap01(sy, H);
+
+            // Determine which cell in the underlying warp–weft lattice we are in
+            const cell = system.cell;
+            const n = system.n;
+
+            const ix = int(sx / cell) % n;
+            const iy = int(sy / cell) % n;
+
+            // Worley/Voronoi: check neighboring lattice cells (toroidal)
+            let best = 1e30;
+            let second = 1e30;
+            let bestIdx = 0;
+
+            for (let dj = -1; dj <= 1; dj++) {
+                for (let di = -1; di <= 1; di++) {
+                    const ii = (ix + di + n) % n;
+                    const jj = (iy + dj + n) % n;
+                    const k = jj * n + ii;
+
+                    let dx = sx - system.px[k];
+                    let dy = sy - system.py[k];
+
+                    // Toroidal distance
+                    dx -= Math.round(dx / W) * W;
+                    dy -= Math.round(dy / H) * H;
+
+                    const d2 = dx * dx + dy * dy;
+
+                    if (d2 < best) {
+                        second = best;
+                        best = d2;
+                        bestIdx = k;
+                    } else if (d2 < second) {
+                        second = d2;
+                    }
+                }
+            }
+
+            const f1 = Math.sqrt(best);
+            const f2 = Math.sqrt(second);
+            const gap = f2 - f1;
+
+            // Boundary detection: small gap => near a Voronoi edge
+            let edge = 1.0 - (gap / outlinePx);
+            edge = clamp01(edge);
+            edge = edge * edge * (3 - 2 * edge); // smoothstep
+
+            // Base site color (precomputed per cell)
+            let r = system.siteR[bestIdx];
+            let g = system.siteG[bestIdx];
+            let b = system.siteB[bestIdx];
+
+            // Subtle "glass" body: restrained inner light, never glossy
+            const glow = clamp01(1.0 - (f1 / (cell * 0.82)));
+            const glowAmt = 0.06 * glow * glow;
+
+            r = clamp255(r * (1.0 + glowAmt));
+            g = clamp255(g * (1.0 + glowAmt));
+            b = clamp255(b * (1.0 + glowAmt));
+
+            // Micro texture: woven grain + sediment drift (seamless)
+            if (microAmt > 0.0001) {
+                const gn = (tileNoise(sx, sy, ns * 5.8, 777.7) - 0.5) * 2.0; // [-1, 1]
+                const wn = (tileNoise(sx, sy, ns * 2.3, 909.1) - 0.5) * 2.0;
+
+                const weavePeriod = cell / 3.4;
+                const wxp = (sx + wn * 6.0) * (TWO_PI / weavePeriod);
+                const wyp = (sy - wn * 6.0) * (TWO_PI / weavePeriod);
+                const weave = sin(wxp) * sin(wyp); // [-1, 1]
+
+                const micro = microAmt * (0.055 * gn + 0.028 * weave * (0.5 + 0.5 * wn));
+
+                r = clamp255(r * (1.0 + micro));
+                g = clamp255(g * (1.0 + micro));
+                b = clamp255(b * (1.0 + micro));
+            }
+
+            // "Lead" outline: clean separations, print-minded
+            const lr = 18, lg = 18, lb = 18;
+            const kEdge = 0.88 * edge;
+
+            r = clamp255(r * (1.0 - kEdge) + lr * kEdge);
+            g = clamp255(g * (1.0 - kEdge) + lg * kEdge);
+            b = clamp255(b * (1.0 - kEdge) + lb * kEdge);
+
+            return { r, g, b };
+        }
+
+        function noiseScaleFromField() {
+            // fieldScale controls the "bend" frequency across the tile; mapped to a stable, print-friendly range
+            return (params.fieldScale * 2.2) / W;
+        }
+
+        // Seamless noise via 4-corner blend over the tile domain
+        function tileNoise(x, y, scale, z) {
+            const nx = x * scale;
+            const ny = y * scale;
+
+            const n00 = noise(nx, ny, z);
+            const n10 = noise(nx - W * scale, ny, z);
+            const n01 = noise(nx, ny - H * scale, z);
+            const n11 = noise(nx - W * scale, ny - H * scale, z);
+
+            const tx = x / W;
+            const ty = y / H;
+
+            const a = lerp(n00, n10, tx);
+            const b = lerp(n01, n11, tx);
+            return lerp(a, b, ty);
+        }
+
+        // Deterministic hash in [0,1)
+        function hash01(i, j, seedVal) {
+            let n = (i | 0) * 374761393 + (j | 0) * 668265263 + (seedVal | 0) * 1442695041;
+            n = (n ^ (n >>> 13)) * 1274126177;
+            n = n ^ (n >>> 16);
+            return (n >>> 0) / 4294967296;
+        }
+
+        function wrap01(v, m) {
+            v = v % m;
+            return v < 0 ? v + m : v;
+        }
+
+        function clamp01(t) {
+            return t < 0 ? 0 : (t > 1 ? 1 : t);
+        }
+
+        function clamp255(v) {
+            return v < 0 ? 0 : (v > 255 ? 255 : v);
+        }
+
+        function hexToRgb(hex) {
+            const h = hex.replace('#', '');
+            const n = parseInt(h, 16);
+            return {
+                r: (n >> 16) & 255,
+                g: (n >> 8) & 255,
+                b: n & 255
+            };
+        }
+
+        function rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            let h = 0, s = 0;
+            const l = (max + min) / 2;
+
+            const d = max - min;
+            if (d !== 0) {
+                s = d / (1 - Math.abs(2 * l - 1));
+                switch (max) {
+                    case r: h = ((g - b) / d) % 6; break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h *= 60;
+                if (h < 0) h += 360;
+            }
+            return { h, s, l };
+        }
+
+        function hslToRgb(h, s, l) {
+            const c = (1 - Math.abs(2 * l - 1)) * s;
+            const hh = (h % 360) / 60;
+            const x = c * (1 - Math.abs((hh % 2) - 1));
+
+            let r1 = 0, g1 = 0, b1 = 0;
+            if (0 <= hh && hh < 1) { r1 = c; g1 = x; }
+            else if (1 <= hh && hh < 2) { r1 = x; g1 = c; }
+            else if (2 <= hh && hh < 3) { g1 = c; b1 = x; }
+            else if (3 <= hh && hh < 4) { g1 = x; b1 = c; }
+            else if (4 <= hh && hh < 5) { r1 = x; b1 = c; }
+            else { r1 = c; b1 = x; }
+
+            const m = l - c / 2;
+            return {
+                r: Math.round((r1 + m) * 255),
+                g: Math.round((g1 + m) * 255),
+                b: Math.round((b1 + m) * 255)
+            };
+        }
+
+        // Static sketch: draw is not used except by p5's lifecycle
+        function draw() {
+            // Intentionally empty; rendering happens on-demand.
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // UI CONTROL HANDLERS - CUSTOMIZE FOR YOUR PARAMETERS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function updateParam(paramName, value) {
+            // Parse values
+            let v = value;
+            if (paramName === 'density' || paramName === 'relaxation' || paramName === 'galleryMode') {
+                v = parseInt(value);
+            } else {
+                v = parseFloat(value);
+            }
+
+            params[paramName] = v;
+
+            // Update UI readout
+            const el = document.getElementById(paramName + '-value');
+            if (el) {
+                if (paramName === 'galleryMode') {
+                    el.textContent = (v === 1) ? 'On' : 'Off';
+                } else {
+                    el.textContent = (Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100));
+                }
+            }
+
+            const fullRegen = (paramName === 'density' ||
+                               paramName === 'relaxation' ||
+                               paramName === 'warpAmount' ||
+                               paramName === 'fieldScale');
+
+            if (paramName === 'harmony') {
+                // Lightweight: recolor sites only
+                if (sys) {
+                    computeSiteColors(sys.idxBase, sys.mode, sys.sign, sys.drift, sys.sediment, sys.siteR, sys.siteG, sys.siteB);
+                }
+                renderPattern();
+                return;
+            }
+
+            if (paramName === 'galleryMode' || paramName === 'outline' || paramName === 'microTexture') {
+                renderPattern();
+                return;
+            }
+
+            if (fullRegen) {
+                initializeSystem();
+                return;
+            }
+
+            renderPattern();
+        }
+
+        function updateColor(colorId, value) {
+            const idx = (colorId === 'color1') ? 0 :
+                        (colorId === 'color2') ? 1 :
+                        (colorId === 'color3') ? 2 : 3;
+
+            params.colorPalette[idx] = value;
+
+            // Update UI
+            document.getElementById(colorId + '-value').textContent = value;
+
+            // Lightweight: recolor sites only
+            if (sys) {
+                computeSiteColors(sys.idxBase, sys.mode, sys.sign, sys.drift, sys.sediment, sys.siteR, sys.siteG, sys.siteB);
+            }
+            renderPattern();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // SEED CONTROL FUNCTIONS - ALWAYS KEEP THESE
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function updateSeedDisplay() {
+            document.getElementById('seed-input').value = params.seed;
+        }
+
+        function updateSeed() {
+            let input = document.getElementById('seed-input');
+            let newSeed = parseInt(input.value);
+            if (newSeed && newSeed > 0) {
+                params.seed = newSeed;
+                initializeSystem();
+            } else {
+                // Reset to current seed if invalid
+                updateSeedDisplay();
+            }
+        }
+
+        function previousSeed() {
+            params.seed = Math.max(1, params.seed - 1);
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function nextSeed() {
+            params.seed = params.seed + 1;
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function randomSeedAndUpdate() {
+            params.seed = Math.floor(Math.random() * 999999) + 1;
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        function resetParameters() {
+            params = cloneParams(defaultParams);
+
+            // Update UI elements
+            document.getElementById('density').value = params.density;
+            document.getElementById('density-value').textContent = params.density;
+
+            document.getElementById('relaxation').value = params.relaxation;
+            document.getElementById('relaxation-value').textContent = params.relaxation;
+
+            document.getElementById('warpAmount').value = params.warpAmount;
+            document.getElementById('warpAmount-value').textContent = params.warpAmount;
+
+            document.getElementById('fieldScale').value = params.fieldScale;
+            document.getElementById('fieldScale-value').textContent = params.fieldScale;
+
+            document.getElementById('outline').value = params.outline;
+            document.getElementById('outline-value').textContent = params.outline;
+
+            document.getElementById('microTexture').value = params.microTexture;
+            document.getElementById('microTexture-value').textContent = params.microTexture;
+
+            document.getElementById('harmony').value = params.harmony;
+            document.getElementById('harmony-value').textContent = params.harmony;
+
+            document.getElementById('galleryMode').value = params.galleryMode;
+            document.getElementById('galleryMode-value').textContent = (params.galleryMode === 1) ? 'On' : 'Off';
+
+            // Reset colors
+            document.getElementById('color1').value = params.colorPalette[0];
+            document.getElementById('color1-value').textContent = params.colorPalette[0];
+
+            document.getElementById('color2').value = params.colorPalette[1];
+            document.getElementById('color2-value').textContent = params.colorPalette[1];
+
+            document.getElementById('color3').value = params.colorPalette[2];
+            document.getElementById('color3-value').textContent = params.colorPalette[2];
+
+            document.getElementById('color4').value = params.colorPalette[3];
+            document.getElementById('color4-value').textContent = params.colorPalette[3];
+
+            updateSeedDisplay();
+            initializeSystem();
+        }
+
+        // Initialize UI on load
+        window.addEventListener('load', function() {
+            updateSeedDisplay();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ephemeral Architectures Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* Anthropic Brand Colors */
+        :root {
+            --anthropic-dark: #141413;
+            --anthropic-light: #faf9f5;
+            --anthropic-mid-gray: #b0aea5;
+            --anthropic-light-gray: #e8e6dc;
+            --anthropic-orange: #d97757;
+            --anthropic-blue: #6a9bcc;
+            --anthropic-green: #788c5d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, var(--anthropic-light) 0%, #f5f3ee 100%);
+            min-height: 100vh;
+            color: var(--anthropic-dark);
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(20, 20, 19, 0.1);
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-height: 95vh;
+        }
+
+        .sidebar h1 {
+            font-family: 'Lora', serif;
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--anthropic-dark);
+            margin-bottom: 8px;
+        }
+
+        .sidebar .subtitle {
+            color: var(--anthropic-mid-gray);
+            font-size: 14px;
+            margin-bottom: 32px;
+            line-height: 1.4;
+        }
+
+        /* Control Sections */
+        .control-section {
+            margin-bottom: 32px;
+        }
+
+        .control-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--anthropic-dark);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-section h3::before {
+            content: '•';
+            color: var(--anthropic-orange);
+            font-weight: bold;
+        }
+
+        /* Seed Controls */
+        .seed-input {
+            width: 100%;
+            background: var(--anthropic-light);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin-bottom: 12px;
+            border: 1px solid var(--anthropic-light-gray);
+            text-align: center;
+        }
+
+        .seed-input:focus {
+            outline: none;
+            border-color: var(--anthropic-orange);
+            box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.1);
+            background: white;
+        }
+
+        .seed-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .regen-button {
+            margin-bottom: 0;
+        }
+
+        /* Parameter Controls */
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--anthropic-dark);
+            margin-bottom: 8px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider-container input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: var(--anthropic-light-gray);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--anthropic-orange);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            background: #c86641;
+        }
+
+        .value-display {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: var(--anthropic-mid-gray);
+            min-width: 60px;
+            text-align: right;
+        }
+
+        /* Color Pickers */
+        .color-group {
+            margin-bottom: 16px;
+        }
+
+        .color-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--anthropic-mid-gray);
+            margin-bottom: 4px;
+        }
+
+        .color-picker-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .color-picker-container input[type="color"] {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+
+        .color-value {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: var(--anthropic-mid-gray);
+        }
+
+        /* Buttons */
+        .button {
+            background: var(--anthropic-orange);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .button:hover {
+            background: #c86641;
+            transform: translateY(-1px);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button.secondary {
+            background: var(--anthropic-blue);
+        }
+
+        .button.secondary:hover {
+            background: #5a8bb8;
+        }
+
+        .button.tertiary {
+            background: var(--anthropic-green);
+        }
+
+        .button.tertiary:hover {
+            background: #6b7b52;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .button-row .button {
+            flex: 1;
+        }
+
+        /* Canvas Area */
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+            padding: 20px;
+        }
+
+        #canvas-container {
+            width: 100%;
+            max-width: 1000px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(20, 20, 19, 0.1);
+            background: white;
+            position: relative;
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        /* Loading State */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: var(--anthropic-mid-gray);
+            z-index: 10;
+        }
+
+        /* Responsive */
+        @media (max-width: 800px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                max-height: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>Ephemeral Architectures</h1>
+            <div class="subtitle">Recursive logic succumbing to entropy.</div>
+
+            <div class="control-section">
+                <h3>Seed</h3>
+                <input type="number" id="seed-input" class="seed-input" value="82374" onchange="updateSeed()">
+                <div class="seed-controls">
+                    <button class="button secondary" onclick="previousSeed()">← Prev</button>
+                    <button class="button secondary" onclick="nextSeed()">Next →</button>
+                </div>
+                <button class="button tertiary regen-button" onclick="randomSeedAndUpdate()">↻ Random</button>
+            </div>
+
+            <div class="control-section">
+                <h3>Parameters</h3>
+
+                <div class="control-group">
+                    <label>Structural Density</label>
+                    <div class="slider-container">
+                        <input type="range" id="density" min="0.3" max="0.95" step="0.05" value="0.75" oninput="updateParam('density', this.value)">
+                        <span class="value-display" id="density-value">0.75</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Complexity Depth</label>
+                    <div class="slider-container">
+                        <input type="range" id="maxDepth" min="3" max="8" step="1" value="6" oninput="updateParam('maxDepth', this.value)">
+                        <span class="value-display" id="maxDepth-value">6</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Entropy Level</label>
+                    <div class="slider-container">
+                        <input type="range" id="entropy" min="0.0" max="0.8" step="0.05" value="0.35" oninput="updateParam('entropy', this.value)">
+                        <span class="value-display" id="entropy-value">0.35</span>
+                    </div>
+                </div>
+
+                 <div class="control-group">
+                    <label>Grid Spacing</label>
+                    <div class="slider-container">
+                        <input type="range" id="spacing" min="0" max="15" step="1" value="4" oninput="updateParam('spacing', this.value)">
+                        <span class="value-display" id="spacing-value">4</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Palette</h3>
+
+                <div class="color-group">
+                    <label>Structure (Solid)</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="colorStruct" value="#2a2a2a" onchange="updateColor('colorStruct', this.value)">
+                        <span class="color-value" id="colorStruct-value">#2a2a2a</span>
+                    </div>
+                </div>
+
+                <div class="color-group">
+                    <label>Decay (Dust)</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="colorDust" value="#d97757" onchange="updateColor('colorDust', this.value)">
+                        <span class="color-value" id="colorDust-value">#d97757</span>
+                    </div>
+                </div>
+
+                <div class="color-group">
+                    <label>Background</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="colorBg" value="#f0f0eb" onchange="updateColor('colorBg', this.value)">
+                        <span class="color-value" id="colorBg-value">#f0f0eb</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Actions</h3>
+                <div class="button-row">
+                    <button class="button" onclick="resetParameters()">Reset Defaults</button>
+                    <button class="button secondary" onclick="downloadArt()">Download PNG</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-area">
+            <div id="canvas-container">
+                <div class="loading">Architecting...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════════
+        // PARAMETERS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let params = {
+            seed: 82374,
+            density: 0.75,      // Chance to subdivide further
+            maxDepth: 6,        // Maximum recursion levels
+            entropy: 0.35,      // Influence of noise on decay
+            spacing: 4,         // Pixels between blocks
+            colorStruct: '#2a2a2a',
+            colorDust: '#d97757',
+            colorBg: '#f0f0eb'
+        };
+
+        let defaultParams = {...params};
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // GLOBAL VARIABLES
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let mainCanvas;
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // P5.JS SETUP & DRAW
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function setup() {
+            let container = document.getElementById('canvas-container');
+            // Square canvas, responsive but high res
+            let side = Math.min(1200, 1200);
+            mainCanvas = createCanvas(side, side);
+            mainCanvas.parent('canvas-container');
+
+            // High-DPI support
+            pixelDensity(2);
+
+            // Initial generation
+            generateArt();
+
+            // Hide loading text
+            document.querySelector('.loading').style.display = 'none';
+        }
+
+        function draw() {
+            // Static art - no loop needed
+            noLoop();
+        }
+
+        function generateArt() {
+            // 1. Initialization
+            randomSeed(params.seed);
+            noiseSeed(params.seed);
+            background(params.colorBg);
+
+            // 2. Setup styles
+            noFill();
+
+            // 3. Begin Recursion
+            let margin = 60;
+            let w = width - margin * 2;
+            let h = height - margin * 2;
+
+            divideRect(margin, margin, w, h, 0);
+
+            // 4. Global Texture Overlay (Grain)
+            addGrain();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // CORE ALGORITHM: RECURSIVE SUBDIVISION WITH ENTROPY
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function divideRect(x, y, w, h, depth) {
+            // Base case: Stop if too small or reached max depth
+            if (depth >= params.maxDepth || w < 20 || h < 20) {
+                renderBlock(x, y, w, h, depth);
+                return;
+            }
+
+            // Decide to split based on noise + depth
+            // Use noise to cluster detailed areas together
+            let n = noise(x * 0.002, y * 0.002, depth * 0.1);
+
+            // Adjust probability:
+            // - Params.density drives overall splits
+            // - Noise makes it organic
+            // - Deeper levels are less likely to split
+            let splitChance = params.density + (n * 0.2) - (depth * 0.05);
+
+            if (random() < splitChance) {
+                // Determine split direction and ratio
+                // Prioritize alternating cuts for grid-like feel, but sometimes randomize
+                let horiz = random() > 0.5;
+
+                // Use golden ratio-ish approximations for pleasing proportions
+                // Instead of 0.5, pick between 0.3 and 0.7
+                let splitRatio = random(0.3, 0.7);
+
+                if (horiz) {
+                    let w1 = w * splitRatio;
+                    let w2 = w - w1;
+                    divideRect(x, y, w1, h, depth + 1);
+                    divideRect(x + w1, y, w2, h, depth + 1);
+                } else {
+                    let h1 = h * splitRatio;
+                    let h2 = h - h1;
+                    divideRect(x, y, w, h1, depth + 1);
+                    divideRect(x, y + h1, w, h2, depth + 1);
+                }
+            } else {
+                // If we don't split, we render this block
+                renderBlock(x, y, w, h, depth);
+            }
+        }
+
+        function renderBlock(x, y, w, h, depth) {
+            // Apply spacing margin
+            let gap = parseFloat(params.spacing);
+            let rx = x + gap/2;
+            let ry = y + gap/2;
+            let rw = w - gap;
+            let rh = h - gap;
+
+            if (rw <= 0 || rh <= 0) return;
+
+            // Determine if this block is "decayed"
+            // Noise field determines the "age" or "erosion" of this area
+            // High noise values = more decay
+            let erosionVal = noise(rx * 0.003, ry * 0.003);
+
+            // The entropy parameter scales how aggressive the decay is
+            // If entropy is 0, erosionThreshold is high (hard to reach) -> mostly solid
+            // If entropy is 1, erosionThreshold is low -> mostly dust
+            let erosionThreshold = map(params.entropy, 0, 1, 0.7, 0.2);
+
+            let isDecayed = erosionVal > erosionThreshold;
+
+            if (isDecayed) {
+                // RENDER AS DUST / DECAY
+                // Number of particles depends on area
+                let area = rw * rh;
+                let particleCount = map(area, 0, 100000, 50, 2000);
+
+                // Color leans towards the "Dust" color, blended with structure color
+                let c1 = color(params.colorStruct);
+                let c2 = color(params.colorDust);
+                let mixRatio = map(erosionVal, erosionThreshold, 1, 0.2, 1);
+                let finalCol = lerpColor(c1, c2, mixRatio);
+
+                stroke(finalCol);
+                strokeWeight(random(1, 2));
+
+                for (let i = 0; i < particleCount; i++) {
+                    // Random point inside the box
+                    let px = rx + random(rw);
+                    let py = ry + random(rh);
+
+                    // Add slight "crumbling" drift based on vertical position (gravity)
+                    // Lower in the box = slightly more spread
+                    let drift = map(py, ry, ry+rh, 0, 2);
+                    px += random(-drift, drift);
+
+                    point(px, py);
+                }
+            } else {
+                // RENDER AS SOLID STRUCTURE
+                stroke(params.colorStruct);
+
+                // Line weight gets thinner as blocks get smaller/deeper
+                let sw = map(depth, 0, params.maxDepth, 2.5, 0.5);
+                strokeWeight(sw);
+
+                // Occasionally fill blocks for rhythm
+                // Larger blocks less likely to be filled to keep "open" feel
+                let fillChance = map(depth, 0, params.maxDepth, 0.05, 0.6);
+                if (random() < fillChance && rw < 100) {
+                     // Fill with low opacity structure color
+                     let c = color(params.colorStruct);
+                     c.setAlpha(20 + (depth * 5));
+                     fill(c);
+                } else {
+                    noFill();
+                }
+
+                rect(rx, ry, rw, rh);
+
+                // Detailed hatch marks for "architectural" feel on some blocks
+                if (rw > 40 && rh > 40 && random() > 0.7) {
+                    drawHatching(rx, ry, rw, rh, sw/2);
+                }
+            }
+        }
+
+        function drawHatching(x, y, w, h, weight) {
+            strokeWeight(weight);
+            stroke(params.colorStruct);
+            let step = 8;
+            for(let i = 0; i < w + h; i += step) {
+                // Diagonal lines constrained to the rectangle
+                // Math to clip lines within rect (x,y,w,h)
+                let x1 = x + i;
+                let y1 = y;
+                let x2 = x + i - h;
+                let y2 = y + h;
+
+                // Simple clipping logic
+                if (x1 > x + w) {
+                    y1 += (x1 - (x + w));
+                    x1 = x + w;
+                }
+                if (x2 < x) {
+                    y2 -= (x - x2);
+                    x2 = x;
+                }
+
+                if (y1 < y + h && x2 > x) {
+                     line(x1, y1, x2, y2);
+                }
+            }
+        }
+
+        function addGrain() {
+            loadPixels();
+            let d = pixelDensity();
+            let totalPixels = 4 * (width * d) * (height * d);
+            for (let i = 0; i < totalPixels; i += 4) {
+                // subtle noise
+                let n = (Math.random() - 0.5) * 15;
+                pixels[i] = pixels[i] + n;
+                pixels[i+1] = pixels[i+1] + n;
+                pixels[i+2] = pixels[i+2] + n;
+            }
+            updatePixels();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // UI HANDLERS
+        // ═══════════════════════════════════════════════════════════════════════
+
+        function updateParam(name, value) {
+            params[name] = parseFloat(value);
+            document.getElementById(name + '-value').textContent = params[name];
+
+            // Debounce slightly for performance if dragging rapidly
+            // But for this complexity, instant update is usually fine
+            generateArt();
+        }
+
+        function updateColor(name, value) {
+            params[name] = value;
+            document.getElementById(name + '-value').textContent = value;
+            generateArt();
+        }
+
+        function updateSeedDisplay() {
+            document.getElementById('seed-input').value = params.seed;
+        }
+
+        function updateSeed() {
+            let val = parseInt(document.getElementById('seed-input').value);
+            if (!isNaN(val)) {
+                params.seed = val;
+                generateArt();
+            }
+        }
+
+        function nextSeed() {
+            params.seed++;
+            updateSeedDisplay();
+            generateArt();
+        }
+
+        function previousSeed() {
+            params.seed--;
+            updateSeedDisplay();
+            generateArt();
+        }
+
+        function randomSeedAndUpdate() {
+            params.seed = floor(random(1, 999999));
+            updateSeedDisplay();
+            generateArt();
+        }
+
+        function resetParameters() {
+            params = {...defaultParams};
+
+            // Update UI
+            document.getElementById('density').value = params.density;
+            document.getElementById('density-value').textContent = params.density;
+            document.getElementById('maxDepth').value = params.maxDepth;
+            document.getElementById('maxDepth-value').textContent = params.maxDepth;
+            document.getElementById('entropy').value = params.entropy;
+            document.getElementById('entropy-value').textContent = params.entropy;
+            document.getElementById('spacing').value = params.spacing;
+            document.getElementById('spacing-value').textContent = params.spacing;
+
+            document.getElementById('colorStruct').value = params.colorStruct;
+            document.getElementById('colorDust').value = params.colorDust;
+            document.getElementById('colorBg').value = params.colorBg;
+
+            updateSeedDisplay();
+            generateArt();
+        }
+
+        function downloadArt() {
+            saveCanvas('ephemeral-architectures-' + params.seed, 'png');
+        }
+
+        // Initial UI update
+        window.addEventListener('load', () => {
+            updateSeedDisplay();
+        });
+
+    </script>
+</body>
+</html>
